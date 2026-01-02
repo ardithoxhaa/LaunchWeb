@@ -26,6 +26,160 @@ function NavbarBlock({ props, theme }) {
   );
 }
 
+function LogoCloudBlock({ props }) {
+  const logos = props?.logos ?? [];
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-14">
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="text-center text-xs font-medium uppercase tracking-wide text-white/60">
+          {props?.label ?? 'Trusted by'}
+        </div>
+        <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-6">
+          {logos.map((l, idx) => (
+            <div key={idx} className="flex items-center justify-center rounded-xl border border-white/10 bg-black/20 p-3">
+              {l?.src ? (
+                <img
+                  src={l.src}
+                  alt={l.alt ?? `Logo ${idx + 1}`}
+                  className="h-7 max-w-full object-contain opacity-90"
+                  loading="lazy"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              ) : (
+                <div className="text-xs text-white/50">{l?.alt ?? 'Logo'}</div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProductGridBlock({ props, theme }) {
+  const products = props?.products ?? [];
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-16">
+      <div className="flex items-end justify-between gap-6">
+        <div>
+          <div className="text-3xl font-semibold tracking-tight">{props?.headline ?? 'Products'}</div>
+          <div className="mt-2 text-white/70">{props?.subheadline ?? ''}</div>
+        </div>
+        {props?.cta?.label ? (
+          <a
+            href={props.cta.href ?? '#'}
+            className="rounded-md px-4 py-2 text-sm font-medium"
+            style={{ backgroundColor: theme?.primary ?? '#6366f1' }}
+          >
+            {props.cta.label}
+          </a>
+        ) : null}
+      </div>
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {products.map((p, idx) => (
+          <div key={idx} className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+            <div className="relative aspect-[4/3] w-full bg-black/20">
+              {p?.imageUrl ? (
+                <img
+                  src={p.imageUrl}
+                  alt={p?.name ?? `Product ${idx + 1}`}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              ) : null}
+              {p?.badge ? (
+                <div className="absolute left-3 top-3 rounded-full border border-white/10 bg-black/60 px-3 py-1 text-xs text-white/80">
+                  {p.badge}
+                </div>
+              ) : null}
+            </div>
+            <div className="p-5">
+              <div className="text-sm font-semibold">{p?.name ?? 'Product'}</div>
+              <div className="mt-1 text-xs text-white/60">{p?.description ?? ''}</div>
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <div className="text-sm text-white/80">{p?.price ?? ''}</div>
+                {p?.cta?.label ? (
+                  <a
+                    href={p.cta.href ?? '#'}
+                    className="rounded-md bg-white/10 px-3 py-2 text-xs font-medium hover:bg-white/15"
+                  >
+                    {p.cta.label}
+                  </a>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FeatureCarouselBlock({ props, theme }) {
+  const items = props?.items ?? [];
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-16">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <div className="text-3xl font-semibold tracking-tight">{props?.headline ?? 'Featured'}</div>
+          <div className="mt-2 text-white/70">{props?.subheadline ?? ''}</div>
+        </div>
+        {props?.cta?.label ? (
+          <a
+            href={props.cta.href ?? '#'}
+            className="rounded-md px-4 py-2 text-sm font-medium"
+            style={{ backgroundColor: theme?.primary ?? '#6366f1' }}
+          >
+            {props.cta.label}
+          </a>
+        ) : null}
+      </div>
+
+      <div className="mt-8 flex gap-4 overflow-x-auto pb-2">
+        {items.map((it, idx) => (
+          <div
+            key={idx}
+            className="w-64 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5"
+          >
+            <div className="aspect-[16/9] w-full bg-black/20">
+              {it?.imageUrl ? (
+                <img
+                  src={it.imageUrl}
+                  alt={it?.title ?? `Item ${idx + 1}`}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              ) : null}
+              <div className="h-full w-full bg-gradient-to-br from-white/10 to-transparent" />
+            </div>
+            <div className="p-4">
+              <div className="text-sm font-semibold">{it?.title ?? 'Title'}</div>
+              <div className="mt-1 text-xs text-white/60">{it?.tagline ?? ''}</div>
+              {it?.cta?.label ? (
+                <a
+                  href={it.cta.href ?? '#'}
+                  className="mt-4 inline-flex rounded-md bg-white/10 px-3 py-2 text-xs font-medium hover:bg-white/15"
+                >
+                  {it.cta.label}
+                </a>
+              ) : null}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function TestimonialsBlock({ props }) {
   const items = props?.items ?? [];
   return (
@@ -352,6 +506,8 @@ function RenderComponent({ component, theme, editorCtx }) {
       return <CardsBlock props={props} />;
     case 'GALLERY':
       return <GalleryBlock props={props} />;
+    case 'LOGO_CLOUD':
+      return <LogoCloudBlock props={props} />;
     case 'PRICING':
       return <PricingBlock props={props} />;
     case 'TESTIMONIALS':
@@ -360,6 +516,10 @@ function RenderComponent({ component, theme, editorCtx }) {
       return <FaqBlock props={props} />;
     case 'STATS_CTA':
       return <StatsCtaBlock props={props} theme={theme} />;
+    case 'PRODUCT_GRID':
+      return <ProductGridBlock props={props} theme={theme} />;
+    case 'FEATURE_CAROUSEL':
+      return <FeatureCarouselBlock props={props} theme={theme} />;
     default:
       return (
         <div className="mx-auto max-w-6xl px-4 py-8">

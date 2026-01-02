@@ -10,3 +10,9 @@ export async function getTemplate(req, res) {
   const template = await templatesService.getTemplateById(id);
   res.json({ template });
 }
+
+export async function getTemplatePreview(req, res) {
+  const id = Number(req.params.id);
+  const preview = await templatesService.getTemplatePreviewById(id);
+  res.json(preview);
+}

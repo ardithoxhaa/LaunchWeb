@@ -10,6 +10,9 @@ const COMPONENT_TYPES = [
   'CONTENT',
   'CARDS',
   'GALLERY',
+  'LOGO_CLOUD',
+  'PRODUCT_GRID',
+  'FEATURE_CAROUSEL',
   'PRICING',
   'TESTIMONIALS',
   'FAQ',
@@ -62,6 +65,70 @@ function defaultPropsForType(type) {
       return { items: [{ title: 'Feature', text: 'Describe value' }] };
     case 'CONTENT':
       return { title: 'Section title', paragraphs: ['Your paragraph here.'] };
+    case 'LOGO_CLOUD':
+      return {
+        label: 'Trusted by',
+        logos: [
+          { src: '', alt: 'Brand One' },
+          { src: '', alt: 'Brand Two' },
+          { src: '', alt: 'Brand Three' },
+          { src: '', alt: 'Brand Four' },
+          { src: '', alt: 'Brand Five' },
+          { src: '', alt: 'Brand Six' },
+        ],
+      };
+    case 'PRODUCT_GRID':
+      return {
+        headline: 'Popular products',
+        subheadline: 'Curated picks with transparent pricing.',
+        cta: { label: 'View all', href: '/contact' },
+        products: [
+          {
+            name: 'Product name',
+            description: 'Short product description',
+            price: '€49',
+            badge: 'New',
+            imageUrl: '',
+            cta: { label: 'Buy', href: '/contact' },
+          },
+          {
+            name: 'Product name',
+            description: 'Short product description',
+            price: '€79',
+            badge: 'Best seller',
+            imageUrl: '',
+            cta: { label: 'Buy', href: '/contact' },
+          },
+          {
+            name: 'Product name',
+            description: 'Short product description',
+            price: '€29',
+            badge: null,
+            imageUrl: '',
+            cta: { label: 'Buy', href: '/contact' },
+          },
+          {
+            name: 'Product name',
+            description: 'Short product description',
+            price: '€99',
+            badge: null,
+            imageUrl: '',
+            cta: { label: 'Buy', href: '/contact' },
+          },
+        ],
+      };
+    case 'FEATURE_CAROUSEL':
+      return {
+        headline: 'Featured',
+        subheadline: 'A horizontal carousel section (Netflix-style row).',
+        cta: { label: 'See all', href: '/contact' },
+        items: [
+          { title: 'Feature item', tagline: 'Short tagline', imageUrl: '', cta: { label: 'Open', href: '/contact' } },
+          { title: 'Feature item', tagline: 'Short tagline', imageUrl: '', cta: { label: 'Open', href: '/contact' } },
+          { title: 'Feature item', tagline: 'Short tagline', imageUrl: '', cta: { label: 'Open', href: '/contact' } },
+          { title: 'Feature item', tagline: 'Short tagline', imageUrl: '', cta: { label: 'Open', href: '/contact' } },
+        ],
+      };
     case 'CARDS':
       return {
         cards: [
@@ -718,6 +785,342 @@ export function BuilderPage() {
                         }
                       >
                         Add link
+                      </SmallButton>
+                    </div>
+                  </div>
+                ) : null}
+
+                {activeComponent.type === 'LOGO_CLOUD' ? (
+                  <div className="space-y-3">
+                    <TextInput
+                      label="Label"
+                      value={activeComponent.props?.label}
+                      onChange={(v) => updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), label: v }))}
+                    />
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold">Logos</div>
+                      {(activeComponent.props?.logos ?? []).map((l, idx) => (
+                        <div key={idx} className="rounded-lg border border-white/10 bg-black/20 p-3 space-y-2">
+                          <TextInput
+                            label="Alt text"
+                            value={l?.alt}
+                            onChange={(v) =>
+                              updateActiveComponent((c) => {
+                                const logos = [...(c.props?.logos ?? [])];
+                                logos[idx] = { ...(logos[idx] ?? {}), alt: v };
+                                c.props = { ...(c.props ?? {}), logos };
+                              })
+                            }
+                          />
+                          <TextInput
+                            label="Image URL"
+                            value={l?.src}
+                            onChange={(v) =>
+                              updateActiveComponent((c) => {
+                                const logos = [...(c.props?.logos ?? [])];
+                                logos[idx] = { ...(logos[idx] ?? {}), src: v };
+                                c.props = { ...(c.props ?? {}), logos };
+                              })
+                            }
+                            placeholder="https://..."
+                          />
+                          <SmallButton
+                            variant="danger"
+                            onClick={() =>
+                              updateActiveComponent((c) => {
+                                const logos = [...(c.props?.logos ?? [])];
+                                logos.splice(idx, 1);
+                                c.props = { ...(c.props ?? {}), logos };
+                              })
+                            }
+                          >
+                            Remove logo
+                          </SmallButton>
+                        </div>
+                      ))}
+                      <SmallButton
+                        onClick={() =>
+                          updateActiveComponent((c) => {
+                            const logos = [...(c.props?.logos ?? []), { src: '', alt: 'New logo' }];
+                            c.props = { ...(c.props ?? {}), logos };
+                          })
+                        }
+                      >
+                        Add logo
+                      </SmallButton>
+                    </div>
+                  </div>
+                ) : null}
+
+                {activeComponent.type === 'PRODUCT_GRID' ? (
+                  <div className="space-y-3">
+                    <TextInput
+                      label="Headline"
+                      value={activeComponent.props?.headline}
+                      onChange={(v) => updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), headline: v }))}
+                    />
+                    <TextInput
+                      label="Subheadline"
+                      value={activeComponent.props?.subheadline}
+                      onChange={(v) => updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), subheadline: v }))}
+                    />
+                    <div className="rounded-lg border border-white/10 bg-black/20 p-3 space-y-2">
+                      <div className="text-sm font-semibold">CTA</div>
+                      <TextInput
+                        label="Label"
+                        value={activeComponent.props?.cta?.label}
+                        onChange={(v) =>
+                          updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), cta: { ...(c.props?.cta ?? {}), label: v } }))
+                        }
+                      />
+                      <TextInput
+                        label="Href"
+                        value={activeComponent.props?.cta?.href}
+                        onChange={(v) =>
+                          updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), cta: { ...(c.props?.cta ?? {}), href: v } }))
+                        }
+                        placeholder="/collections"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold">Products</div>
+                      {(activeComponent.props?.products ?? []).map((p, idx) => (
+                        <div key={idx} className="rounded-lg border border-white/10 bg-black/20 p-3 space-y-2">
+                          <TextInput
+                            label="Name"
+                            value={p?.name}
+                            onChange={(v) =>
+                              updateActiveComponent((c) => {
+                                const products = [...(c.props?.products ?? [])];
+                                products[idx] = { ...(products[idx] ?? {}), name: v };
+                                c.props = { ...(c.props ?? {}), products };
+                              })
+                            }
+                          />
+                          <TextInput
+                            label="Description"
+                            value={p?.description}
+                            onChange={(v) =>
+                              updateActiveComponent((c) => {
+                                const products = [...(c.props?.products ?? [])];
+                                products[idx] = { ...(products[idx] ?? {}), description: v };
+                                c.props = { ...(c.props ?? {}), products };
+                              })
+                            }
+                          />
+                          <TextInput
+                            label="Price"
+                            value={p?.price}
+                            onChange={(v) =>
+                              updateActiveComponent((c) => {
+                                const products = [...(c.props?.products ?? [])];
+                                products[idx] = { ...(products[idx] ?? {}), price: v };
+                                c.props = { ...(c.props ?? {}), products };
+                              })
+                            }
+                          />
+                          <TextInput
+                            label="Badge"
+                            value={p?.badge}
+                            onChange={(v) =>
+                              updateActiveComponent((c) => {
+                                const products = [...(c.props?.products ?? [])];
+                                products[idx] = { ...(products[idx] ?? {}), badge: v };
+                                c.props = { ...(c.props ?? {}), products };
+                              })
+                            }
+                            placeholder="New"
+                          />
+                          <TextInput
+                            label="Image URL"
+                            value={p?.imageUrl}
+                            onChange={(v) =>
+                              updateActiveComponent((c) => {
+                                const products = [...(c.props?.products ?? [])];
+                                products[idx] = { ...(products[idx] ?? {}), imageUrl: v };
+                                c.props = { ...(c.props ?? {}), products };
+                              })
+                            }
+                            placeholder="https://..."
+                          />
+                          <TextInput
+                            label="Button label"
+                            value={p?.cta?.label}
+                            onChange={(v) =>
+                              updateActiveComponent((c) => {
+                                const products = [...(c.props?.products ?? [])];
+                                products[idx] = { ...(products[idx] ?? {}), cta: { ...(products[idx]?.cta ?? {}), label: v } };
+                                c.props = { ...(c.props ?? {}), products };
+                              })
+                            }
+                          />
+                          <TextInput
+                            label="Button href"
+                            value={p?.cta?.href}
+                            onChange={(v) =>
+                              updateActiveComponent((c) => {
+                                const products = [...(c.props?.products ?? [])];
+                                products[idx] = { ...(products[idx] ?? {}), cta: { ...(products[idx]?.cta ?? {}), href: v } };
+                                c.props = { ...(c.props ?? {}), products };
+                              })
+                            }
+                            placeholder="/contact"
+                          />
+                          <SmallButton
+                            variant="danger"
+                            onClick={() =>
+                              updateActiveComponent((c) => {
+                                const products = [...(c.props?.products ?? [])];
+                                products.splice(idx, 1);
+                                c.props = { ...(c.props ?? {}), products };
+                              })
+                            }
+                          >
+                            Remove product
+                          </SmallButton>
+                        </div>
+                      ))}
+                      <SmallButton
+                        onClick={() =>
+                          updateActiveComponent((c) => {
+                            const products = [
+                              ...(c.props?.products ?? []),
+                              {
+                                name: 'Product name',
+                                description: 'Short product description',
+                                price: '€49',
+                                badge: null,
+                                imageUrl: '',
+                                cta: { label: 'Buy', href: '/contact' },
+                              },
+                            ];
+                            c.props = { ...(c.props ?? {}), products };
+                          })
+                        }
+                      >
+                        Add product
+                      </SmallButton>
+                    </div>
+                  </div>
+                ) : null}
+
+                {activeComponent.type === 'FEATURE_CAROUSEL' ? (
+                  <div className="space-y-3">
+                    <TextInput
+                      label="Headline"
+                      value={activeComponent.props?.headline}
+                      onChange={(v) => updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), headline: v }))}
+                    />
+                    <TextInput
+                      label="Subheadline"
+                      value={activeComponent.props?.subheadline}
+                      onChange={(v) => updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), subheadline: v }))}
+                    />
+                    <div className="rounded-lg border border-white/10 bg-black/20 p-3 space-y-2">
+                      <div className="text-sm font-semibold">CTA</div>
+                      <TextInput
+                        label="Label"
+                        value={activeComponent.props?.cta?.label}
+                        onChange={(v) =>
+                          updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), cta: { ...(c.props?.cta ?? {}), label: v } }))
+                        }
+                      />
+                      <TextInput
+                        label="Href"
+                        value={activeComponent.props?.cta?.href}
+                        onChange={(v) =>
+                          updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), cta: { ...(c.props?.cta ?? {}), href: v } }))
+                        }
+                        placeholder="/browse"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold">Items</div>
+                      {(activeComponent.props?.items ?? []).map((it, idx) => (
+                        <div key={idx} className="rounded-lg border border-white/10 bg-black/20 p-3 space-y-2">
+                          <TextInput
+                            label="Title"
+                            value={it?.title}
+                            onChange={(v) =>
+                              updateActiveComponent((c) => {
+                                const items = [...(c.props?.items ?? [])];
+                                items[idx] = { ...(items[idx] ?? {}), title: v };
+                                c.props = { ...(c.props ?? {}), items };
+                              })
+                            }
+                          />
+                          <TextInput
+                            label="Tagline"
+                            value={it?.tagline}
+                            onChange={(v) =>
+                              updateActiveComponent((c) => {
+                                const items = [...(c.props?.items ?? [])];
+                                items[idx] = { ...(items[idx] ?? {}), tagline: v };
+                                c.props = { ...(c.props ?? {}), items };
+                              })
+                            }
+                          />
+                          <TextInput
+                            label="Image URL"
+                            value={it?.imageUrl}
+                            onChange={(v) =>
+                              updateActiveComponent((c) => {
+                                const items = [...(c.props?.items ?? [])];
+                                items[idx] = { ...(items[idx] ?? {}), imageUrl: v };
+                                c.props = { ...(c.props ?? {}), items };
+                              })
+                            }
+                            placeholder="https://..."
+                          />
+                          <TextInput
+                            label="Button label"
+                            value={it?.cta?.label}
+                            onChange={(v) =>
+                              updateActiveComponent((c) => {
+                                const items = [...(c.props?.items ?? [])];
+                                items[idx] = { ...(items[idx] ?? {}), cta: { ...(items[idx]?.cta ?? {}), label: v } };
+                                c.props = { ...(c.props ?? {}), items };
+                              })
+                            }
+                          />
+                          <TextInput
+                            label="Button href"
+                            value={it?.cta?.href}
+                            onChange={(v) =>
+                              updateActiveComponent((c) => {
+                                const items = [...(c.props?.items ?? [])];
+                                items[idx] = { ...(items[idx] ?? {}), cta: { ...(items[idx]?.cta ?? {}), href: v } };
+                                c.props = { ...(c.props ?? {}), items };
+                              })
+                            }
+                            placeholder="/contact"
+                          />
+                          <SmallButton
+                            variant="danger"
+                            onClick={() =>
+                              updateActiveComponent((c) => {
+                                const items = [...(c.props?.items ?? [])];
+                                items.splice(idx, 1);
+                                c.props = { ...(c.props ?? {}), items };
+                              })
+                            }
+                          >
+                            Remove item
+                          </SmallButton>
+                        </div>
+                      ))}
+                      <SmallButton
+                        onClick={() =>
+                          updateActiveComponent((c) => {
+                            const items = [
+                              ...(c.props?.items ?? []),
+                              { title: 'Feature item', tagline: 'Short tagline', imageUrl: '', cta: { label: 'Open', href: '/contact' } },
+                            ];
+                            c.props = { ...(c.props ?? {}), items };
+                          })
+                        }
+                      >
+                        Add item
                       </SmallButton>
                     </div>
                   </div>
