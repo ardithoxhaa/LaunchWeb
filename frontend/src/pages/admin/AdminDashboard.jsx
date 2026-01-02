@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api.js';
+import { useAuth } from '../../auth/AuthContext.jsx';
 
 function Table({ columns, rows, rowKey, emptyText = 'No data.' }) {
   return (
@@ -64,6 +65,7 @@ function TabButton({ active, children, onClick }) {
 }
 
 export function AdminDashboard() {
+  const { user: currentUser } = useAuth();
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [businesses, setBusinesses] = useState([]);
@@ -262,7 +264,46 @@ export function AdminDashboard() {
               { key: 'id', label: 'ID' },
               { key: 'email', label: 'Email' },
               { key: 'name', label: 'Name' },
-              { key: 'role', label: 'Role' },
+              {
+                key: 'role',
+                label: 'Role',
+                render: (r) => {
+                  const isSelf = Number(r.id) === Number(currentUser?.id);
+                  return (
+                    <div className="flex items-center gap-2">
+                      <select
+                        disabled={isSelf}
+                        value={r.role ?? 'USER'}
+                        onChange={(e) => {
+                          const nextRole = e.target.value;
+                          setUsers((prev) => prev.map((u) => (u.id === r.id ? { ...u, role: nextRole } : u)));
+                        }}
+                        className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-xs text-white/90 disabled:opacity-50"
+                      >
+                        <option value="USER">USER</option>
+                        <option value="ADMIN">ADMIN</option>
+                      </select>
+                      <button
+                        type="button"
+                        disabled={isSelf}
+                        onClick={async () => {
+                          try {
+                            setError(null);
+                            const { data } = await api.put(`/admin/users/${r.id}/role`, { role: r.role });
+                            setUsers((prev) => prev.map((u) => (u.id === r.id ? { ...u, role: data.user.role } : u)));
+                          } catch (err) {
+                            setError(err?.response?.data?.error?.message ?? 'Failed to update role');
+                          }
+                        }}
+                        className="rounded-md bg-white/10 px-2 py-1 text-xs font-medium text-white/80 hover:bg-white/15 disabled:opacity-50"
+                      >
+                        Save
+                      </button>
+                      {isSelf ? <span className="text-xs text-white/40">(you)</span> : null}
+                    </div>
+                  );
+                },
+              },
               { key: 'created_at', label: 'Created', render: (r) => (r.created_at ? new Date(r.created_at).toLocaleDateString() : '—') },
             ]}
             rows={filteredUsers}

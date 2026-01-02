@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext.jsx';
 
 export function Navbar() {
   const { accessToken, user, logout } = useAuth();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
+
+  const websiteIdMatch = location.pathname.match(/^\/(editor|builder|draft-preview)\/(\d+)/);
+  const websiteId = websiteIdMatch ? Number(websiteIdMatch[2]) : null;
 
   useEffect(() => {
     function onDocClick(e) {
@@ -48,6 +52,11 @@ export function Navbar() {
               <Link className="rounded-md bg-white/10 px-3 py-1.5 hover:bg-white/15" to="/dashboard">
                 Dashboard
               </Link>
+              {Number.isFinite(websiteId) ? (
+                <Link className="rounded-md bg-white/10 px-3 py-1.5 hover:bg-white/15" to={`/builder/${websiteId}`}>
+                  Builder
+                </Link>
+              ) : null}
               {user?.role === 'ADMIN' ? (
                 <Link className="rounded-md bg-white/10 px-3 py-1.5 hover:bg-white/15" to="/admin">
                   Admin

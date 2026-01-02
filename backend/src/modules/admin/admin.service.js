@@ -110,4 +110,22 @@ export const adminService = {
     if (!res.affectedRows) throw notFound('Template not found');
     return this.getTemplateById(id);
   },
+
+  async updateUserRole(userId, roleName) {
+    const [rrows] = await pool.query('SELECT id FROM roles WHERE name = :name', { name: roleName });
+    const roleId = rrows?.[0]?.id;
+    if (!roleId) throw notFound('Role not found');
+
+    const [res] = await pool.query('UPDATE users SET role_id = :roleId WHERE id = :userId', {
+      roleId,
+      userId,
+    });
+    if (!res.affectedRows) throw notFound('User not found');
+
+    const [rows] = await pool.query(
+      'SELECT u.id, u.email, u.name, r.name AS role, u.created_at, u.updated_at FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = :id',
+      { id: userId }
+    );
+    return rows?.[0] ?? null;
+  },
 };

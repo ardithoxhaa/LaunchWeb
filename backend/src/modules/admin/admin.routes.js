@@ -13,8 +13,14 @@ import {
   createTemplate,
   getTemplate,
   updateTemplate,
+  updateUserRole,
 } from './admin.controller.js';
-import { createTemplateSchema, templateIdParamSchema, updateTemplateSchema } from './admin.validation.js';
+import {
+  createTemplateSchema,
+  templateIdParamSchema,
+  updateTemplateSchema,
+  updateUserRoleSchema,
+} from './admin.validation.js';
 
 const router = Router();
 
@@ -23,6 +29,7 @@ router.use(requireRole('ADMIN'));
 
 router.get('/overview', asyncHandler(overview));
 router.get('/users', asyncHandler(listUsers));
+router.put('/users/:id/role', validate(updateUserRoleSchema), asyncHandler(updateUserRole));
 router.get('/businesses', asyncHandler(listBusinesses));
 router.get('/websites', asyncHandler(listWebsites));
 router.get('/templates', asyncHandler(listTemplates));

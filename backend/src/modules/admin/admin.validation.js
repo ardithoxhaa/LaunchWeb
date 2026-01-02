@@ -33,3 +33,21 @@ export const updateTemplateSchema = z.object({
     id: z.coerce.number().int().positive(),
   }),
 });
+
+export const userIdParamSchema = z.object({
+  body: z.any().optional(),
+  query: z.any().optional(),
+  params: z.object({
+    id: z.coerce.number().int().positive(),
+  }),
+});
+
+export const updateUserRoleSchema = z.object({
+  body: z.object({
+    role: z.enum(['ADMIN', 'USER']),
+  }),
+  query: z.any().optional(),
+  params: z.object({
+    id: z.coerce.number().int().positive(),
+  }),
+});

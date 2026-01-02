@@ -285,6 +285,45 @@ export function WebsiteEditor() {
     }
   }
 
+  async function saveAll() {
+    setSaving(true);
+    setStatus(null);
+    try {
+      const payloadPages = (pages ?? []).map((p, pidx) => ({
+        name: p.name,
+        path: p.path,
+        sortOrder: p.sortOrder ?? p.sort_order ?? pidx,
+        meta: p.meta ?? {},
+        components: (p.components ?? []).map((c, idx) => ({
+          type: c.type,
+          orderIndex: idx,
+          props: c.props ?? {},
+          styles: c.styles ?? {},
+        })),
+      }));
+
+      const [structureResp, settingsResp, seoResp] = await Promise.all([
+        api.put(`/websites/${websiteId}/structure`, { pages: payloadPages }),
+        api.put(`/websites/${websiteId}/settings`, { settings: website?.settings ?? {} }),
+        api.put(`/websites/${websiteId}/seo`, { seo: website?.seo ?? {} }),
+      ]);
+
+      setWebsite((prev) => ({
+        ...(prev ?? {}),
+        ...(structureResp.data.website ?? {}),
+        settings: settingsResp.data.website?.settings ?? prev?.settings,
+        seo: seoResp.data.website?.seo ?? prev?.seo,
+      }));
+      setPages(structureResp.data.pages);
+      setStatus('Saved');
+    } catch (err) {
+      setError(err?.response?.data?.error?.message ?? 'Failed to save');
+    } finally {
+      setSaving(false);
+      setTimeout(() => setStatus(null), 1500);
+    }
+  }
+
   function updateActiveComponent(mutator) {
     setPages((prev) => {
       const next = (prev ?? []).map((p) => ({ ...p, components: (p.components ?? []).map((c) => ({ ...c })) }));
@@ -356,9 +395,15 @@ export function WebsiteEditor() {
         </div>
         <div className="flex items-center gap-3">
           {status ? <div className="text-sm text-white/60">{status}</div> : null}
-          <SmallButton variant="neutral" onClick={() => saveStructure(pages)} disabled={saving || !canRender}>
+          <SmallButton variant="neutral" onClick={saveAll} disabled={saving || !canRender}>
             Save
           </SmallButton>
+          <Link
+            className="rounded-md bg-white/10 px-3 py-2 text-sm font-medium hover:bg-white/15"
+            to={`/builder/${websiteId}`}
+          >
+            Advanced builder
+          </Link>
           <Link
             className="rounded-md bg-white/10 px-3 py-2 text-sm font-medium hover:bg-white/15"
             to={`/draft-preview/${websiteId}`}

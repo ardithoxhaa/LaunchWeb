@@ -3,6 +3,19 @@ import { withTransaction } from '../../utils/dbTx.js';
 import { badRequest, forbidden, notFound } from '../../utils/httpError.js';
 import { slugify } from '../../utils/slugify.js';
 
+function parseJsonMaybe(value, fallback) {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'object') return value;
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return fallback;
+    }
+  }
+  return fallback;
+}
+
 async function assertBusinessOwned({ conn, userId, businessId }) {
   const [rows] = await conn.query('SELECT id, user_id FROM businesses WHERE id = :businessId', { businessId });
   const business = rows?.[0];
@@ -54,13 +67,13 @@ async function listPagesWithComponents({ conn, websiteId }) {
     name: p.name,
     path: p.path,
     sortOrder: p.sort_order,
-    meta: p.meta_json,
+    meta: parseJsonMaybe(p.meta_json, {}),
     components: (byPage.get(p.id) ?? []).map((c) => ({
       id: c.id,
       type: c.type,
       orderIndex: c.order_index,
-      props: c.props_json,
-      styles: c.style_json,
+      props: parseJsonMaybe(c.props_json, {}),
+      styles: parseJsonMaybe(c.style_json, {}),
     })),
   }));
 }
@@ -176,7 +189,7 @@ export const websitesService = {
 
       const websiteId = wres.insertId;
 
-      const structure = tpl.structure_json;
+      const structure = parseJsonMaybe(tpl.structure_json, {});
       const pages = structure?.pages ?? [];
 
       await replacePagesAndComponents({
@@ -233,8 +246,8 @@ export const websitesService = {
       name: website.name,
       slug: website.slug,
       status: website.status,
-      settings: website.settings_json,
-      seo: website.seo_json,
+      settings: parseJsonMaybe(website.settings_json, {}),
+      seo: parseJsonMaybe(website.seo_json, {}),
       createdAt: website.created_at,
       updatedAt: website.updated_at,
       publishedAt: website.published_at,
@@ -254,8 +267,8 @@ export const websitesService = {
         name: website.name,
         slug: website.slug,
         status: website.status,
-        settings: website.settings_json,
-        seo: website.seo_json,
+        settings: parseJsonMaybe(website.settings_json, {}),
+        seo: parseJsonMaybe(website.seo_json, {}),
       },
       pages,
     };
@@ -357,7 +370,7 @@ export const websitesService = {
       const version = vrows?.[0];
       if (!version) throw notFound('Version not found');
 
-      const snapshot = version.snapshot_json;
+      const snapshot = parseJsonMaybe(version.snapshot_json, {});
       const pages = snapshot?.pages ?? [];
 
       const normalizedPages = pages.map((p, idx) => ({
@@ -388,8 +401,8 @@ export const websitesService = {
             name: website.name,
             slug: website.slug,
             status: website.status,
-            settings: website.settings_json,
-            seo: website.seo_json,
+            settings: parseJsonMaybe(website.settings_json, {}),
+            seo: parseJsonMaybe(website.seo_json, {}),
           },
           pages: currentPages,
         },

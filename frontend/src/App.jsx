@@ -15,6 +15,7 @@ import { PreviewPage } from './pages/public/PreviewPage.jsx';
 
 import { UserDashboard } from './pages/user/UserDashboard.jsx';
 import { WebsiteEditor } from './pages/user/WebsiteEditor.jsx';
+import { BuilderPage } from './pages/user/BuilderPage.jsx';
 import { DraftPreviewPage } from './pages/user/DraftPreviewPage.jsx';
 import { ProfilePage } from './pages/user/ProfilePage.jsx';
 import { SettingsPage } from './pages/user/SettingsPage.jsx';
@@ -46,6 +47,15 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <WebsiteEditor />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/builder/:id"
+            element={
+              <ProtectedRoute>
+                <BuilderPage />
               </ProtectedRoute>
             }
           />
