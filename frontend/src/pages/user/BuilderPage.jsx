@@ -45,6 +45,33 @@ function SmallButton({ children, onClick, variant = 'neutral', disabled }) {
   );
 }
 
+function isHexColor(value) {
+  return typeof value === 'string' && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value.trim());
+}
+
+function ColorPickerField({ label, value, onChange, placeholder }) {
+  const safeValue = isHexColor(value) ? value.trim() : '#000000';
+  return (
+    <label className="block">
+      <div className="text-sm text-white/70">{label}</div>
+      <div className="mt-1 flex items-center gap-2">
+        <input
+          type="color"
+          value={safeValue}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-10 w-12 rounded-md border border-white/10 bg-black/30"
+        />
+        <input
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
+          placeholder={placeholder}
+        />
+      </div>
+    </label>
+  );
+}
+
 function TextInput({ label, value, onChange, placeholder }) {
   return (
     <label className="block">
@@ -359,6 +386,7 @@ export function BuilderPage() {
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [seoDraft, setSeoDraft] = useState(null);
   const [themeDraft, setThemeDraft] = useState(null);
+  const [designSystemDraft, setDesignSystemDraft] = useState(null);
 
   const [assets, setAssets] = useState([]);
   const [assetsError, setAssetsError] = useState(null);
@@ -414,6 +442,32 @@ export function BuilderPage() {
     if (!website) return;
     setSeoDraft(website?.seo ?? { title: website?.name ?? '', description: '', ogImage: null });
     setThemeDraft(website?.settings?.theme ?? { primary: '#6366f1', background: '#070a12' });
+    setDesignSystemDraft(
+      website?.settings?.designSystem ?? {
+        colors: {
+          primary: '#6366f1',
+          secondary: '#22c55e',
+          background: '#070a12',
+          surface: 'rgba(255,255,255,0.06)',
+          text: 'rgba(255,255,255,0.92)',
+          mutedText: 'rgba(255,255,255,0.70)',
+        },
+        typography: {
+          fontFamily:
+            'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"',
+          baseFontSize: 16,
+          lineHeight: 1.5,
+          headingWeight: 600,
+          bodyWeight: 400,
+        },
+        radius: { sm: 10, md: 16, lg: 24 },
+        shadow: { card: '0 10px 30px rgba(0,0,0,0.35)' },
+        buttons: { style: 'solid', radius: 12 },
+        links: { underline: false },
+        spacing: { sectionY: 64, containerX: 16 },
+        brand: { name: website?.name ?? 'Website' },
+      }
+    );
   }, [website]);
 
   useEffect(() => {
@@ -521,9 +575,21 @@ export function BuilderPage() {
     try {
       setPanelBusy(true);
       setError(null);
+
+      const nextDesignSystem = {
+        ...(designSystemDraft ?? {}),
+        colors: { ...(designSystemDraft?.colors ?? {}) },
+        typography: { ...(designSystemDraft?.typography ?? {}) },
+        spacing: { ...(designSystemDraft?.spacing ?? {}) },
+      };
+
       const nextSettings = {
         ...(website?.settings ?? {}),
-        theme: { ...(themeDraft ?? {}) },
+        designSystem: nextDesignSystem,
+        theme: {
+          primary: nextDesignSystem?.colors?.primary ?? themeDraft?.primary ?? '#6366f1',
+          background: nextDesignSystem?.colors?.background ?? themeDraft?.background ?? '#070a12',
+        },
       };
       const { data } = await api.put(`/websites/${websiteId}/settings`, { settings: nextSettings });
       setWebsite(data.website);
@@ -954,8 +1020,191 @@ export function BuilderPage() {
                   <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
                     <div>
                       <div className="text-sm font-semibold">Theme</div>
-                      <div className="mt-1 text-xs text-white/60">Affects the rendered website across pages.</div>
+                      <div className="mt-1 text-xs text-white/60">Global brand styles: colors, typography, and spacing.</div>
                     </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <ColorPickerField
+                        label="Primary"
+                        value={designSystemDraft?.colors?.primary ?? ''}
+                        onChange={(v) =>
+                          setDesignSystemDraft((p) => ({
+                            ...(p ?? {}),
+                            colors: { ...(p?.colors ?? {}), primary: v },
+                          }))
+                        }
+                        placeholder="#6366f1"
+                      />
+                      <ColorPickerField
+                        label="Secondary"
+                        value={designSystemDraft?.colors?.secondary ?? ''}
+                        onChange={(v) =>
+                          setDesignSystemDraft((p) => ({
+                            ...(p ?? {}),
+                            colors: { ...(p?.colors ?? {}), secondary: v },
+                          }))
+                        }
+                        placeholder="#22c55e"
+                      />
+                      <ColorPickerField
+                        label="Background"
+                        value={designSystemDraft?.colors?.background ?? ''}
+                        onChange={(v) =>
+                          setDesignSystemDraft((p) => ({
+                            ...(p ?? {}),
+                            colors: { ...(p?.colors ?? {}), background: v },
+                          }))
+                        }
+                        placeholder="#070a12"
+                      />
+                      <label className="block">
+                        <div className="text-sm text-white/70">Surface</div>
+                        <input
+                          value={designSystemDraft?.colors?.surface ?? ''}
+                          onChange={(e) =>
+                            setDesignSystemDraft((p) => ({
+                              ...(p ?? {}),
+                              colors: { ...(p?.colors ?? {}), surface: e.target.value },
+                            }))
+                          }
+                          className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
+                          placeholder="rgba(255,255,255,0.06)"
+                        />
+                      </label>
+                      <label className="block">
+                        <div className="text-sm text-white/70">Text</div>
+                        <input
+                          value={designSystemDraft?.colors?.text ?? ''}
+                          onChange={(e) =>
+                            setDesignSystemDraft((p) => ({
+                              ...(p ?? {}),
+                              colors: { ...(p?.colors ?? {}), text: e.target.value },
+                            }))
+                          }
+                          className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
+                          placeholder="rgba(255,255,255,0.92)"
+                        />
+                      </label>
+                    </div>
+
+                    <label className="block">
+                      <div className="text-sm text-white/70">Font</div>
+                      <select
+                        value={designSystemDraft?.typography?.fontFamily ?? ''}
+                        onChange={(e) =>
+                          setDesignSystemDraft((p) => ({
+                            ...(p ?? {}),
+                            typography: { ...(p?.typography ?? {}), fontFamily: e.target.value },
+                          }))
+                        }
+                        className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
+                      >
+                        <option value='ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"'>
+                          System Sans (default)
+                        </option>
+                        <option value='"Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif'>
+                          Segoe UI (Windows)
+                        </option>
+                        <option value='-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'>
+                          Modern UI (Apple/Google)
+                        </option>
+                        <option value='Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif'>
+                          Inter (if available)
+                        </option>
+                        <option value='"Helvetica Neue", Helvetica, Arial, sans-serif'>
+                          Helvetica Neue
+                        </option>
+                        <option value='"Georgia", "Times New Roman", serif'>
+                          Serif (Georgia)
+                        </option>
+                        <option value='"Courier New", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'>
+                          Monospace
+                        </option>
+                      </select>
+                      <div className="mt-2">
+                        <div className="text-xs text-white/50">Advanced: custom font-family</div>
+                        <input
+                          value={designSystemDraft?.typography?.fontFamily ?? ''}
+                          onChange={(e) =>
+                            setDesignSystemDraft((p) => ({
+                              ...(p ?? {}),
+                              typography: { ...(p?.typography ?? {}), fontFamily: e.target.value },
+                            }))
+                          }
+                          className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
+                          placeholder='Inter, ui-sans-serif, system-ui, ...'
+                        />
+                      </div>
+                    </label>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <label className="block">
+                        <div className="text-sm text-white/70">Base font size (px)</div>
+                        <input
+                          value={String(designSystemDraft?.typography?.baseFontSize ?? '')}
+                          onChange={(e) =>
+                            setDesignSystemDraft((p) => ({
+                              ...(p ?? {}),
+                              typography: {
+                                ...(p?.typography ?? {}),
+                                baseFontSize: Number(e.target.value) || 16,
+                              },
+                            }))
+                          }
+                          className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
+                          placeholder="16"
+                        />
+                      </label>
+                      <label className="block">
+                        <div className="text-sm text-white/70">Line height</div>
+                        <input
+                          value={String(designSystemDraft?.typography?.lineHeight ?? '')}
+                          onChange={(e) =>
+                            setDesignSystemDraft((p) => ({
+                              ...(p ?? {}),
+                              typography: {
+                                ...(p?.typography ?? {}),
+                                lineHeight: Number(e.target.value) || 1.5,
+                              },
+                            }))
+                          }
+                          className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
+                          placeholder="1.5"
+                        />
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <label className="block">
+                        <div className="text-sm text-white/70">Section spacing (Y px)</div>
+                        <input
+                          value={String(designSystemDraft?.spacing?.sectionY ?? '')}
+                          onChange={(e) =>
+                            setDesignSystemDraft((p) => ({
+                              ...(p ?? {}),
+                              spacing: { ...(p?.spacing ?? {}), sectionY: Number(e.target.value) || 64 },
+                            }))
+                          }
+                          className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
+                          placeholder="64"
+                        />
+                      </label>
+                      <label className="block">
+                        <div className="text-sm text-white/70">Container padding (X px)</div>
+                        <input
+                          value={String(designSystemDraft?.spacing?.containerX ?? '')}
+                          onChange={(e) =>
+                            setDesignSystemDraft((p) => ({
+                              ...(p ?? {}),
+                              spacing: { ...(p?.spacing ?? {}), containerX: Number(e.target.value) || 16 },
+                            }))
+                          }
+                          className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
+                          placeholder="16"
+                        />
+                      </label>
+                    </div>
+
                     <label className="block">
                       <div className="text-sm text-white/70">Primary color</div>
                       <input
@@ -1205,6 +1454,7 @@ export function BuilderPage() {
                 pages={pages}
                 activePageIndex={activePageIndex}
                 theme={website?.settings?.theme}
+                designSystem={website?.settings?.designSystem}
                 editor={{
                   selectedIndex: activeComponentIndex,
                   onSelect: setActiveComponentIndex,
@@ -1306,6 +1556,92 @@ export function BuilderPage() {
                   >
                     Mobile
                   </button>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-3 space-y-3">
+                  <div className="text-sm font-semibold">Style</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="block">
+                      <div className="text-xs text-white/60">Padding top</div>
+                      <input
+                        value={String(activeComponent.styles?.paddingTop ?? '')}
+                        onChange={(e) =>
+                          updateActiveComponent((c) =>
+                            (c.styles = {
+                              ...(c.styles ?? {}),
+                              paddingTop: e.target.value === '' ? null : Number(e.target.value),
+                            })
+                          )
+                        }
+                        className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-2 py-1 text-sm"
+                        placeholder=""
+                      />
+                    </label>
+                    <label className="block">
+                      <div className="text-xs text-white/60">Padding bottom</div>
+                      <input
+                        value={String(activeComponent.styles?.paddingBottom ?? '')}
+                        onChange={(e) =>
+                          updateActiveComponent((c) =>
+                            (c.styles = {
+                              ...(c.styles ?? {}),
+                              paddingBottom: e.target.value === '' ? null : Number(e.target.value),
+                            })
+                          )
+                        }
+                        className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-2 py-1 text-sm"
+                        placeholder=""
+                      />
+                    </label>
+                    <label className="block">
+                      <div className="text-xs text-white/60">Margin top</div>
+                      <input
+                        value={String(activeComponent.styles?.marginTop ?? '')}
+                        onChange={(e) =>
+                          updateActiveComponent((c) =>
+                            (c.styles = {
+                              ...(c.styles ?? {}),
+                              marginTop: e.target.value === '' ? null : Number(e.target.value),
+                            })
+                          )
+                        }
+                        className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-2 py-1 text-sm"
+                        placeholder=""
+                      />
+                    </label>
+                    <label className="block">
+                      <div className="text-xs text-white/60">Margin bottom</div>
+                      <input
+                        value={String(activeComponent.styles?.marginBottom ?? '')}
+                        onChange={(e) =>
+                          updateActiveComponent((c) =>
+                            (c.styles = {
+                              ...(c.styles ?? {}),
+                              marginBottom: e.target.value === '' ? null : Number(e.target.value),
+                            })
+                          )
+                        }
+                        className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-2 py-1 text-sm"
+                        placeholder=""
+                      />
+                    </label>
+                  </div>
+                  <label className="block">
+                    <div className="text-xs text-white/60">Background override</div>
+                    <input
+                      value={String(activeComponent.styles?.backgroundColor ?? '')}
+                      onChange={(e) =>
+                        updateActiveComponent((c) =>
+                          (c.styles = {
+                            ...(c.styles ?? {}),
+                            backgroundColor: e.target.value || null,
+                          })
+                        )
+                      }
+                      className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-2 py-1 text-sm"
+                      placeholder="#000000 / rgba(...)"
+                    />
+                  </label>
                 </div>
 
                 {activeComponent.type === 'NAVBAR' ? (

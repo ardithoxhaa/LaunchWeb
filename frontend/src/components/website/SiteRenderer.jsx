@@ -747,7 +747,7 @@ function RenderComponent({ component, theme, editorCtx }) {
   }
 }
 
-export function SiteRenderer({ pages, activePageIndex = 0, theme, editor }) {
+export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, editor }) {
   const page = pages?.[activePageIndex] ?? null;
 
   if (!page) {
@@ -789,8 +789,58 @@ export function SiteRenderer({ pages, activePageIndex = 0, theme, editor }) {
     ) : null;
   }
 
+  const rootStyle = {
+    ...(designSystem?.typography?.fontFamily ? { fontFamily: designSystem.typography.fontFamily } : null),
+    ...(designSystem?.typography?.baseFontSize ? { fontSize: `${designSystem.typography.baseFontSize}px` } : null),
+    ...(designSystem?.typography?.lineHeight ? { lineHeight: String(designSystem.typography.lineHeight) } : null),
+    ...(designSystem?.colors?.text ? { color: designSystem.colors.text } : null),
+    ...((theme?.background ?? designSystem?.colors?.background)
+      ? { backgroundColor: theme?.background ?? designSystem?.colors?.background }
+      : null),
+  };
+
+  function computeComponentWrapperStyle(component) {
+    const s = component?.styles ?? {};
+    const sectionY = Number(designSystem?.spacing?.sectionY);
+    const containerX = Number(designSystem?.spacing?.containerX);
+
+    const wrapperStyle = {
+      ...(s?.backgroundColor ? { backgroundColor: s.backgroundColor } : null),
+    };
+
+    if (s?.marginTop !== null && s?.marginTop !== undefined && s?.marginTop !== '') {
+      wrapperStyle.marginTop = `${Number(s.marginTop)}px`;
+    }
+    if (s?.marginBottom !== null && s?.marginBottom !== undefined && s?.marginBottom !== '') {
+      wrapperStyle.marginBottom = `${Number(s.marginBottom)}px`;
+    }
+
+    const paddingTop =
+      s?.paddingTop !== null && s?.paddingTop !== undefined && s?.paddingTop !== ''
+        ? Number(s.paddingTop)
+        : Number.isFinite(sectionY)
+          ? sectionY
+          : null;
+    const paddingBottom =
+      s?.paddingBottom !== null && s?.paddingBottom !== undefined && s?.paddingBottom !== ''
+        ? Number(s.paddingBottom)
+        : Number.isFinite(sectionY)
+          ? sectionY
+          : null;
+
+    if (Number.isFinite(paddingTop)) wrapperStyle.paddingTop = `${paddingTop}px`;
+    if (Number.isFinite(paddingBottom)) wrapperStyle.paddingBottom = `${paddingBottom}px`;
+
+    if (Number.isFinite(containerX)) {
+      wrapperStyle.paddingLeft = `${containerX}px`;
+      wrapperStyle.paddingRight = `${containerX}px`;
+    }
+
+    return wrapperStyle;
+  }
+
   return (
-    <div style={theme?.background ? { backgroundColor: theme.background } : undefined}>
+    <div style={rootStyle}>
       {comps.map((c, idx) => {
         const selected = editor?.selectedIndex === idx;
 
@@ -818,15 +868,17 @@ export function SiteRenderer({ pages, activePageIndex = 0, theme, editor }) {
               onClick={() => editor?.onSelect?.(idx)}
               className={editor ? (selected ? 'outline outline-2 outline-indigo-400/60' : 'outline outline-1 outline-transparent') : ''}
             >
-              <RenderComponent
-                component={c}
-                theme={theme}
-                editorCtx={{
-                  enabled: !!editor,
-                  isSelected: !!selected,
-                  onUpdateProps: (patch) => editor?.onUpdateProps?.(idx, patch),
-                }}
-              />
+              <div style={computeComponentWrapperStyle(c)}>
+                <RenderComponent
+                  component={c}
+                  theme={theme}
+                  editorCtx={{
+                    enabled: !!editor,
+                    isSelected: !!selected,
+                    onUpdateProps: (patch) => editor?.onUpdateProps?.(idx, patch),
+                  }}
+                />
+              </div>
             </div>
           </div>
         );

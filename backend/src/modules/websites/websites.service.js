@@ -1,19 +1,107 @@
 import { pool } from '../../config/db.js';
+import { badRequest, notFound } from '../../utils/httpError.js';
 import { withTransaction } from '../../utils/dbTx.js';
-import { badRequest, forbidden, notFound } from '../../utils/httpError.js';
 import { slugify } from '../../utils/slugify.js';
 
-function parseJsonMaybe(value, fallback) {
-  if (value === null || value === undefined) return fallback;
-  if (typeof value === 'object') return value;
-  if (typeof value === 'string') {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return fallback;
+function defaultDesignSystem({ brandName }) {
+  return {
+    colors: {
+      primary: '#6366f1',
+      secondary: '#22c55e',
+      background: '#070a12',
+      surface: 'rgba(255,255,255,0.06)',
+      text: 'rgba(255,255,255,0.92)',
+      mutedText: 'rgba(255,255,255,0.70)',
+    },
+    typography: {
+      fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"',
+      baseFontSize: 16,
+      lineHeight: 1.5,
+      headingWeight: 600,
+      bodyWeight: 400,
+    },
+    radius: {
+      sm: 10,
+      md: 16,
+      lg: 24,
+    },
+    shadow: {
+      card: '0 10px 30px rgba(0,0,0,0.35)',
+    },
+    buttons: {
+      style: 'solid',
+      radius: 12,
+    },
+    links: {
+      underline: false,
+    },
+    spacing: {
+      sectionY: 64,
+      containerX: 16,
+    },
+    brand: {
+      name: brandName ?? 'Website',
+    },
+  };
+}
+
+function mergeDesignSystem(base, override) {
+  const o = override ?? {};
+  return {
+    ...(base ?? {}),
+    colors: { ...(base?.colors ?? {}), ...(o?.colors ?? {}) },
+    typography: { ...(base?.typography ?? {}), ...(o?.typography ?? {}) },
+    radius: { ...(base?.radius ?? {}), ...(o?.radius ?? {}) },
+    shadow: { ...(base?.shadow ?? {}), ...(o?.shadow ?? {}) },
+    buttons: { ...(base?.buttons ?? {}), ...(o?.buttons ?? {}) },
+    links: { ...(base?.links ?? {}), ...(o?.links ?? {}) },
+    spacing: { ...(base?.spacing ?? {}), ...(o?.spacing ?? {}) },
+    brand: { ...(base?.brand ?? {}), ...(o?.brand ?? {}) },
+  };
+}
+
+function parseJsonMaybe(json, fallback) {
+  if (json == null) return fallback;
+  if (typeof json === 'object') return json;
+  try {
+    return JSON.parse(json);
+  } catch {
+    return fallback;
+  }
+}
+
+async function generateUniqueWebsiteSlug({ conn, baseSlug }) {
+  const cleanBase = slugify(baseSlug);
+  if (!cleanBase) return '';
+
+  const [rows] = await conn.query(
+    'SELECT slug FROM websites WHERE slug = :base OR slug LIKE :pattern',
+    {
+      base: cleanBase,
+      pattern: `${cleanBase}-%`,
+    }
+  );
+
+  if (!rows.length) return cleanBase;
+
+  let maxSuffix = 1;
+  for (const r of rows) {
+    const s = String(r.slug ?? '');
+    if (s === cleanBase) {
+      maxSuffix = Math.max(maxSuffix, 1);
+      continue;
+    }
+    const m = s.match(new RegExp(`^${cleanBase}-(\\d+)$`));
+    if (m?.[1]) {
+      const n = Number(m[1]);
+      if (Number.isFinite(n)) maxSuffix = Math.max(maxSuffix, n);
     }
   }
-  return fallback;
+
+  const next = maxSuffix + 1;
+  const suffix = `-${next}`;
+  const trimmedBase = cleanBase.slice(0, 160 - suffix.length);
+  return `${trimmedBase}${suffix}`;
 }
 
 function ensureArray(value) {
@@ -302,31 +390,48 @@ export const websitesService = {
       const tpl = trows?.[0];
       if (!tpl) throw notFound('Template not found');
 
-      const [existing] = await conn.query('SELECT id FROM websites WHERE slug = :slug', { slug: requestedSlug });
-      if (existing.length) throw badRequest('Slug already exists');
+      const structure = parseJsonMaybe(tpl.structure_json, {});
+      const baseDesignSystem = defaultDesignSystem({ brandName: name });
+      const designSystem = mergeDesignSystem(baseDesignSystem, structure?.designSystem);
+
+      let finalSlug = await generateUniqueWebsiteSlug({ conn, baseSlug: requestedSlug });
+      if (!finalSlug) throw badRequest('Invalid slug');
 
       const settings = {
-        theme: { primary: '#6366f1', background: '#070a12' },
+        designSystem,
+        theme: {
+          primary: designSystem?.colors?.primary ?? '#6366f1',
+          background: designSystem?.colors?.background ?? '#070a12',
+        },
         navbar: { logoText: name },
       };
       const seo = { title: name, description: '', ogImage: null };
 
-      const [wres] = await conn.query(
-        'INSERT INTO websites (business_id, template_id, name, slug, status, settings_json, seo_json) VALUES (:businessId, :templateId, :name, :slug, :status, :settingsJson, :seoJson)',
-        {
-          businessId,
-          templateId,
-          name,
-          slug: requestedSlug,
-          status: 'DRAFT',
-          settingsJson: JSON.stringify(settings),
-          seoJson: JSON.stringify(seo),
+      let wres;
+      for (let attempt = 0; attempt < 20; attempt++) {
+        try {
+          [wres] = await conn.query(
+            'INSERT INTO websites (business_id, template_id, name, slug, status, settings_json, seo_json) VALUES (:businessId, :templateId, :name, :slug, :status, :settingsJson, :seoJson)',
+            {
+              businessId,
+              templateId,
+              name,
+              slug: finalSlug,
+              status: 'DRAFT',
+              settingsJson: JSON.stringify(settings),
+              seoJson: JSON.stringify(seo),
+            }
+          );
+          break;
+        } catch (err) {
+          if (err?.code !== 'ER_DUP_ENTRY') throw err;
+          finalSlug = await generateUniqueWebsiteSlug({ conn, baseSlug: requestedSlug });
         }
-      );
+      }
+      if (!wres?.insertId) throw badRequest('Slug already exists');
 
       const websiteId = wres.insertId;
 
-      const structure = parseJsonMaybe(tpl.structure_json, {});
       const enhancedStructure = enhanceTemplateStructure({
         structure,
         templateName: tpl.name,
@@ -357,7 +462,7 @@ export const websitesService = {
           businessId,
           templateId,
           name,
-          slug: requestedSlug,
+          slug: finalSlug,
           status: 'DRAFT',
           settings,
           seo,
@@ -372,7 +477,7 @@ export const websitesService = {
         business_id: businessId,
         template_id: templateId,
         name,
-        slug: requestedSlug,
+        slug: finalSlug,
         status: 'DRAFT',
       };
     });
