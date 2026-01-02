@@ -67,6 +67,13 @@ async function getUserById(id) {
   return rows?.[0] ?? null;
 }
 
+async function revokeAllRefreshTokensForUser(userId) {
+  await pool.query(
+    'UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = :userId AND revoked_at IS NULL',
+    { userId }
+  );
+}
+
 async function insertRefreshToken({ userId, token, expiresAt }) {
   const tokenHash = sha256(token);
   await pool.query(
@@ -216,5 +223,65 @@ export const authService = {
       await revokeRefreshTokenByHash(sha256(token));
     }
     clearRefreshCookie(res);
+  },
+
+  async updateProfile({ userId, email, name }) {
+    const user = await getUserById(userId);
+    if (!user) throw unauthorized('User not found');
+
+    if (email !== undefined) {
+      const existing = await getUserByEmail(email);
+      if (existing && Number(existing.id) !== Number(userId)) {
+        throw badRequest('Email already in use');
+      }
+    }
+
+    const updates = [];
+    const params = { id: userId };
+    if (email !== undefined) {
+      updates.push('email = :email');
+      params.email = email;
+    }
+    if (name !== undefined) {
+      updates.push('name = :name');
+      params.name = name;
+    }
+
+    if (!updates.length) throw badRequest('No fields to update');
+    await pool.query(`UPDATE users SET ${updates.join(', ')} WHERE id = :id`, params);
+
+    const updated = await getUserById(userId);
+    return {
+      user: {
+        id: updated.id,
+        email: updated.email,
+        name: updated.name,
+        role: updated.role,
+      },
+    };
+  },
+
+  async changePassword({ userId, currentPassword, newPassword }) {
+    const user = await getUserById(userId);
+    if (!user) throw unauthorized('User not found');
+
+    const ok = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!ok) throw unauthorized('Invalid current password');
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await pool.query('UPDATE users SET password_hash = :passwordHash WHERE id = :id', {
+      passwordHash,
+      id: userId,
+    });
+
+    await revokeAllRefreshTokensForUser(userId);
+
+    return { ok: true };
+  },
+
+  async logoutAll({ userId, res }) {
+    await revokeAllRefreshTokensForUser(userId);
+    clearRefreshCookie(res);
+    return { ok: true };
   },
 };

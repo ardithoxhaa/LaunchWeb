@@ -2,11 +2,28 @@ import { useEffect, useState } from 'react';
 import { api } from '../../lib/api.js';
 import { useAuth } from '../../auth/AuthContext.jsx';
 
-function Table({ columns, rows, rowKey, emptyText = 'No data.' }) {
+function Table({
+  columns,
+  rows,
+  rowKey,
+  emptyText = 'No data.',
+  page,
+  pageSize,
+  onPageChange,
+  maxHeight,
+}) {
+  const safePageSize = Math.max(1, Number(pageSize) || 10);
+  const total = rows.length;
+  const pageCount = Math.max(1, Math.ceil(total / safePageSize));
+  const safePage = Math.min(Math.max(1, Number(page) || 1), pageCount);
+  const start = (safePage - 1) * safePageSize;
+  const visible = rows.slice(start, start + safePageSize);
+
   return (
     <div className="overflow-hidden rounded-xl border border-white/10 bg-black/20">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-white/5 text-white/70">
+      <div className="overflow-auto" style={maxHeight ? { maxHeight } : undefined}>
+        <table className="w-full text-left text-sm">
+          <thead className="sticky top-0 bg-[#0b0f1a] text-white/70">
           <tr>
             {columns.map((c) => (
               <th key={c.key} className="px-3 py-2 font-medium">
@@ -14,10 +31,10 @@ function Table({ columns, rows, rowKey, emptyText = 'No data.' }) {
               </th>
             ))}
           </tr>
-        </thead>
-        <tbody>
-          {rows.length ? (
-            rows.map((r, idx) => (
+          </thead>
+          <tbody>
+            {visible.length ? (
+              visible.map((r, idx) => (
               <tr key={rowKey ? rowKey(r) : idx} className="border-t border-white/10 hover:bg-white/5">
                 {columns.map((c) => (
                   <td key={c.key} className="px-3 py-2 text-white/80">
@@ -33,8 +50,38 @@ function Table({ columns, rows, rowKey, emptyText = 'No data.' }) {
               </td>
             </tr>
           )}
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </div>
+
+      {total > safePageSize ? (
+        <div className="flex items-center justify-between gap-3 border-t border-white/10 bg-black/30 px-3 py-2 text-xs text-white/60">
+          <div>
+            Showing {start + 1}-{Math.min(start + safePageSize, total)} of {total}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={safePage <= 1}
+              onClick={() => onPageChange?.(safePage - 1)}
+              className="rounded-md bg-white/10 px-2 py-1 hover:bg-white/15 disabled:opacity-50"
+            >
+              Prev
+            </button>
+            <div>
+              Page {safePage} / {pageCount}
+            </div>
+            <button
+              type="button"
+              disabled={safePage >= pageCount}
+              onClick={() => onPageChange?.(safePage + 1)}
+              className="rounded-md bg-white/10 px-2 py-1 hover:bg-white/15 disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -75,6 +122,16 @@ export function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [query, setQuery] = useState('');
   const [creating, setCreating] = useState(false);
+
+  const [pageSize, setPageSize] = useState(15);
+  const [pageUsers, setPageUsers] = useState(1);
+  const [pageBusinesses, setPageBusinesses] = useState(1);
+  const [pageWebsites, setPageWebsites] = useState(1);
+  const [pageTemplates, setPageTemplates] = useState(1);
+
+  const [editModal, setEditModal] = useState(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editDraft, setEditDraft] = useState(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState(null);
   const [tplName, setTplName] = useState('');
   const [tplCategory, setTplCategory] = useState('');
@@ -146,6 +203,21 @@ export function AdminDashboard() {
     setTemplates(t.data.templates ?? []);
   }
 
+  async function reloadAll() {
+    const [o, u, b, w, t] = await Promise.all([
+      api.get('/admin/overview'),
+      api.get('/admin/users'),
+      api.get('/admin/businesses'),
+      api.get('/admin/websites'),
+      api.get('/admin/templates'),
+    ]);
+    setStats(o.data.stats);
+    setUsers(u.data.users ?? []);
+    setBusinesses(b.data.businesses ?? []);
+    setWebsites(w.data.websites ?? []);
+    setTemplates(t.data.templates ?? []);
+  }
+
   async function loadTemplateIntoEditor(id) {
     const { data } = await api.get(`/admin/templates/${id}`);
     const t = data.template;
@@ -169,6 +241,8 @@ export function AdminDashboard() {
   const filteredTemplates = q
     ? templates.filter((t) => `${t.name ?? ''} ${t.category ?? ''}`.toLowerCase().includes(q))
     : templates;
+
+  const tableMaxHeight = '60vh';
 
   return (
     <div className="space-y-6">
@@ -208,20 +282,119 @@ export function AdminDashboard() {
       </div>
 
       {activeTab !== 'overview' ? (
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
+        <div className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 p-3 md:flex-row md:items-center md:justify-between">
           <input
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPageUsers(1);
+              setPageBusinesses(1);
+              setPageWebsites(1);
+              setPageTemplates(1);
+            }}
             placeholder="Search…"
             className="w-full bg-transparent px-3 py-2 text-sm text-white/90 placeholder:text-white/40 focus:outline-none"
           />
-          <button
-            type="button"
-            onClick={() => setQuery('')}
-            className="rounded-xl bg-white/10 px-3 py-2 text-sm text-white/80 hover:bg-white/15"
-          >
-            Clear
-          </button>
+          <div className="flex items-center justify-between gap-2 md:justify-end">
+            <div className="flex items-center gap-2">
+              <div className="text-xs text-white/50">Rows</div>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPageUsers(1);
+                  setPageBusinesses(1);
+                  setPageWebsites(1);
+                  setPageTemplates(1);
+                }}
+                className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white/90"
+              >
+                {[10, 15, 25, 50].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              className="rounded-xl bg-white/10 px-3 py-2 text-sm text-white/80 hover:bg-white/15"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {editModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setEditModal(null)} />
+          <div className="relative z-10 w-full max-w-xl overflow-hidden rounded-2xl border border-white/10 bg-black/90">
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-black/60 px-4 py-3">
+              <div>
+                <div className="text-xs text-white/60">Edit</div>
+                <div className="text-lg font-semibold">{editModal.title}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditModal(null)}
+                className="rounded-md bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
+              >
+                Close
+              </button>
+            </div>
+            <div className="space-y-3 p-4">
+              {(editModal.fields ?? []).map((f) => (
+                <label key={f.key} className="block">
+                  <div className="text-xs font-medium text-white/70">{f.label}</div>
+                  {f.type === 'select' ? (
+                    <select
+                      value={editDraft?.[f.key] ?? ''}
+                      onChange={(e) => setEditDraft((p) => ({ ...(p ?? {}), [f.key]: e.target.value }))}
+                      className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/90"
+                    >
+                      {(f.options ?? []).map((o) => (
+                        <option key={o} value={o}>
+                          {o}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      value={editDraft?.[f.key] ?? ''}
+                      onChange={(e) => setEditDraft((p) => ({ ...(p ?? {}), [f.key]: e.target.value }))}
+                      className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/90"
+                    />
+                  )}
+                </label>
+              ))}
+              <button
+                type="button"
+                disabled={editSaving}
+                onClick={async () => {
+                  try {
+                    setEditSaving(true);
+                    setError(null);
+                    await editModal.onSave(editDraft);
+                    await reloadAll();
+                    setEditModal(null);
+                  } catch (err) {
+                    setError(err?.response?.data?.error?.message ?? 'Failed to save');
+                  } finally {
+                    setEditSaving(false);
+                  }
+                }}
+                className={
+                  editSaving
+                    ? 'w-full rounded-xl bg-white/10 px-3 py-2 text-sm text-white/60'
+                    : 'w-full rounded-xl bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400'
+                }
+              >
+                {editSaving ? 'Saving…' : 'Save changes'}
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
 
@@ -305,8 +478,58 @@ export function AdminDashboard() {
                 },
               },
               { key: 'created_at', label: 'Created', render: (r) => (r.created_at ? new Date(r.created_at).toLocaleDateString() : '—') },
+              {
+                key: 'actions',
+                label: 'Actions',
+                render: (r) => {
+                  const isSelf = Number(r.id) === Number(currentUser?.id);
+                  return (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditDraft({ email: r.email ?? '', name: r.name ?? '' });
+                          setEditModal({
+                            title: `User #${r.id}`,
+                            fields: [
+                              { key: 'email', label: 'Email' },
+                              { key: 'name', label: 'Name' },
+                            ],
+                            onSave: (draft) => api.put(`/admin/users/${r.id}`, { email: draft.email, name: draft.name }),
+                          });
+                        }}
+                        className="rounded-md bg-white/10 px-2 py-1 text-xs hover:bg-white/15"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSelf}
+                        onClick={async () => {
+                          if (isSelf) return;
+                          if (!window.confirm('Delete this user? This will delete their businesses and websites too.')) return;
+                          try {
+                            setError(null);
+                            await api.delete(`/admin/users/${r.id}`);
+                            await reloadAll();
+                          } catch (err) {
+                            setError(err?.response?.data?.error?.message ?? 'Failed to delete user');
+                          }
+                        }}
+                        className="rounded-md bg-red-500/20 px-2 py-1 text-xs text-red-200 hover:bg-red-500/30 disabled:opacity-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  );
+                },
+              },
             ]}
             rows={filteredUsers}
+            page={pageUsers}
+            pageSize={pageSize}
+            onPageChange={setPageUsers}
+            maxHeight={tableMaxHeight}
             emptyText="No users found."
           />
         </div>
@@ -323,8 +546,53 @@ export function AdminDashboard() {
               { key: 'industry', label: 'Industry' },
               { key: 'owner_email', label: 'Owner' },
               { key: 'created_at', label: 'Created', render: (r) => (r.created_at ? new Date(r.created_at).toLocaleDateString() : '—') },
+              {
+                key: 'actions',
+                label: 'Actions',
+                render: (r) => (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditDraft({ name: r.name ?? '', industry: r.industry ?? '' });
+                        setEditModal({
+                          title: `Business #${r.id}`,
+                          fields: [
+                            { key: 'name', label: 'Name' },
+                            { key: 'industry', label: 'Industry' },
+                          ],
+                          onSave: (draft) => api.put(`/admin/businesses/${r.id}`, { name: draft.name, industry: draft.industry || null }),
+                        });
+                      }}
+                      className="rounded-md bg-white/10 px-2 py-1 text-xs hover:bg-white/15"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!window.confirm('Delete this business? This will delete its websites too.')) return;
+                        try {
+                          setError(null);
+                          await api.delete(`/admin/businesses/${r.id}`);
+                          await reloadAll();
+                        } catch (err) {
+                          setError(err?.response?.data?.error?.message ?? 'Failed to delete business');
+                        }
+                      }}
+                      className="rounded-md bg-red-500/20 px-2 py-1 text-xs text-red-200 hover:bg-red-500/30"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ),
+              },
             ]}
             rows={filteredBusinesses}
+            page={pageBusinesses}
+            pageSize={pageSize}
+            onPageChange={setPageBusinesses}
+            maxHeight={tableMaxHeight}
             emptyText="No businesses found."
           />
         </div>
@@ -342,8 +610,54 @@ export function AdminDashboard() {
               { key: 'status', label: 'Status' },
               { key: 'business_id', label: 'Business' },
               { key: 'published_at', label: 'Published', render: (r) => (r.published_at ? new Date(r.published_at).toLocaleDateString() : '—') },
+              {
+                key: 'actions',
+                label: 'Actions',
+                render: (r) => (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditDraft({ name: r.name ?? '', slug: r.slug ?? '', status: r.status ?? 'DRAFT' });
+                        setEditModal({
+                          title: `Website #${r.id}`,
+                          fields: [
+                            { key: 'name', label: 'Name' },
+                            { key: 'slug', label: 'Slug' },
+                            { key: 'status', label: 'Status', type: 'select', options: ['DRAFT', 'PUBLISHED'] },
+                          ],
+                          onSave: (draft) => api.put(`/admin/websites/${r.id}`, { name: draft.name, slug: draft.slug, status: draft.status }),
+                        });
+                      }}
+                      className="rounded-md bg-white/10 px-2 py-1 text-xs hover:bg-white/15"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!window.confirm('Delete this website?')) return;
+                        try {
+                          setError(null);
+                          await api.delete(`/admin/websites/${r.id}`);
+                          await reloadAll();
+                        } catch (err) {
+                          setError(err?.response?.data?.error?.message ?? 'Failed to delete website');
+                        }
+                      }}
+                      className="rounded-md bg-red-500/20 px-2 py-1 text-xs text-red-200 hover:bg-red-500/30"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ),
+              },
             ]}
             rows={filteredWebsites}
+            page={pageWebsites}
+            pageSize={pageSize}
+            onPageChange={setPageWebsites}
+            maxHeight={tableMaxHeight}
             emptyText="No websites found."
           />
         </div>
@@ -390,8 +704,35 @@ export function AdminDashboard() {
                 },
                 { key: 'category', label: 'Category' },
                 { key: 'created_at', label: 'Created', render: (r) => (r.created_at ? new Date(r.created_at).toLocaleDateString() : '—') },
+                {
+                  key: 'actions',
+                  label: 'Actions',
+                  render: (r) => (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!window.confirm('Delete this template? Websites using it will keep their own copied structure.')) return;
+                        try {
+                          setError(null);
+                          await api.delete(`/admin/templates/${r.id}`);
+                          setSelectedTemplateId((cur) => (cur === r.id ? null : cur));
+                          await reloadAll();
+                        } catch (err) {
+                          setError(err?.response?.data?.error?.message ?? 'Failed to delete template');
+                        }
+                      }}
+                      className="rounded-md bg-red-500/20 px-2 py-1 text-xs text-red-200 hover:bg-red-500/30"
+                    >
+                      Delete
+                    </button>
+                  ),
+                },
               ]}
               rows={filteredTemplates}
+              page={pageTemplates}
+              pageSize={pageSize}
+              onPageChange={setPageTemplates}
+              maxHeight={tableMaxHeight}
               emptyText="No templates found."
             />
           </div>

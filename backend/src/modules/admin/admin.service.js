@@ -1,5 +1,5 @@
 import { pool } from '../../config/db.js';
-import { notFound } from '../../utils/httpError.js';
+import { badRequest, notFound } from '../../utils/httpError.js';
 
 async function count(table) {
   const [rows] = await pool.query(`SELECT COUNT(*) AS c FROM ${table}`);
@@ -127,5 +127,118 @@ export const adminService = {
       { id: userId }
     );
     return rows?.[0] ?? null;
+  },
+
+  async updateUser(userId, { email, name }) {
+    const updates = [];
+    const params = { id: userId };
+
+    if (email !== undefined) {
+      updates.push('email = :email');
+      params.email = email;
+    }
+    if (name !== undefined) {
+      updates.push('name = :name');
+      params.name = name;
+    }
+
+    if (!updates.length) throw badRequest('No fields to update');
+
+    const [res] = await pool.query(`UPDATE users SET ${updates.join(', ')} WHERE id = :id`, params);
+    if (!res.affectedRows) throw notFound('User not found');
+
+    const [rows] = await pool.query(
+      'SELECT u.id, u.email, u.name, r.name AS role, u.created_at, u.updated_at FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = :id',
+      { id: userId }
+    );
+    return rows?.[0] ?? null;
+  },
+
+  async deleteUser(userId) {
+    const [res] = await pool.query('DELETE FROM users WHERE id = :id', { id: userId });
+    if (!res.affectedRows) throw notFound('User not found');
+    return true;
+  },
+
+  async updateBusiness(businessId, { name, industry }) {
+    const updates = [];
+    const params = { id: businessId };
+
+    if (name !== undefined) {
+      updates.push('name = :name');
+      params.name = name;
+    }
+    if (industry !== undefined) {
+      updates.push('industry = :industry');
+      params.industry = industry;
+    }
+
+    if (!updates.length) throw badRequest('No fields to update');
+
+    const [res] = await pool.query(`UPDATE businesses SET ${updates.join(', ')} WHERE id = :id`, params);
+    if (!res.affectedRows) throw notFound('Business not found');
+
+    const [rows] = await pool.query(
+      'SELECT b.id, b.user_id, b.name, b.industry, b.created_at, b.updated_at, u.email AS owner_email FROM businesses b JOIN users u ON u.id = b.user_id WHERE b.id = :id',
+      { id: businessId }
+    );
+    return rows?.[0] ?? null;
+  },
+
+  async deleteBusiness(businessId) {
+    const [res] = await pool.query('DELETE FROM businesses WHERE id = :id', { id: businessId });
+    if (!res.affectedRows) throw notFound('Business not found');
+    return true;
+  },
+
+  async updateWebsite(websiteId, { name, slug, status }) {
+    const updates = [];
+    const params = { id: websiteId };
+
+    if (name !== undefined) {
+      updates.push('name = :name');
+      params.name = name;
+    }
+    if (slug !== undefined) {
+      const [existing] = await pool.query('SELECT id FROM websites WHERE slug = :slug AND id <> :id', {
+        slug,
+        id: websiteId,
+      });
+      if (existing.length) throw badRequest('Slug already exists');
+      updates.push('slug = :slug');
+      params.slug = slug;
+    }
+    if (status !== undefined) {
+      updates.push('status = :status');
+      params.status = status;
+      if (status === 'PUBLISHED') {
+        updates.push('published_at = COALESCE(published_at, NOW())');
+      } else if (status === 'DRAFT') {
+        updates.push('published_at = NULL');
+      }
+    }
+
+    if (!updates.length) throw badRequest('No fields to update');
+
+    const [res] = await pool.query(`UPDATE websites SET ${updates.join(', ')} WHERE id = :id`, params);
+    if (!res.affectedRows) throw notFound('Website not found');
+
+    const [rows] = await pool.query(
+      'SELECT w.id, w.business_id, w.template_id, w.name, w.slug, w.status, w.created_at, w.updated_at, w.published_at, b.user_id AS owner_user_id FROM websites w JOIN businesses b ON b.id = w.business_id WHERE w.id = :id',
+      { id: websiteId }
+    );
+    return rows?.[0] ?? null;
+  },
+
+  async deleteWebsite(websiteId) {
+    const [res] = await pool.query('DELETE FROM websites WHERE id = :id', { id: websiteId });
+    if (!res.affectedRows) throw notFound('Website not found');
+    return true;
+  },
+
+  async deleteTemplate(templateId) {
+    const [res] = await pool.query('DELETE FROM templates WHERE id = :id', { id: templateId });
+    if (!res.affectedRows) throw notFound('Template not found');
+    return true;
   },
 };

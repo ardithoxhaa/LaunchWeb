@@ -54,3 +54,51 @@ export async function updateUserRole(req, res) {
   const user = await adminService.updateUserRole(targetUserId, role);
   res.json({ user });
 }
+
+export async function updateUser(req, res) {
+  const id = req.validated.params.id;
+  const { email, name } = req.validated.body;
+  const user = await adminService.updateUser(id, { email, name });
+  res.json({ user });
+}
+
+export async function deleteUser(req, res) {
+  const id = req.validated.params.id;
+  if (Number(id) === Number(req.auth.userId)) {
+    throw badRequest('You cannot delete your own user.');
+  }
+  await adminService.deleteUser(id);
+  res.status(204).send();
+}
+
+export async function updateBusiness(req, res) {
+  const id = req.validated.params.id;
+  const { name, industry } = req.validated.body;
+  const business = await adminService.updateBusiness(id, { name, industry });
+  res.json({ business });
+}
+
+export async function deleteBusiness(req, res) {
+  const id = req.validated.params.id;
+  await adminService.deleteBusiness(id);
+  res.status(204).send();
+}
+
+export async function updateWebsite(req, res) {
+  const id = req.validated.params.id;
+  const { name, slug, status } = req.validated.body;
+  const website = await adminService.updateWebsite(id, { name, slug, status });
+  res.json({ website });
+}
+
+export async function deleteWebsite(req, res) {
+  const id = req.validated.params.id;
+  await adminService.deleteWebsite(id);
+  res.status(204).send();
+}
+
+export async function deleteTemplate(req, res) {
+  const id = req.validated.params.id;
+  await adminService.deleteTemplate(id);
+  res.status(204).send();
+}

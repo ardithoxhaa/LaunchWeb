@@ -51,3 +51,51 @@ export const updateUserRoleSchema = z.object({
     id: z.coerce.number().int().positive(),
   }),
 });
+
+export const deleteByIdParamSchema = z.object({
+  body: z.any().optional(),
+  query: z.any().optional(),
+  params: z.object({
+    id: z.coerce.number().int().positive(),
+  }),
+});
+
+export const updateUserSchema = z.object({
+  body: z
+    .object({
+      email: z.string().email().max(255).optional(),
+      name: z.string().min(1).max(120).optional(),
+    })
+    .refine((b) => Object.keys(b).length > 0, 'No fields to update'),
+  query: z.any().optional(),
+  params: z.object({
+    id: z.coerce.number().int().positive(),
+  }),
+});
+
+export const updateBusinessSchema = z.object({
+  body: z
+    .object({
+      name: z.string().min(1).max(160).optional(),
+      industry: z.string().max(80).nullable().optional(),
+    })
+    .refine((b) => Object.keys(b).length > 0, 'No fields to update'),
+  query: z.any().optional(),
+  params: z.object({
+    id: z.coerce.number().int().positive(),
+  }),
+});
+
+export const updateWebsiteSchema = z.object({
+  body: z
+    .object({
+      name: z.string().min(1).max(160).optional(),
+      slug: z.string().min(1).max(160).optional(),
+      status: z.enum(['DRAFT', 'PUBLISHED']).optional(),
+    })
+    .refine((b) => Object.keys(b).length > 0, 'No fields to update'),
+  query: z.any().optional(),
+  params: z.object({
+    id: z.coerce.number().int().positive(),
+  }),
+});

@@ -26,3 +26,24 @@ export async function me(req, res) {
   const user = await authService.me({ userId: req.auth.userId });
   res.json({ user });
 }
+
+export async function updateProfile(req, res) {
+  const { email, name } = req.validated.body;
+  const result = await authService.updateProfile({ userId: req.auth.userId, email, name });
+  res.json(result);
+}
+
+export async function changePassword(req, res) {
+  const { currentPassword, newPassword } = req.validated.body;
+  const result = await authService.changePassword({
+    userId: req.auth.userId,
+    currentPassword,
+    newPassword,
+  });
+  res.json(result);
+}
+
+export async function logoutAll(req, res) {
+  const result = await authService.logoutAll({ userId: req.auth.userId, res });
+  res.json(result);
+}

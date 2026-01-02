@@ -6,6 +6,9 @@ import {
   loginSchema,
   registerSchema,
   refreshSchema,
+  updateProfileSchema,
+  changePasswordSchema,
+  logoutAllSchema,
 } from './auth.validation.js';
 import {
   login,
@@ -13,6 +16,9 @@ import {
   register,
   logout,
   me,
+  updateProfile,
+  changePassword,
+  logoutAll,
 } from './auth.controller.js';
 import { requireAuth } from '../../middleware/auth.js';
 
@@ -23,5 +29,8 @@ router.post('/login', validate(loginSchema), asyncHandler(login));
 router.post('/refresh', validate(refreshSchema), asyncHandler(refresh));
 router.post('/logout', asyncHandler(logout));
 router.get('/me', requireAuth, asyncHandler(me));
+router.put('/profile', requireAuth, validate(updateProfileSchema), asyncHandler(updateProfile));
+router.put('/password', requireAuth, validate(changePasswordSchema), asyncHandler(changePassword));
+router.post('/logout-all', requireAuth, validate(logoutAllSchema), asyncHandler(logoutAll));
 
 export default router;
