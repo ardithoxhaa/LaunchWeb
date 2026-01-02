@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../auth/AuthContext.jsx';
 
 export function HomePage() {
+  const { accessToken } = useAuth();
   const logos = ['Apex Fitness', 'Cedar Cafe', 'Northwind Studio', 'Nimbus SaaS', 'Harbor Dental'];
   const features = [
     {
@@ -147,24 +149,35 @@ export function HomePage() {
               website is saved per-user, versioned, and ready to publish.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link
-                to="/register"
-                className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium hover:bg-indigo-400 transition"
-              >
-                Create account
-              </Link>
+              {accessToken ? (
+                <Link
+                  to="/dashboard"
+                  className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium hover:bg-indigo-400 transition"
+                >
+                  Dashboard
+                </Link>
+              ) : (
+                <Link
+                  to="/register"
+                  className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium hover:bg-indigo-400 transition"
+                >
+                  Create account
+                </Link>
+              )}
               <Link
                 to="/templates"
                 className="rounded-md bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15 transition"
               >
                 Browse templates
               </Link>
-              <Link
-                to="/login"
-                className="rounded-md border border-white/10 bg-black/20 px-4 py-2 text-sm font-medium hover:bg-black/30 transition"
-              >
-                Sign in
-              </Link>
+              {!accessToken ? (
+                <Link
+                  to="/login"
+                  className="rounded-md border border-white/10 bg-black/20 px-4 py-2 text-sm font-medium hover:bg-black/30 transition"
+                >
+                  Sign in
+                </Link>
+              ) : null}
             </div>
 
             <div className="mt-10 grid grid-cols-3 gap-4">
@@ -274,12 +287,21 @@ export function HomePage() {
             >
               Explore templates
             </Link>
-            <Link
-              to="/register"
-              className="rounded-md bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15 transition"
-            >
-              Build your site
-            </Link>
+            {accessToken ? (
+              <Link
+                to="/dashboard"
+                className="rounded-md bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15 transition"
+              >
+                Go to dashboard
+              </Link>
+            ) : (
+              <Link
+                to="/register"
+                className="rounded-md bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15 transition"
+              >
+                Build your site
+              </Link>
+            )}
           </div>
         </div>
 
@@ -360,7 +382,7 @@ export function HomePage() {
               ))}
             </div>
             <Link
-              to="/register"
+              to={accessToken ? '/dashboard' : '/register'}
               className={`mt-6 inline-flex w-full items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition ${
                 p.emphasis ? 'bg-indigo-500 hover:bg-indigo-400' : 'bg-white/10 hover:bg-white/15'
               }`}
@@ -424,12 +446,21 @@ export function HomePage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Link
-              to="/register"
-              className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium hover:bg-indigo-400 transition"
-            >
-              Get started
-            </Link>
+            {accessToken ? (
+              <Link
+                to="/dashboard"
+                className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium hover:bg-indigo-400 transition"
+              >
+                Go to dashboard
+              </Link>
+            ) : (
+              <Link
+                to="/register"
+                className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium hover:bg-indigo-400 transition"
+              >
+                Get started
+              </Link>
+            )}
             <Link
               to="/templates"
               className="rounded-md bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15 transition"

@@ -3,7 +3,20 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../../lib/api.js';
 import { SiteRenderer } from '../../components/website/SiteRenderer.jsx';
 
-const COMPONENT_TYPES = ['NAVBAR', 'HERO', 'FEATURES', 'CONTENT', 'CARDS', 'GALLERY', 'PRICING', 'CONTACT_FORM', 'FOOTER'];
+const COMPONENT_TYPES = [
+  'NAVBAR',
+  'HERO',
+  'FEATURES',
+  'CONTENT',
+  'CARDS',
+  'GALLERY',
+  'PRICING',
+  'TESTIMONIALS',
+  'FAQ',
+  'STATS_CTA',
+  'CONTACT_FORM',
+  'FOOTER',
+];
 
 function safeJsonParse(value) {
   try {
@@ -132,6 +145,37 @@ function defaultPropsForType(type) {
       return { headline: 'Contact us', fields: ['name', 'email', 'message'] };
     case 'FOOTER':
       return { text: '© My Business' };
+    case 'TESTIMONIALS':
+      return {
+        headline: 'Loved by teams',
+        subheadline: 'Social proof that builds trust.',
+        items: [
+          { name: 'Alex', role: 'Founder', quote: 'LaunchWeb helped us ship faster.' },
+          { name: 'Mina', role: 'Owner', quote: 'The editor is super simple.' },
+          { name: 'Sam', role: 'Manager', quote: 'Preview + publish feels professional.' },
+        ],
+      };
+    case 'FAQ':
+      return {
+        headline: 'Frequently asked questions',
+        subheadline: 'Quick answers before you decide.',
+        items: [
+          { q: 'Can I change everything?', a: 'Yes — text, sections, colors, layout, and more.' },
+          { q: 'Are templates shared?', a: 'No — templates are cloned into your website structure.' },
+          { q: 'Can I unpublish?', a: 'Yes — switch between DRAFT and PUBLISHED anytime.' },
+        ],
+      };
+    case 'STATS_CTA':
+      return {
+        headline: 'Ready to launch?',
+        subheadline: 'Publish a site that looks like a real brand.',
+        primaryCta: { label: 'Get started', href: '/contact' },
+        items: [
+          { value: '8–10', label: 'templates' },
+          { value: 'Drag & drop', label: 'builder' },
+          { value: 'Versioned', label: 'safe edits' },
+        ],
+      };
     default:
       return {};
   }
@@ -172,6 +216,7 @@ export function WebsiteEditor() {
   const [dragIndex, setDragIndex] = useState(null);
   const [dragNewType, setDragNewType] = useState(null);
   const [hoverIndex, setHoverIndex] = useState(null);
+  const [showAdvancedJson, setShowAdvancedJson] = useState(false);
 
   useEffect(() => {
     let canceled = false;
@@ -398,6 +443,12 @@ export function WebsiteEditor() {
           <SmallButton variant="neutral" onClick={saveAll} disabled={saving || !canRender}>
             Save
           </SmallButton>
+          <Link
+            className="rounded-md bg-white/10 px-3 py-2 text-sm font-medium hover:bg-white/15"
+            to={`/assets/${websiteId}`}
+          >
+            Assets
+          </Link>
           <Link
             className="rounded-md bg-white/10 px-3 py-2 text-sm font-medium hover:bg-white/15"
             to={`/builder/${websiteId}`}
@@ -1188,16 +1239,271 @@ export function WebsiteEditor() {
                   </div>
                 ) : null}
 
-                <JsonEditor
-                  label="Advanced: props JSON"
-                  value={activeComponent.props}
-                  onChange={(v) => updateActiveComponent((c) => (c.props = v))}
-                />
-                <JsonEditor
-                  label="Advanced: styles JSON"
-                  value={activeComponent.styles}
-                  onChange={(v) => updateActiveComponent((c) => (c.styles = v))}
-                />
+                {activeComponent.type === 'TESTIMONIALS' ? (
+                  <div className="space-y-3">
+                    <TextInput
+                      label="Headline"
+                      value={activeComponent.props?.headline}
+                      onChange={(v) => updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), headline: v }))}
+                    />
+                    <TextInput
+                      label="Subheadline"
+                      value={activeComponent.props?.subheadline}
+                      onChange={(v) => updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), subheadline: v }))}
+                    />
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold">Items</div>
+                      {(activeComponent.props?.items ?? []).map((t, idx) => (
+                        <div key={idx} className="rounded-lg border border-white/10 bg-black/20 p-3 space-y-2">
+                          <TextInput
+                            label="Name"
+                            value={t.name}
+                            onChange={(v) =>
+                              updateActiveComponent((c) => {
+                                const items = [...(c.props?.items ?? [])];
+                                items[idx] = { ...(items[idx] ?? {}), name: v };
+                                c.props = { ...(c.props ?? {}), items };
+                              })
+                            }
+                          />
+                          <TextInput
+                            label="Role"
+                            value={t.role}
+                            onChange={(v) =>
+                              updateActiveComponent((c) => {
+                                const items = [...(c.props?.items ?? [])];
+                                items[idx] = { ...(items[idx] ?? {}), role: v };
+                                c.props = { ...(c.props ?? {}), items };
+                              })
+                            }
+                          />
+                          <label className="block">
+                            <div className="text-sm text-white/70">Quote</div>
+                            <textarea
+                              value={t.quote ?? ''}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                updateActiveComponent((c) => {
+                                  const items = [...(c.props?.items ?? [])];
+                                  items[idx] = { ...(items[idx] ?? {}), quote: v };
+                                  c.props = { ...(c.props ?? {}), items };
+                                });
+                              }}
+                              className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
+                              rows={3}
+                            />
+                          </label>
+                          <SmallButton
+                            variant="danger"
+                            onClick={() =>
+                              updateActiveComponent((c) => {
+                                const items = [...(c.props?.items ?? [])];
+                                items.splice(idx, 1);
+                                c.props = { ...(c.props ?? {}), items };
+                              })
+                            }
+                          >
+                            Remove
+                          </SmallButton>
+                        </div>
+                      ))}
+                      <SmallButton
+                        onClick={() =>
+                          updateActiveComponent((c) => {
+                            const items = [...(c.props?.items ?? []), { name: 'Customer', role: 'Role', quote: 'Quote' }];
+                            c.props = { ...(c.props ?? {}), items };
+                          })
+                        }
+                      >
+                        Add testimonial
+                      </SmallButton>
+                    </div>
+                  </div>
+                ) : null}
+
+                {activeComponent.type === 'FAQ' ? (
+                  <div className="space-y-3">
+                    <TextInput
+                      label="Headline"
+                      value={activeComponent.props?.headline}
+                      onChange={(v) => updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), headline: v }))}
+                    />
+                    <TextInput
+                      label="Subheadline"
+                      value={activeComponent.props?.subheadline}
+                      onChange={(v) => updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), subheadline: v }))}
+                    />
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold">Items</div>
+                      {(activeComponent.props?.items ?? []).map((f, idx) => (
+                        <div key={idx} className="rounded-lg border border-white/10 bg-black/20 p-3 space-y-2">
+                          <TextInput
+                            label="Question"
+                            value={f.q}
+                            onChange={(v) =>
+                              updateActiveComponent((c) => {
+                                const items = [...(c.props?.items ?? [])];
+                                items[idx] = { ...(items[idx] ?? {}), q: v };
+                                c.props = { ...(c.props ?? {}), items };
+                              })
+                            }
+                          />
+                          <label className="block">
+                            <div className="text-sm text-white/70">Answer</div>
+                            <textarea
+                              value={f.a ?? ''}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                updateActiveComponent((c) => {
+                                  const items = [...(c.props?.items ?? [])];
+                                  items[idx] = { ...(items[idx] ?? {}), a: v };
+                                  c.props = { ...(c.props ?? {}), items };
+                                });
+                              }}
+                              className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
+                              rows={3}
+                            />
+                          </label>
+                          <SmallButton
+                            variant="danger"
+                            onClick={() =>
+                              updateActiveComponent((c) => {
+                                const items = [...(c.props?.items ?? [])];
+                                items.splice(idx, 1);
+                                c.props = { ...(c.props ?? {}), items };
+                              })
+                            }
+                          >
+                            Remove
+                          </SmallButton>
+                        </div>
+                      ))}
+                      <SmallButton
+                        onClick={() =>
+                          updateActiveComponent((c) => {
+                            const items = [...(c.props?.items ?? []), { q: 'Question', a: 'Answer' }];
+                            c.props = { ...(c.props ?? {}), items };
+                          })
+                        }
+                      >
+                        Add FAQ
+                      </SmallButton>
+                    </div>
+                  </div>
+                ) : null}
+
+                {activeComponent.type === 'STATS_CTA' ? (
+                  <div className="space-y-3">
+                    <TextInput
+                      label="Headline"
+                      value={activeComponent.props?.headline}
+                      onChange={(v) => updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), headline: v }))}
+                    />
+                    <TextInput
+                      label="Subheadline"
+                      value={activeComponent.props?.subheadline}
+                      onChange={(v) => updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), subheadline: v }))}
+                    />
+                    <div className="rounded-lg border border-white/10 bg-black/20 p-3 space-y-2">
+                      <div className="text-sm font-semibold">Primary CTA</div>
+                      <TextInput
+                        label="Label"
+                        value={activeComponent.props?.primaryCta?.label}
+                        onChange={(v) =>
+                          updateActiveComponent((c) =>
+                            (c.props = {
+                              ...(c.props ?? {}),
+                              primaryCta: { ...(c.props?.primaryCta ?? {}), label: v },
+                            })
+                          )
+                        }
+                      />
+                      <TextInput
+                        label="Href"
+                        value={activeComponent.props?.primaryCta?.href}
+                        onChange={(v) =>
+                          updateActiveComponent((c) =>
+                            (c.props = {
+                              ...(c.props ?? {}),
+                              primaryCta: { ...(c.props?.primaryCta ?? {}), href: v },
+                            })
+                          )
+                        }
+                        placeholder="/contact"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold">Stats</div>
+                      {(activeComponent.props?.items ?? []).map((it, idx) => (
+                        <div key={idx} className="rounded-lg border border-white/10 bg-black/20 p-3 space-y-2">
+                          <TextInput
+                            label="Value"
+                            value={it.value}
+                            onChange={(v) =>
+                              updateActiveComponent((c) => {
+                                const items = [...(c.props?.items ?? [])];
+                                items[idx] = { ...(items[idx] ?? {}), value: v };
+                                c.props = { ...(c.props ?? {}), items };
+                              })
+                            }
+                          />
+                          <TextInput
+                            label="Label"
+                            value={it.label}
+                            onChange={(v) =>
+                              updateActiveComponent((c) => {
+                                const items = [...(c.props?.items ?? [])];
+                                items[idx] = { ...(items[idx] ?? {}), label: v };
+                                c.props = { ...(c.props ?? {}), items };
+                              })
+                            }
+                          />
+                          <SmallButton
+                            variant="danger"
+                            onClick={() =>
+                              updateActiveComponent((c) => {
+                                const items = [...(c.props?.items ?? [])];
+                                items.splice(idx, 1);
+                                c.props = { ...(c.props ?? {}), items };
+                              })
+                            }
+                          >
+                            Remove
+                          </SmallButton>
+                        </div>
+                      ))}
+                      <SmallButton
+                        onClick={() =>
+                          updateActiveComponent((c) => {
+                            const items = [...(c.props?.items ?? []), { value: '100+', label: 'Customers' }];
+                            c.props = { ...(c.props ?? {}), items };
+                          })
+                        }
+                      >
+                        Add stat
+                      </SmallButton>
+                    </div>
+                  </div>
+                ) : null}
+
+                <SmallButton onClick={() => setShowAdvancedJson((v) => !v)}>
+                  {showAdvancedJson ? 'Hide advanced JSON' : 'Show advanced JSON'}
+                </SmallButton>
+
+                {showAdvancedJson ? (
+                  <>
+                    <JsonEditor
+                      label="Advanced: props JSON"
+                      value={activeComponent.props}
+                      onChange={(v) => updateActiveComponent((c) => (c.props = v))}
+                    />
+                    <JsonEditor
+                      label="Advanced: styles JSON"
+                      value={activeComponent.styles}
+                      onChange={(v) => updateActiveComponent((c) => (c.styles = v))}
+                    />
+                  </>
+                ) : null}
               </div>
             )}
           </div>

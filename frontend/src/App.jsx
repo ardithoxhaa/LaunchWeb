@@ -16,6 +16,7 @@ import { PreviewPage } from './pages/public/PreviewPage.jsx';
 import { UserDashboard } from './pages/user/UserDashboard.jsx';
 import { WebsiteEditor } from './pages/user/WebsiteEditor.jsx';
 import { BuilderPage } from './pages/user/BuilderPage.jsx';
+import { AssetsPage } from './pages/user/AssetsPage.jsx';
 import { DraftPreviewPage } from './pages/user/DraftPreviewPage.jsx';
 import { ProfilePage } from './pages/user/ProfilePage.jsx';
 import { SettingsPage } from './pages/user/SettingsPage.jsx';
@@ -56,6 +57,15 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <BuilderPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/assets/:id"
+            element={
+              <ProtectedRoute>
+                <AssetsPage />
               </ProtectedRoute>
             }
           />

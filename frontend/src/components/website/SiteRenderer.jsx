@@ -3,12 +3,111 @@ function NavbarBlock({ props, theme }) {
   return (
     <div className="border-b border-white/10 bg-black/20">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-        <div className="text-sm font-semibold tracking-tight">{props?.logoText ?? 'Website'}</div>
+        <div className="flex items-center gap-3">
+          {props?.logoImageUrl ? (
+            <img
+              src={props.logoImageUrl}
+              alt={props?.logoText ?? 'Logo'}
+              className="h-8 w-8 rounded object-cover"
+              loading="lazy"
+            />
+          ) : null}
+          <div className="text-sm font-semibold tracking-tight">{props?.logoText ?? 'Website'}</div>
+        </div>
         <div className="flex items-center gap-4 text-sm text-white/75">
           {links.map((l) => (
             <a key={l.href} href={l.href} className="hover:text-white">
               {l.label}
             </a>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TestimonialsBlock({ props }) {
+  const items = props?.items ?? [];
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-16">
+      <div className="flex items-end justify-between gap-6">
+        <div>
+          <div className="text-3xl font-semibold tracking-tight">{props?.headline ?? 'Testimonials'}</div>
+          <div className="mt-2 text-white/70">{props?.subheadline ?? ''}</div>
+        </div>
+      </div>
+      <div className="mt-8 grid gap-4 md:grid-cols-3">
+        {items.map((t, idx) => (
+          <div key={idx} className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <div className="text-sm text-white/75">“{t.quote ?? ''}”</div>
+            <div className="mt-5 border-t border-white/10 pt-4">
+              <div className="text-sm font-semibold">{t.name ?? 'Customer'}</div>
+              <div className="mt-1 text-xs text-white/60">{t.role ?? ''}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FaqBlock({ props }) {
+  const items = props?.items ?? [];
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-16">
+      <div>
+        <div className="text-3xl font-semibold tracking-tight">{props?.headline ?? 'FAQ'}</div>
+        <div className="mt-2 text-white/70">{props?.subheadline ?? ''}</div>
+      </div>
+      <div className="mt-6 grid gap-3">
+        {items.map((f, idx) => (
+          <details key={idx} className="group rounded-2xl border border-white/10 bg-white/5 p-5">
+            <summary className="cursor-pointer list-none text-sm font-semibold">
+              <div className="flex items-center justify-between gap-4">
+                <span>{f.q ?? ''}</span>
+                <span className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-xs text-white/60 group-open:hidden">
+                  Open
+                </span>
+                <span className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-xs text-white/60 hidden group-open:inline">
+                  Close
+                </span>
+              </div>
+            </summary>
+            <div className="mt-3 text-sm text-white/70">{f.a ?? ''}</div>
+          </details>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StatsCtaBlock({ props, theme }) {
+  const items = props?.items ?? [];
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-16">
+      <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-indigo-500/15 via-white/5 to-transparent p-8">
+        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="text-3xl font-semibold tracking-tight">{props?.headline ?? 'Ready to launch?'}</div>
+            <div className="mt-2 text-white/70">{props?.subheadline ?? ''}</div>
+          </div>
+          {props?.primaryCta?.label ? (
+            <a
+              href={props.primaryCta.href ?? '#'}
+              className="inline-flex rounded-md px-4 py-2 text-sm font-medium"
+              style={{ backgroundColor: theme?.primary ?? '#6366f1' }}
+            >
+              {props.primaryCta.label}
+            </a>
+          ) : null}
+        </div>
+
+        <div className="mt-8 grid gap-3 md:grid-cols-3">
+          {items.map((it, idx) => (
+            <div key={idx} className="rounded-2xl border border-white/10 bg-black/20 p-5">
+              <div className="text-2xl font-semibold">{it.value ?? ''}</div>
+              <div className="mt-1 text-sm text-white/60">{it.label ?? ''}</div>
+            </div>
           ))}
         </div>
       </div>
@@ -185,7 +284,18 @@ function GalleryBlock({ props }) {
       <div className="grid gap-3 md:grid-cols-3">
         {images.map((url, idx) => (
           <div key={idx} className="overflow-hidden rounded-2xl border border-white/10 bg-black/20">
-            <div className="aspect-[4/3] w-full bg-gradient-to-br from-white/10 to-transparent" />
+            <div className="aspect-[4/3] w-full">
+              <img
+                src={url}
+                alt={props?.alt ?? `Gallery image ${idx + 1}`}
+                className="h-full w-full object-cover"
+                loading="lazy"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+              <div className="h-full w-full bg-gradient-to-br from-white/10 to-transparent" />
+            </div>
             <div className="p-3 text-xs text-white/60 break-all">{url}</div>
           </div>
         ))}
@@ -244,6 +354,12 @@ function RenderComponent({ component, theme, editorCtx }) {
       return <GalleryBlock props={props} />;
     case 'PRICING':
       return <PricingBlock props={props} />;
+    case 'TESTIMONIALS':
+      return <TestimonialsBlock props={props} />;
+    case 'FAQ':
+      return <FaqBlock props={props} />;
+    case 'STATS_CTA':
+      return <StatsCtaBlock props={props} theme={theme} />;
     default:
       return (
         <div className="mx-auto max-w-6xl px-4 py-8">
