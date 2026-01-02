@@ -26,6 +26,56 @@ function NavbarBlock({ props, theme }) {
   );
 }
 
+function AdvancedNavbarBlock({ props, theme }) {
+  const links = props?.links ?? [];
+  const ctas = props?.ctas ?? [];
+  return (
+    <div className="border-b border-white/10 bg-black/30">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4">
+        <div className="flex items-center gap-3">
+          {props?.logoImageUrl ? (
+            <img
+              src={props.logoImageUrl}
+              alt={props?.logoText ?? 'Logo'}
+              className="h-8 w-8 rounded object-cover"
+              loading="lazy"
+            />
+          ) : null}
+          <div className="text-sm font-semibold tracking-tight">{props?.logoText ?? 'Website'}</div>
+        </div>
+
+        {props?.showSearch ? (
+          <div className="flex w-full flex-1 items-center gap-2 sm:w-auto">
+            <input
+              className="w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/80 placeholder:text-white/40"
+              placeholder={props?.searchPlaceholder ?? 'Search…'}
+              readOnly
+            />
+          </div>
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-4 text-sm text-white/75">
+          {links.map((l) => (
+            <a key={l.href ?? l.label} href={l.href ?? '#'} className="hover:text-white">
+              {l.label}
+            </a>
+          ))}
+          {ctas.map((c, idx) => (
+            <a
+              key={idx}
+              href={c.href ?? '#'}
+              className="rounded-md bg-white/10 px-3 py-2 text-xs font-medium hover:bg-white/15"
+              style={c.variant === 'primary' ? { backgroundColor: theme?.primary ?? '#6366f1' } : undefined}
+            >
+              {c.label}
+            </a>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LogoCloudBlock({ props }) {
   const logos = props?.logos ?? [];
   return (
@@ -175,6 +225,164 @@ function FeatureCarouselBlock({ props, theme }) {
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function FilterTabsBlock({ props, theme }) {
+  const tabs = props?.tabs ?? [];
+  const products = props?.products ?? [];
+  const active = props?.defaultTab ?? (tabs?.[0]?.value ?? 'all');
+
+  const filtered =
+    active === 'all'
+      ? products
+      : products.filter((p) => {
+          const cats = Array.isArray(p?.categories) ? p.categories : [];
+          return cats.includes(active);
+        });
+
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-16">
+      <div className="text-3xl font-semibold tracking-tight">{props?.headline ?? 'Browse'}</div>
+      {props?.subheadline ? <div className="mt-2 text-white/70">{props.subheadline}</div> : null}
+
+      <div className="mt-6 flex flex-wrap gap-2">
+        {tabs.map((t) => (
+          <div
+            key={t.value ?? t.label}
+            className={
+              (t.value ?? t.label) === active
+                ? 'rounded-full border border-white/10 px-4 py-2 text-xs font-medium text-white'
+                : 'rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-white/70'
+            }
+            style={(t.value ?? t.label) === active ? { backgroundColor: theme?.primary ?? '#6366f1' } : undefined}
+          >
+            {t.label}
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {filtered.map((p, idx) => (
+          <div key={idx} className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+            <div className="relative aspect-[4/3] w-full bg-black/20">
+              {p?.imageUrl ? (
+                <img
+                  src={p.imageUrl}
+                  alt={p?.name ?? `Product ${idx + 1}`}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              ) : null}
+              {p?.badge ? (
+                <div className="absolute left-3 top-3 rounded-full border border-white/10 bg-black/60 px-3 py-1 text-xs text-white/80">
+                  {p.badge}
+                </div>
+              ) : null}
+            </div>
+            <div className="p-5">
+              <div className="text-sm font-semibold">{p?.name ?? 'Item'}</div>
+              <div className="mt-1 text-xs text-white/60">{p?.description ?? ''}</div>
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <div className="text-sm text-white/80">{p?.price ?? ''}</div>
+                {p?.cta?.label ? (
+                  <a href={p.cta.href ?? '#'} className="rounded-md bg-white/10 px-3 py-2 text-xs font-medium hover:bg-white/15">
+                    {p.cta.label}
+                  </a>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MultiRowCarouselBlock({ props, theme }) {
+  const rows = props?.rows ?? [];
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-16 space-y-10">
+      {rows.map((row, ridx) => (
+        <div key={ridx}>
+          <div className="flex items-end justify-between gap-6">
+            <div>
+              <div className="text-lg font-semibold">{row?.title ?? `Row ${ridx + 1}`}</div>
+              {row?.subtitle ? <div className="mt-1 text-sm text-white/60">{row.subtitle}</div> : null}
+            </div>
+            {row?.cta?.label ? (
+              <a
+                href={row.cta.href ?? '#'}
+                className="rounded-md px-4 py-2 text-xs font-medium"
+                style={{ backgroundColor: theme?.primary ?? '#6366f1' }}
+              >
+                {row.cta.label}
+              </a>
+            ) : null}
+          </div>
+
+          <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
+            {(row?.items ?? []).map((it, idx) => (
+              <a
+                key={idx}
+                href={it?.href ?? '#'}
+                className="min-w-[220px] overflow-hidden rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10"
+              >
+                <div className="aspect-[16/9] w-full bg-black/20">
+                  {it?.imageUrl ? (
+                    <img
+                      src={it.imageUrl}
+                      alt={it?.title ?? `Item ${idx + 1}`}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  ) : null}
+                </div>
+                <div className="p-4">
+                  <div className="text-sm font-semibold">{it?.title ?? 'Item'}</div>
+                  {it?.tagline ? <div className="mt-1 text-xs text-white/60">{it.tagline}</div> : null}
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FooterLinksBlock({ props }) {
+  const columns = props?.columns ?? [];
+  return (
+    <div className="border-t border-white/10 bg-black/30">
+      <div className="mx-auto max-w-6xl px-4 py-14">
+        <div className="grid gap-8 md:grid-cols-4">
+          <div className="space-y-2">
+            <div className="text-sm font-semibold">{props?.brand ?? 'Brand'}</div>
+            {props?.description ? <div className="text-sm text-white/60">{props.description}</div> : null}
+          </div>
+          {columns.map((col, idx) => (
+            <div key={idx} className="space-y-2">
+              <div className="text-sm font-semibold">{col?.title ?? 'Links'}</div>
+              <div className="space-y-2 text-sm text-white/70">
+                {(col?.links ?? []).map((l, lidx) => (
+                  <a key={lidx} href={l?.href ?? '#'} className="block hover:text-white">
+                    {l?.label ?? 'Link'}
+                  </a>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-10 text-xs text-white/50">{props?.copyright ?? '© ' + new Date().getFullYear()}</div>
       </div>
     </div>
   );
@@ -492,6 +700,8 @@ function RenderComponent({ component, theme, editorCtx }) {
   switch (type) {
     case 'NAVBAR':
       return <NavbarBlock props={props} theme={theme} />;
+    case 'ADVANCED_NAVBAR':
+      return <AdvancedNavbarBlock props={props} theme={theme} />;
     case 'HERO':
       return <HeroBlock props={props} styles={styles} theme={theme} editorCtx={editorCtx} />;
     case 'FEATURES':
@@ -518,8 +728,14 @@ function RenderComponent({ component, theme, editorCtx }) {
       return <StatsCtaBlock props={props} theme={theme} />;
     case 'PRODUCT_GRID':
       return <ProductGridBlock props={props} theme={theme} />;
+    case 'FILTER_TABS':
+      return <FilterTabsBlock props={props} theme={theme} />;
     case 'FEATURE_CAROUSEL':
       return <FeatureCarouselBlock props={props} theme={theme} />;
+    case 'MULTI_ROW_CAROUSEL':
+      return <MultiRowCarouselBlock props={props} theme={theme} />;
+    case 'FOOTER_LINKS':
+      return <FooterLinksBlock props={props} />;
     default:
       return (
         <div className="mx-auto max-w-6xl px-4 py-8">
