@@ -47,3 +47,9 @@ export async function logoutAll(req, res) {
   const result = await authService.logoutAll({ userId: req.auth.userId, res });
   res.json(result);
 }
+
+export async function bootstrapAdmin(req, res) {
+  const { email, password, name, bootstrapSecret } = req.validated.body;
+  const result = await authService.bootstrapAdmin({ email, password, name, bootstrapSecret, res });
+  res.status(201).json(result);
+}

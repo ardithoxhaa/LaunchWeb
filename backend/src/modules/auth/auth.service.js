@@ -67,6 +67,13 @@ async function getUserById(id) {
   return rows?.[0] ?? null;
 }
 
+async function hasAnyAdminUser() {
+  const [rows] = await pool.query(
+    "SELECT 1 AS ok FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'ADMIN' LIMIT 1"
+  );
+  return rows?.length > 0;
+}
+
 async function revokeAllRefreshTokensForUser(userId) {
   await pool.query(
     'UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = :userId AND revoked_at IS NULL',
@@ -110,6 +117,56 @@ export const authService = {
       email: user.email,
       name: user.name,
       role: user.role,
+    };
+  },
+
+  async bootstrapAdmin({ email, password, name, bootstrapSecret, res }) {
+    if (!env.BOOTSTRAP_ADMIN_SECRET) throw badRequest('Admin bootstrap is not enabled');
+    if (bootstrapSecret !== env.BOOTSTRAP_ADMIN_SECRET) throw unauthorized('Invalid bootstrap secret');
+
+    const alreadyBootstrapped = await hasAnyAdminUser();
+    if (alreadyBootstrapped) throw badRequest('Admin already exists');
+
+    const existing = await getUserByEmail(email);
+    if (existing) throw badRequest('Email already in use');
+
+    const adminRoleId = await getRoleIdByName('ADMIN');
+    if (!adminRoleId) throw new Error('Missing roles seed (ADMIN)');
+
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    const [result] = await pool.query(
+      'INSERT INTO users (role_id, email, name, password_hash) VALUES (:roleId, :email, :name, :passwordHash)',
+      { roleId: adminRoleId, email, name, passwordHash }
+    );
+
+    const accessToken = signAccessToken({
+      sub: String(result.insertId),
+      role: 'ADMIN',
+    });
+
+    const refreshToken = signRefreshToken({
+      sub: String(result.insertId),
+      role: 'ADMIN',
+    });
+
+    const decoded = jwt.decode(refreshToken);
+    await insertRefreshToken({
+      userId: result.insertId,
+      token: refreshToken,
+      expiresAt: new Date(decoded.exp * 1000),
+    });
+
+    setRefreshCookie(res, refreshToken);
+
+    return {
+      accessToken,
+      user: {
+        id: result.insertId,
+        email,
+        name,
+        role: 'ADMIN',
+      },
     };
   },
 

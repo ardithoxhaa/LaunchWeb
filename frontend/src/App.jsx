@@ -34,7 +34,7 @@ export default function App() {
           <Route path="/templates/browse" element={<TemplatesPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route path="/preview/:slug" element={<PreviewPage />} />
+          <Route path="/preview/:slug/*" element={<PreviewPage />} />
 
           <Route
             path="/dashboard"
@@ -74,6 +74,15 @@ export default function App() {
 
           <Route
             path="/draft-preview/:id"
+            element={
+              <ProtectedRoute>
+                <DraftPreviewPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/draft-preview/:id/*"
             element={
               <ProtectedRoute>
                 <DraftPreviewPage />

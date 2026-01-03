@@ -1,3 +1,11 @@
+INSERT INTO roles (name)
+ SELECT * FROM (
+   SELECT 'USER' AS name
+   UNION ALL
+   SELECT 'ADMIN' AS name
+ ) AS r
+ WHERE NOT EXISTS (SELECT 1 FROM roles WHERE roles.name = r.name);
+
 INSERT INTO templates (name, category, preview_image_url, structure_json)
 VALUES
 (
@@ -637,7 +645,6 @@ VALUES
     )
   )
 );
-
 INSERT INTO templates (name, category, preview_image_url, structure_json)
 VALUES
 (
@@ -726,96 +733,6 @@ VALUES
     )
   )
 );
-
-INSERT INTO templates (name, category, preview_image_url, structure_json)
-VALUES
-(
-  'Nimbus SaaS',
-  'Software',
-  NULL,
-  JSON_OBJECT(
-    'designSystem', JSON_OBJECT(
-      'colors', JSON_OBJECT('primary','#6366f1','secondary','#22c55e','background','#070a12','surface','rgba(255,255,255,0.06)','text','rgba(255,255,255,0.92)','mutedText','rgba(255,255,255,0.70)'),
-      'typography', JSON_OBJECT('fontFamily','Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif','baseFontSize',16,'lineHeight',1.5,'headingWeight',700,'bodyWeight',400),
-      'spacing', JSON_OBJECT('sectionY',64,'containerX',16)
-    ),
-    'pages', JSON_ARRAY(
-      JSON_OBJECT('name','Home','path','/','meta', JSON_OBJECT('title','Nimbus SaaS','description','Modern SaaS template with product, pricing, and growth sections.'),
-        'components', JSON_ARRAY(
-          JSON_OBJECT('type','ADVANCED_NAVBAR','props', JSON_OBJECT('logoText','Nimbus','showSearch',FALSE,'links', JSON_ARRAY(JSON_OBJECT('label','Product','href','/#product'),JSON_OBJECT('label','Pricing','href','/pricing'),JSON_OBJECT('label','Stories','href','/stories'),JSON_OBJECT('label','Contact','href','/contact')),
-            'ctas', JSON_ARRAY(JSON_OBJECT('label','Sign in','href','/login','variant','neutral'),JSON_OBJECT('label','Start free','href','/contact','variant','primary'))), 'styles', JSON_OBJECT()),
-          JSON_OBJECT('type','HERO','props', JSON_OBJECT('headline','Ship a website that looks like a real product.','subheadline','SaaS-grade layout: hero, social proof, product rows, pricing, and FAQs — fully editable.','primaryCta', JSON_OBJECT('label','Start free','href','/contact')),'styles', JSON_OBJECT('layout','split')),
-          JSON_OBJECT('type','LOGO_CLOUD','props', JSON_OBJECT('label','Trusted by teams','logos', JSON_ARRAY(
-            JSON_OBJECT('src','', 'alt','Northwind'),
-            JSON_OBJECT('src','', 'alt','Apex'),
-            JSON_OBJECT('src','', 'alt','Harbor'),
-            JSON_OBJECT('src','', 'alt','Cedar'),
-            JSON_OBJECT('src','', 'alt','ArcBank'),
-            JSON_OBJECT('src','', 'alt','StayAtlas')
-          )), 'styles', JSON_OBJECT()),
-          JSON_OBJECT('type','FEATURES','props', JSON_OBJECT('items', JSON_ARRAY(
-            JSON_OBJECT('title','Workspaces','text','Separate pages, components, and themes per website.'),
-            JSON_OBJECT('title','Version history','text','Snapshots on each save — restore anytime.'),
-            JSON_OBJECT('title','Publish control','text','Preview drafts, publish when ready, unpublish instantly.')
-          )), 'styles', JSON_OBJECT('columns',3)),
-          JSON_OBJECT('type','FEATURE_CAROUSEL','props', JSON_OBJECT('headline','Featured updates','subheadline','A Netflix-style row to showcase product updates.','cta', JSON_OBJECT('label','See all','href','/stories'),
-            'items', JSON_ARRAY(
-              JSON_OBJECT('title','Release notes','tagline','Weekly updates','imageUrl','', 'cta', JSON_OBJECT('label','Read','href','/stories')),
-              JSON_OBJECT('title','Case studies','tagline','Real outcomes','imageUrl','', 'cta', JSON_OBJECT('label','Read','href','/stories')),
-              JSON_OBJECT('title','Templates','tagline','New industries','imageUrl','', 'cta', JSON_OBJECT('label','Browse','href','/templates')),
-              JSON_OBJECT('title','Security','tagline','JWT + RBAC','imageUrl','', 'cta', JSON_OBJECT('label','Learn','href','/about'))
-            )
-          ), 'styles', JSON_OBJECT()),
-          JSON_OBJECT('type','PRICING','props', JSON_OBJECT('plans', JSON_ARRAY(
-            JSON_OBJECT('name','Starter','price','€19','period','/mo','features', JSON_ARRAY('1 business','1 published website','Templates + editor','Preview mode')),
-            JSON_OBJECT('name','Pro','price','€49','period','/mo','features', JSON_ARRAY('3 businesses','Unlimited drafts','Version history','Advanced builder')),
-            JSON_OBJECT('name','Agency','price','€99','period','/mo','features', JSON_ARRAY('10 businesses','Asset library','Client handoff','Priority support'))
-          )), 'styles', JSON_OBJECT()),
-          JSON_OBJECT('type','FAQ','props', JSON_OBJECT('headline','FAQ','subheadline','Quick answers before you commit.','items', JSON_ARRAY(
-            JSON_OBJECT('q','Do templates share data?','a','No — templates are cloned per website.'),
-            JSON_OBJECT('q','Can I restore changes?','a','Yes — version snapshots are stored per website.'),
-            JSON_OBJECT('q','Can I go live later?','a','Yes — publish/unpublish controls public availability.')
-          )), 'styles', JSON_OBJECT()),
-          JSON_OBJECT('type','FOOTER_LINKS','props', JSON_OBJECT('brand','Nimbus','description','A SaaS template designed to feel production-grade.','columns', JSON_ARRAY(
-            JSON_OBJECT('title','Product','links', JSON_ARRAY(JSON_OBJECT('label','Templates','href','/templates'),JSON_OBJECT('label','Pricing','href','/pricing'))),
-            JSON_OBJECT('title','Company','links', JSON_ARRAY(JSON_OBJECT('label','About','href','/about'),JSON_OBJECT('label','Stories','href','/stories'))),
-            JSON_OBJECT('title','Support','links', JSON_ARRAY(JSON_OBJECT('label','Contact','href','/contact'),JSON_OBJECT('label','FAQ','href','/faq')))
-          )), 'styles', JSON_OBJECT())
-        )
-      ),
-      JSON_OBJECT('name','Pricing','path','/pricing','meta', JSON_OBJECT('title','Pricing - Nimbus','description','Plan tiers and feature matrix.'),
-        'components', JSON_ARRAY(
-          JSON_OBJECT('type','NAVBAR','props', JSON_OBJECT('logoText','Nimbus','links', JSON_ARRAY(JSON_OBJECT('label','Home','href','/'),JSON_OBJECT('label','Pricing','href','/pricing'),JSON_OBJECT('label','Contact','href','/contact'))), 'styles', JSON_OBJECT('variant','solid')),
-          JSON_OBJECT('type','PRICING','props', JSON_OBJECT('plans', JSON_ARRAY(
-            JSON_OBJECT('name','Starter','price','€19','period','/mo','features', JSON_ARRAY('Templates','Basic editor','Draft preview')),
-            JSON_OBJECT('name','Pro','price','€49','period','/mo','features', JSON_ARRAY('Advanced builder','SEO + theme','Version history')),
-            JSON_OBJECT('name','Agency','price','€99','period','/mo','features', JSON_ARRAY('Multi-business','Asset library','Admin controls'))
-          )), 'styles', JSON_OBJECT()),
-          JSON_OBJECT('type','FOOTER','props', JSON_OBJECT('text','© Nimbus SaaS'),'styles', JSON_OBJECT('variant','dark'))
-        )
-      ),
-      JSON_OBJECT('name','Stories','path','/stories','meta', JSON_OBJECT('title','Stories - Nimbus','description','Blog/case-study style cards.'),
-        'components', JSON_ARRAY(
-          JSON_OBJECT('type','NAVBAR','props', JSON_OBJECT('logoText','Nimbus','links', JSON_ARRAY(JSON_OBJECT('label','Home','href','/'),JSON_OBJECT('label','Pricing','href','/pricing'),JSON_OBJECT('label','Contact','href','/contact'))), 'styles', JSON_OBJECT('variant','solid')),
-          JSON_OBJECT('type','CARDS','props', JSON_OBJECT('cards', JSON_ARRAY(
-            JSON_OBJECT('title','From template to launch','text','How small teams ship fast with LaunchWeb-style workflows.','cta', JSON_OBJECT('label','Read','href','/contact')),
-            JSON_OBJECT('title','Design tokens at scale','text','Theme + design system settings for consistent visuals.','cta', JSON_OBJECT('label','Read','href','/contact')),
-            JSON_OBJECT('title','Safe iteration','text','Version history + restore for confident editing.','cta', JSON_OBJECT('label','Read','href','/contact'))
-          )), 'styles', JSON_OBJECT()),
-          JSON_OBJECT('type','FOOTER','props', JSON_OBJECT('text','© Nimbus SaaS'),'styles', JSON_OBJECT('variant','dark'))
-        )
-      ),
-      JSON_OBJECT('name','Contact','path','/contact','meta', JSON_OBJECT('title','Contact - Nimbus','description','Lead form page.'),
-        'components', JSON_ARRAY(
-          JSON_OBJECT('type','NAVBAR','props', JSON_OBJECT('logoText','Nimbus','links', JSON_ARRAY(JSON_OBJECT('label','Home','href','/'),JSON_OBJECT('label','Pricing','href','/pricing'),JSON_OBJECT('label','Contact','href','/contact'))), 'styles', JSON_OBJECT('variant','solid')),
-          JSON_OBJECT('type','CONTACT_FORM','props', JSON_OBJECT('headline','Talk to sales','fields', JSON_ARRAY('name','email','message')),'styles', JSON_OBJECT('layout','card')),
-          JSON_OBJECT('type','FOOTER','props', JSON_OBJECT('text','© Nimbus SaaS'),'styles', JSON_OBJECT('variant','dark'))
-        )
-      )
-    )
-  )
-);
-
 INSERT INTO templates (name, category, preview_image_url, structure_json)
 VALUES
 (

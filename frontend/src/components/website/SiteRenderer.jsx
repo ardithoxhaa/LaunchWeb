@@ -1,4 +1,39 @@
-function NavbarBlock({ props, theme }) {
+function normalizeBasePath(basePath) {
+  if (!basePath) return '';
+  const trimmed = String(basePath).trim();
+  if (!trimmed) return '';
+  return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
+}
+
+function joinBasePath(basePath, href) {
+  const base = normalizeBasePath(basePath);
+  const h = String(href ?? '').trim();
+
+  if (!base) return h;
+  if (!h) return base || '/';
+
+  if (h.startsWith('/')) return `${base}${h}`;
+  if (h.startsWith('#')) return `${base}/${h}`;
+  return h;
+}
+
+function isExternalHref(href) {
+  const h = String(href ?? '').trim().toLowerCase();
+  return h.startsWith('http://') || h.startsWith('https://') || h.startsWith('mailto:') || h.startsWith('tel:');
+}
+
+function mapHref({ href, linkBasePath }) {
+  if (!href) return href;
+  if (isExternalHref(href)) return href;
+
+  const h = String(href);
+
+  if (h.startsWith('/')) return joinBasePath(linkBasePath, h);
+  if (h.startsWith('#')) return h;
+  return h;
+}
+
+function NavbarBlock({ props, theme, linkBasePath }) {
   const links = props?.links ?? [];
   return (
     <div className="border-b border-white/10 bg-black/20">
@@ -16,7 +51,7 @@ function NavbarBlock({ props, theme }) {
         </div>
         <div className="flex items-center gap-4 text-sm text-white/75">
           {links.map((l) => (
-            <a key={l.href} href={l.href} className="hover:text-white">
+            <a key={l.href} href={mapHref({ href: l.href, linkBasePath })} className="hover:text-white">
               {l.label}
             </a>
           ))}
@@ -26,7 +61,7 @@ function NavbarBlock({ props, theme }) {
   );
 }
 
-function AdvancedNavbarBlock({ props, theme }) {
+function AdvancedNavbarBlock({ props, theme, linkBasePath }) {
   const links = props?.links ?? [];
   const ctas = props?.ctas ?? [];
   return (
@@ -56,14 +91,18 @@ function AdvancedNavbarBlock({ props, theme }) {
 
         <div className="flex flex-wrap items-center gap-4 text-sm text-white/75">
           {links.map((l) => (
-            <a key={l.href ?? l.label} href={l.href ?? '#'} className="hover:text-white">
+            <a
+              key={l.href ?? l.label}
+              href={mapHref({ href: l.href ?? '#', linkBasePath })}
+              className="hover:text-white"
+            >
               {l.label}
             </a>
           ))}
           {ctas.map((c, idx) => (
             <a
               key={idx}
-              href={c.href ?? '#'}
+              href={mapHref({ href: c.href ?? '#', linkBasePath })}
               className="rounded-md bg-white/10 px-3 py-2 text-xs font-medium hover:bg-white/15"
               style={c.variant === 'primary' ? { backgroundColor: theme?.primary ?? '#6366f1' } : undefined}
             >
@@ -108,7 +147,7 @@ function LogoCloudBlock({ props }) {
   );
 }
 
-function ProductGridBlock({ props, theme }) {
+function ProductGridBlock({ props, theme, linkBasePath }) {
   const products = props?.products ?? [];
   return (
     <div className="mx-auto max-w-6xl px-4 py-16">
@@ -119,7 +158,7 @@ function ProductGridBlock({ props, theme }) {
         </div>
         {props?.cta?.label ? (
           <a
-            href={props.cta.href ?? '#'}
+            href={mapHref({ href: props.cta.href ?? '#', linkBasePath })}
             className="rounded-md px-4 py-2 text-sm font-medium"
             style={{ backgroundColor: theme?.primary ?? '#6366f1' }}
           >
@@ -156,7 +195,7 @@ function ProductGridBlock({ props, theme }) {
                 <div className="text-sm text-white/80">{p?.price ?? ''}</div>
                 {p?.cta?.label ? (
                   <a
-                    href={p.cta.href ?? '#'}
+                    href={mapHref({ href: p.cta.href ?? '#', linkBasePath })}
                     className="rounded-md bg-white/10 px-3 py-2 text-xs font-medium hover:bg-white/15"
                   >
                     {p.cta.label}
@@ -171,7 +210,7 @@ function ProductGridBlock({ props, theme }) {
   );
 }
 
-function FeatureCarouselBlock({ props, theme }) {
+function FeatureCarouselBlock({ props, theme, linkBasePath }) {
   const items = props?.items ?? [];
   return (
     <div className="mx-auto max-w-6xl px-4 py-16">
@@ -182,7 +221,7 @@ function FeatureCarouselBlock({ props, theme }) {
         </div>
         {props?.cta?.label ? (
           <a
-            href={props.cta.href ?? '#'}
+            href={mapHref({ href: props.cta.href ?? '#', linkBasePath })}
             className="rounded-md px-4 py-2 text-sm font-medium"
             style={{ backgroundColor: theme?.primary ?? '#6366f1' }}
           >
@@ -216,7 +255,7 @@ function FeatureCarouselBlock({ props, theme }) {
               <div className="mt-1 text-xs text-white/60">{it?.tagline ?? ''}</div>
               {it?.cta?.label ? (
                 <a
-                  href={it.cta.href ?? '#'}
+                  href={mapHref({ href: it.cta.href ?? '#', linkBasePath })}
                   className="mt-4 inline-flex rounded-md bg-white/10 px-3 py-2 text-xs font-medium hover:bg-white/15"
                 >
                   {it.cta.label}
@@ -230,7 +269,7 @@ function FeatureCarouselBlock({ props, theme }) {
   );
 }
 
-function FilterTabsBlock({ props, theme }) {
+function FilterTabsBlock({ props, theme, linkBasePath }) {
   const tabs = props?.tabs ?? [];
   const products = props?.products ?? [];
   const active = props?.defaultTab ?? (tabs?.[0]?.value ?? 'all');
@@ -291,7 +330,10 @@ function FilterTabsBlock({ props, theme }) {
               <div className="mt-4 flex items-center justify-between gap-3">
                 <div className="text-sm text-white/80">{p?.price ?? ''}</div>
                 {p?.cta?.label ? (
-                  <a href={p.cta.href ?? '#'} className="rounded-md bg-white/10 px-3 py-2 text-xs font-medium hover:bg-white/15">
+                  <a
+                    href={mapHref({ href: p.cta.href ?? '#', linkBasePath })}
+                    className="rounded-md bg-white/10 px-3 py-2 text-xs font-medium hover:bg-white/15"
+                  >
                     {p.cta.label}
                   </a>
                 ) : null}
@@ -304,7 +346,7 @@ function FilterTabsBlock({ props, theme }) {
   );
 }
 
-function MultiRowCarouselBlock({ props, theme }) {
+function MultiRowCarouselBlock({ props, theme, linkBasePath }) {
   const rows = props?.rows ?? [];
   return (
     <div className="mx-auto max-w-6xl px-4 py-16 space-y-10">
@@ -317,7 +359,7 @@ function MultiRowCarouselBlock({ props, theme }) {
             </div>
             {row?.cta?.label ? (
               <a
-                href={row.cta.href ?? '#'}
+                href={mapHref({ href: row.cta.href ?? '#', linkBasePath })}
                 className="rounded-md px-4 py-2 text-xs font-medium"
                 style={{ backgroundColor: theme?.primary ?? '#6366f1' }}
               >
@@ -330,7 +372,7 @@ function MultiRowCarouselBlock({ props, theme }) {
             {(row?.items ?? []).map((it, idx) => (
               <a
                 key={idx}
-                href={it?.href ?? '#'}
+                href={mapHref({ href: it?.href ?? '#', linkBasePath })}
                 className="min-w-[220px] overflow-hidden rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10"
               >
                 <div className="aspect-[16/9] w-full bg-black/20">
@@ -359,7 +401,7 @@ function MultiRowCarouselBlock({ props, theme }) {
   );
 }
 
-function FooterLinksBlock({ props }) {
+function FooterLinksBlock({ props, linkBasePath }) {
   const columns = props?.columns ?? [];
   return (
     <div className="border-t border-white/10 bg-black/30">
@@ -374,7 +416,7 @@ function FooterLinksBlock({ props }) {
               <div className="text-sm font-semibold">{col?.title ?? 'Links'}</div>
               <div className="space-y-2 text-sm text-white/70">
                 {(col?.links ?? []).map((l, lidx) => (
-                  <a key={lidx} href={l?.href ?? '#'} className="block hover:text-white">
+                  <a key={lidx} href={mapHref({ href: l?.href ?? '#', linkBasePath })} className="block hover:text-white">
                     {l?.label ?? 'Link'}
                   </a>
                 ))}
@@ -443,7 +485,7 @@ function FaqBlock({ props }) {
   );
 }
 
-function StatsCtaBlock({ props, theme }) {
+function StatsCtaBlock({ props, theme, linkBasePath }) {
   const items = props?.items ?? [];
   return (
     <div className="mx-auto max-w-6xl px-4 py-16">
@@ -455,7 +497,7 @@ function StatsCtaBlock({ props, theme }) {
           </div>
           {props?.primaryCta?.label ? (
             <a
-              href={props.primaryCta.href ?? '#'}
+              href={mapHref({ href: props.primaryCta.href ?? '#', linkBasePath })}
               className="inline-flex rounded-md px-4 py-2 text-sm font-medium"
               style={{ backgroundColor: theme?.primary ?? '#6366f1' }}
             >
@@ -477,7 +519,7 @@ function StatsCtaBlock({ props, theme }) {
   );
 }
 
-function HeroBlock({ props, styles, theme, editorCtx }) {
+function HeroBlock({ props, styles, theme, editorCtx, linkBasePath }) {
   const cta = props?.primaryCta;
   const buttonBg = styles?.buttonColor ?? theme?.primary ?? '#6366f1';
   const background = styles?.backgroundColor;
@@ -510,7 +552,7 @@ function HeroBlock({ props, styles, theme, editorCtx }) {
           {cta ? (
             <a
               className="mt-8 inline-flex rounded-md px-4 py-2 text-sm font-medium"
-              href={cta.href}
+              href={mapHref({ href: cta.href, linkBasePath })}
               style={{ backgroundColor: buttonBg }}
             >
               <span
@@ -615,7 +657,7 @@ function FooterBlock({ props }) {
   );
 }
 
-function CardsBlock({ props }) {
+function CardsBlock({ props, linkBasePath }) {
   const cards = props?.cards ?? [];
   return (
     <div className="mx-auto max-w-6xl px-4 py-16">
@@ -626,7 +668,7 @@ function CardsBlock({ props }) {
             <div className="mt-2 text-sm text-white/70">{c.text}</div>
             {c.cta?.label ? (
               <a
-                href={c.cta.href ?? '#'}
+                href={mapHref({ href: c.cta.href ?? '#', linkBasePath })}
                 className="mt-5 inline-flex rounded-md bg-white/10 px-3 py-2 text-sm font-medium hover:bg-white/15"
               >
                 {c.cta.label}
@@ -692,18 +734,18 @@ function PricingBlock({ props }) {
   );
 }
 
-function RenderComponent({ component, theme, editorCtx }) {
+function RenderComponent({ component, theme, editorCtx, linkBasePath }) {
   const type = component.type;
   const props = component.props;
   const styles = component.styles;
 
   switch (type) {
     case 'NAVBAR':
-      return <NavbarBlock props={props} theme={theme} />;
+      return <NavbarBlock props={props} theme={theme} linkBasePath={linkBasePath} />;
     case 'ADVANCED_NAVBAR':
-      return <AdvancedNavbarBlock props={props} theme={theme} />;
+      return <AdvancedNavbarBlock props={props} theme={theme} linkBasePath={linkBasePath} />;
     case 'HERO':
-      return <HeroBlock props={props} styles={styles} theme={theme} editorCtx={editorCtx} />;
+      return <HeroBlock props={props} styles={styles} theme={theme} editorCtx={editorCtx} linkBasePath={linkBasePath} />;
     case 'FEATURES':
       return <FeaturesBlock props={props} />;
     case 'CONTENT':
@@ -713,7 +755,7 @@ function RenderComponent({ component, theme, editorCtx }) {
     case 'FOOTER':
       return <FooterBlock props={props} />;
     case 'CARDS':
-      return <CardsBlock props={props} />;
+      return <CardsBlock props={props} linkBasePath={linkBasePath} />;
     case 'GALLERY':
       return <GalleryBlock props={props} />;
     case 'LOGO_CLOUD':
@@ -725,17 +767,17 @@ function RenderComponent({ component, theme, editorCtx }) {
     case 'FAQ':
       return <FaqBlock props={props} />;
     case 'STATS_CTA':
-      return <StatsCtaBlock props={props} theme={theme} />;
+      return <StatsCtaBlock props={props} theme={theme} linkBasePath={linkBasePath} />;
     case 'PRODUCT_GRID':
-      return <ProductGridBlock props={props} theme={theme} />;
+      return <ProductGridBlock props={props} theme={theme} linkBasePath={linkBasePath} />;
     case 'FILTER_TABS':
-      return <FilterTabsBlock props={props} theme={theme} />;
+      return <FilterTabsBlock props={props} theme={theme} linkBasePath={linkBasePath} />;
     case 'FEATURE_CAROUSEL':
-      return <FeatureCarouselBlock props={props} theme={theme} />;
+      return <FeatureCarouselBlock props={props} theme={theme} linkBasePath={linkBasePath} />;
     case 'MULTI_ROW_CAROUSEL':
-      return <MultiRowCarouselBlock props={props} theme={theme} />;
+      return <MultiRowCarouselBlock props={props} theme={theme} linkBasePath={linkBasePath} />;
     case 'FOOTER_LINKS':
-      return <FooterLinksBlock props={props} />;
+      return <FooterLinksBlock props={props} linkBasePath={linkBasePath} />;
     default:
       return (
         <div className="mx-auto max-w-6xl px-4 py-8">
@@ -747,7 +789,7 @@ function RenderComponent({ component, theme, editorCtx }) {
   }
 }
 
-export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, editor }) {
+export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, editor, linkBasePath }) {
   const page = pages?.[activePageIndex] ?? null;
 
   if (!page) {
@@ -872,6 +914,7 @@ export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, 
                 <RenderComponent
                   component={c}
                   theme={theme}
+                  linkBasePath={linkBasePath}
                   editorCtx={{
                     enabled: !!editor,
                     isSelected: !!selected,
