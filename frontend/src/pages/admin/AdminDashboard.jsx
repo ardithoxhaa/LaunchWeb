@@ -506,11 +506,10 @@ export function AdminDashboard() {
                         type="button"
                         disabled={isSelf}
                         onClick={async () => {
-                          if (isSelf) return;
-                          if (!window.confirm('Delete this user? This will delete their businesses and websites too.')) return;
+                          if (!window.confirm('Delete this user?')) return;
                           try {
                             setError(null);
-                            await api.delete(`/admin/users/${r.id}`);
+                            await api.del(`/admin/users/${r.id}`);
                             await reloadAll();
                           } catch (err) {
                             setError(err?.response?.data?.error?.message ?? 'Failed to delete user');
@@ -574,7 +573,7 @@ export function AdminDashboard() {
                         if (!window.confirm('Delete this business? This will delete its websites too.')) return;
                         try {
                           setError(null);
-                          await api.delete(`/admin/businesses/${r.id}`);
+                          await api.del(`/admin/businesses/${r.id}`);
                           await reloadAll();
                         } catch (err) {
                           setError(err?.response?.data?.error?.message ?? 'Failed to delete business');
@@ -639,7 +638,7 @@ export function AdminDashboard() {
                         if (!window.confirm('Delete this website?')) return;
                         try {
                           setError(null);
-                          await api.delete(`/admin/websites/${r.id}`);
+                          await api.del(`/admin/websites/${r.id}`);
                           await reloadAll();
                         } catch (err) {
                           setError(err?.response?.data?.error?.message ?? 'Failed to delete website');
@@ -714,7 +713,7 @@ export function AdminDashboard() {
                         if (!window.confirm('Delete this template? Websites using it will keep their own copied structure.')) return;
                         try {
                           setError(null);
-                          await api.delete(`/admin/templates/${r.id}`);
+                          await api.del(`/admin/templates/${r.id}`);
                           setSelectedTemplateId((cur) => (cur === r.id ? null : cur));
                           await reloadAll();
                         } catch (err) {
