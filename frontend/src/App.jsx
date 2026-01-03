@@ -14,6 +14,7 @@ import { RegisterPage } from './pages/public/RegisterPage.jsx';
 import { PreviewPage } from './pages/public/PreviewPage.jsx';
 
 import { UserDashboard } from './pages/user/UserDashboard.jsx';
+import { WebsiteEditor } from './pages/user/WebsiteEditor.jsx';
 import { BuilderPage } from './pages/user/BuilderPage.jsx';
 import { AssetsPage } from './pages/user/AssetsPage.jsx';
 import { DraftPreviewPage } from './pages/user/DraftPreviewPage.jsx';
@@ -46,7 +47,7 @@ export default function App() {
             path="/editor/:id"
             element={
               <ProtectedRoute>
-                <BuilderPage />
+                <WebsiteEditor />
               </ProtectedRoute>
             }
           />
