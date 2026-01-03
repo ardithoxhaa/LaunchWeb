@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../../lib/api.js';
 import { SiteRenderer } from '../../components/website/SiteRenderer.jsx';
+import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCenter, useDraggable, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const COMPONENT_TYPES = [
   'NAVBAR',
@@ -83,6 +86,104 @@ function TextInput({ label, value, onChange, placeholder }) {
         className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
       />
     </label>
+  );
+}
+
+function randomId() {
+  if (typeof globalThis !== 'undefined' && globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function ensureClientIds(nextPages) {
+  return (nextPages ?? []).map((p) => ({
+    ...p,
+    components: (p.components ?? []).map((c) => ({
+      ...c,
+      __cid: c.__cid ?? randomId(),
+      props: { ...(c.props ?? {}) },
+      styles: { ...(c.styles ?? {}) },
+    })),
+  }));
+}
+
+function SortableLayerItem({ id, active, indexLabel, title, onSelect, onDuplicate, onMoveUp, onMoveDown, disableUp, disableDown }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      onClick={onSelect}
+      className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition cursor-pointer ${
+        active ? 'border-indigo-400/40 bg-indigo-500/10' : 'border-white/10 bg-black/20 hover:bg-black/30'
+      } ${isDragging ? 'opacity-60' : ''}`}
+    >
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          className="select-none text-white/50"
+          {...attributes}
+          {...listeners}
+          aria-label="Drag to reorder"
+          title="Drag to reorder"
+        >
+          ⋮⋮
+        </button>
+        <span className="font-medium">{title}</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-white/50">{indexLabel}</span>
+        <button
+          type="button"
+          disabled={disableUp}
+          onClick={onMoveUp}
+          className="rounded-md bg-white/10 px-2 py-1 text-xs font-medium hover:bg-white/15 disabled:opacity-50"
+        >
+          ↑
+        </button>
+        <button
+          type="button"
+          disabled={disableDown}
+          onClick={onMoveDown}
+          className="rounded-md bg-white/10 px-2 py-1 text-xs font-medium hover:bg-white/15 disabled:opacity-50"
+        >
+          ↓
+        </button>
+        <button
+          type="button"
+          onClick={onDuplicate}
+          className="rounded-md bg-white/10 px-2 py-1 text-xs font-medium hover:bg-white/15"
+        >
+          +
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PaletteDraggable({ type, onClick }) {
+  const id = `new:${type}`;
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      onClick={onClick}
+      className={`select-none rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs font-medium text-white/80 ${
+        isDragging ? 'opacity-60' : ''
+      }`}
+      {...attributes}
+      {...listeners}
+    >
+      {type}
+    </div>
   );
 }
 
@@ -376,6 +477,7 @@ export function BuilderPage() {
   const [dragIndex, setDragIndex] = useState(null);
   const [dragNewType, setDragNewType] = useState(null);
   const [hoverIndex, setHoverIndex] = useState(null);
+  const [activeDragId, setActiveDragId] = useState(null);
 
   const [previewMode, setPreviewMode] = useState('desktop');
 
@@ -394,6 +496,11 @@ export function BuilderPage() {
 
   const [focusCanvas, setFocusCanvas] = useState(false);
   const [canvasZoom, setCanvasZoom] = useState(1);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   function updateActiveComponent(mutator) {
     setPages((prev) => {
@@ -422,7 +529,7 @@ export function BuilderPage() {
         const { data: payload } = await api.get(`/websites/${websiteId}/structure`);
         if (!canceled) {
           setWebsite(payload.website);
-          setPages(payload.pages);
+          setPages(ensureClientIds(payload.pages));
           setActivePageIndex(0);
           setActiveComponentIndex(0);
         }
@@ -643,6 +750,7 @@ export function BuilderPage() {
         orderIndex: i + 1,
         props: JSON.parse(JSON.stringify(src.props ?? {})),
         styles: JSON.parse(JSON.stringify(src.styles ?? {})),
+        __cid: randomId(),
       };
       comps2.splice(i + 1, 0, copy);
       page2.components = comps2;
@@ -675,6 +783,7 @@ export function BuilderPage() {
         orderIndex: insertionIndex,
         props: defaultPropsForType(type),
         styles: defaultStylesForType(type),
+        __cid: randomId(),
       });
       page.components = comps;
       return next;
@@ -703,6 +812,18 @@ export function BuilderPage() {
   const page = pages?.[activePageIndex] ?? null;
   const comps = page?.components ?? [];
   const activeComponent = comps?.[activeComponentIndex] ?? null;
+
+  const layerIds = comps.map((c, idx) => c.__cid ?? c.id ?? `${c.type}-${idx}`);
+
+  const activeDragLabel = (() => {
+    if (!activeDragId) return null;
+    if (typeof activeDragId === 'string' && activeDragId.startsWith('new:')) {
+      return activeDragId.slice('new:'.length);
+    }
+    const idx = layerIds.indexOf(activeDragId);
+    const comp = idx >= 0 ? comps[idx] : null;
+    return comp?.type ?? null;
+  })();
 
   const previewWidth = previewMode === 'mobile' ? 375 : previewMode === 'tablet' ? 768 : null;
 
@@ -1336,100 +1457,105 @@ export function BuilderPage() {
               ))}
             </select>
           </div>
-
+@@
           <div className="mt-6">
-            <div className="text-sm font-semibold">Component library</div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              {COMPONENT_TYPES.map((t) => (
-                <div
-                  key={t}
-                  draggable
-                  onDragStart={() => {
-                    setDragNewType(t);
-                    setDragIndex(null);
-                  }}
-                  onDragEnd={() => setDragNewType(null)}
-                  className="select-none rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs font-medium text-white/80"
-                >
-                  {t}
-                </div>
-              ))}
-            </div>
-          </div>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={(evt) => {
+                setActiveDragId(evt.active.id);
+              }}
+              onDragEnd={(evt) => {
+                const { active, over } = evt;
+                setActiveDragId(null);
+                if (!over) return;
 
-          <div className="mt-6">
-            <div className="text-sm font-semibold">Canvas layers</div>
-            <div className="mt-3 space-y-2">
-              {comps.length ? (
-                comps.map((c, idx) => (
-                  <div
-                    key={c.id ?? `${c.type}-${idx}`}
-                    draggable
-                    onDragStart={() => setDragIndex(idx)}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={() => {
-                      if (dragNewType) {
-                        insertComponentAt(idx, dragNewType);
-                        setDragNewType(null);
-                        return;
-                      }
-                      if (dragIndex !== null) {
-                        reorderComponents(dragIndex, idx);
-                        setDragIndex(null);
-                      }
+                const activeId = active.id;
+                const overId = over.id;
+
+                if (typeof activeId === 'string' && activeId.startsWith('new:')) {
+                  const type = activeId.slice('new:'.length);
+                  const overIndex = layerIds.indexOf(overId);
+                  const insertIndex = overIndex >= 0 ? overIndex : comps.length;
+                  insertComponentAt(insertIndex, type);
+                  return;
+                }
+
+                const oldIndex = layerIds.indexOf(activeId);
+                const newIndex = layerIds.indexOf(overId);
+                if (oldIndex < 0 || newIndex < 0) return;
+                if (oldIndex === newIndex) return;
+
+                const nextOrder = arrayMove(layerIds, oldIndex, newIndex);
+                const fromIndex = oldIndex;
+                const toIndex = nextOrder.indexOf(activeId);
+                reorderComponents(fromIndex, toIndex);
+              }}
+            >
+              <div className="text-sm font-semibold">Component library</div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {COMPONENT_TYPES.map((t) => (
+                  <PaletteDraggable
+                    key={t}
+                    type={t}
+                    onClick={() => {
+                      insertComponentAt(comps.length, t);
+                      setDragNewType(null);
+                      setDragIndex(null);
                     }}
-                    onClick={() => setActiveComponentIndex(idx)}
-                    className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition cursor-pointer ${
-                      idx === activeComponentIndex
-                        ? 'border-indigo-400/40 bg-indigo-500/10'
-                        : 'border-white/10 bg-black/20 hover:bg-black/30'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="select-none text-white/50">⋮⋮</span>
-                      <span className="font-medium">{c.type}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-white/50">#{idx + 1}</span>
-                      <button
-                        type="button"
-                        disabled={idx <= 0}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          reorderComponents(idx, idx - 1);
-                        }}
-                        className="rounded-md bg-white/10 px-2 py-1 text-xs font-medium hover:bg-white/15 disabled:opacity-50"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        disabled={idx >= (comps?.length ?? 0) - 1}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          reorderComponents(idx, idx + 1);
-                        }}
-                        className="rounded-md bg-white/10 px-2 py-1 text-xs font-medium hover:bg-white/15 disabled:opacity-50"
-                      >
-                        ↓
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          duplicateComponentAt(idx);
-                        }}
-                        className="rounded-md bg-white/10 px-2 py-1 text-xs font-medium hover:bg-white/15"
-                      >
-                        +
-                      </button>
-                    </div>
+                  />
+                ))}
+              </div>
+
+              <div className="mt-6">
+                <div className="text-sm font-semibold">Canvas layers</div>
+                <div className="mt-3 space-y-2">
+                  {comps.length ? (
+                    <SortableContext items={layerIds} strategy={verticalListSortingStrategy}>
+                      <div className="space-y-2">
+                        {comps.map((c, idx) => {
+                          const itemId = layerIds[idx];
+                          return (
+                            <SortableLayerItem
+                              key={itemId}
+                              id={itemId}
+                              active={idx === activeComponentIndex}
+                              indexLabel={`#${idx + 1}`}
+                              title={c.type}
+                              onSelect={() => setActiveComponentIndex(idx)}
+                              onDuplicate={(e) => {
+                                e?.stopPropagation?.();
+                                duplicateComponentAt(idx);
+                              }}
+                              onMoveUp={(e) => {
+                                e?.stopPropagation?.();
+                                reorderComponents(idx, idx - 1);
+                              }}
+                              onMoveDown={(e) => {
+                                e?.stopPropagation?.();
+                                reorderComponents(idx, idx + 1);
+                              }}
+                              disableUp={idx <= 0}
+                              disableDown={idx >= (comps?.length ?? 0) - 1}
+                            />
+                          );
+                        })}
+                      </div>
+                    </SortableContext>
+                  ) : (
+                    <div className="text-sm text-white/60">Drag components from the library into the canvas.</div>
+                  )}
+                </div>
+              </div>
+
+              <DragOverlay>
+                {activeDragLabel ? (
+                  <div className="rounded-lg border border-white/10 bg-black/70 px-3 py-2 text-xs font-medium text-white/90 shadow-xl">
+                    {activeDragLabel}
                   </div>
-                ))
-              ) : (
-                <div className="text-sm text-white/60">Drag components from the library into the canvas.</div>
-              )}
-            </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
           </div>
         </div>
 
