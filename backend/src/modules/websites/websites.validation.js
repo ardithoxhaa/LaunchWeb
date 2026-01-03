@@ -11,6 +11,16 @@ export const createWebsiteSchema = z.object({
   params: z.any().optional(),
 });
 
+export const createBlankWebsiteSchema = z.object({
+  body: z.object({
+    businessId: z.number().int().positive(),
+    name: z.string().min(1).max(160),
+    slug: z.string().min(1).max(160).optional(),
+  }),
+  query: z.any().optional(),
+  params: z.any().optional(),
+});
+
 export const updateWebsiteSeoSchema = z.object({
   body: z.object({
     seo: z.record(z.any()),

@@ -21,6 +21,17 @@ export async function createWebsiteFromTemplate(req, res) {
   res.status(201).json({ website });
 }
 
+export async function createBlankWebsite(req, res) {
+  const { businessId, name, slug } = req.validated.body;
+  const website = await websitesService.createBlankWebsite({
+    userId: req.auth.userId,
+    businessId,
+    name,
+    slug,
+  });
+  res.status(201).json({ website });
+}
+
 export async function getWebsite(req, res) {
   const id = Number(req.params.id);
   const website = await websitesService.getWebsite({ userId: req.auth.userId, websiteId: id });

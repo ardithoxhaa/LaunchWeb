@@ -6,12 +6,14 @@ import { validate } from '../../middleware/validate.js';
 
 import {
   createWebsiteSchema,
+  createBlankWebsiteSchema,
   updateWebsiteSeoSchema,
   updateWebsiteSettingsSchema,
   updateWebsiteStructureSchema,
 } from './websites.validation.js';
 
 import {
+  createBlankWebsite,
   createWebsiteFromTemplate,
   getWebsite,
   getWebsiteStructure,
@@ -31,6 +33,7 @@ router.use(requireAuth);
 
 router.get('/business/:businessId', asyncHandler(listWebsitesForBusiness));
 router.post('/', validate(createWebsiteSchema), asyncHandler(createWebsiteFromTemplate));
+router.post('/blank', validate(createBlankWebsiteSchema), asyncHandler(createBlankWebsite));
 router.get('/:id', asyncHandler(getWebsite));
 router.get('/:id/structure', asyncHandler(getWebsiteStructure));
 router.put('/:id/structure', validate(updateWebsiteStructureSchema), asyncHandler(updateWebsiteStructure));

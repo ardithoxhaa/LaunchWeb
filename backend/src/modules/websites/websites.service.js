@@ -1,5 +1,5 @@
 import { pool } from '../../config/db.js';
-import { badRequest, notFound } from '../../utils/httpError.js';
+import { badRequest, forbidden, notFound } from '../../utils/httpError.js';
 import { withTransaction } from '../../utils/dbTx.js';
 import { slugify } from '../../utils/slugify.js';
 
@@ -476,6 +476,94 @@ export const websitesService = {
         id: websiteId,
         business_id: businessId,
         template_id: templateId,
+        name,
+        slug: finalSlug,
+        status: 'DRAFT',
+      };
+    });
+  },
+
+  async createBlankWebsite({ userId, businessId, name, slug }) {
+    const requestedSlug = slug ? slugify(slug) : slugify(name);
+    if (!requestedSlug) throw badRequest('Invalid slug');
+
+    return withTransaction(async (conn) => {
+      await assertBusinessOwned({ conn, userId, businessId });
+
+      const designSystem = defaultDesignSystem({ brandName: name });
+
+      let finalSlug = await generateUniqueWebsiteSlug({ conn, baseSlug: requestedSlug });
+      if (!finalSlug) throw badRequest('Invalid slug');
+
+      const settings = {
+        designSystem,
+        theme: {
+          primary: designSystem?.colors?.primary ?? '#6366f1',
+          background: designSystem?.colors?.background ?? '#070a12',
+        },
+        navbar: { logoText: name },
+      };
+      const seo = { title: name, description: '', ogImage: null };
+
+      let wres;
+      for (let attempt = 0; attempt < 20; attempt++) {
+        try {
+          [wres] = await conn.query(
+            'INSERT INTO websites (business_id, template_id, name, slug, status, settings_json, seo_json) VALUES (:businessId, NULL, :name, :slug, :status, :settingsJson, :seoJson)',
+            {
+              businessId,
+              name,
+              slug: finalSlug,
+              status: 'DRAFT',
+              settingsJson: JSON.stringify(settings),
+              seoJson: JSON.stringify(seo),
+            }
+          );
+          break;
+        } catch (err) {
+          if (err?.code !== 'ER_DUP_ENTRY') throw err;
+          finalSlug = await generateUniqueWebsiteSlug({ conn, baseSlug: requestedSlug });
+        }
+      }
+      if (!wres?.insertId) throw badRequest('Slug already exists');
+
+      const websiteId = wres.insertId;
+
+      const pages = [
+        {
+          name: 'Home',
+          path: '/',
+          sortOrder: 0,
+          meta: { title: name, description: '' },
+          components: [],
+        },
+      ];
+
+      await replacePagesAndComponents({ conn, websiteId, pages });
+
+      await createVersionSnapshot({
+        conn,
+        websiteId,
+        userId,
+        snapshot: {
+          website: {
+            id: websiteId,
+            businessId,
+            templateId: null,
+            name,
+            slug: finalSlug,
+            status: 'DRAFT',
+            settings,
+            seo,
+          },
+          pages,
+        },
+      });
+
+      return {
+        id: websiteId,
+        business_id: businessId,
+        template_id: null,
         name,
         slug: finalSlug,
         status: 'DRAFT',

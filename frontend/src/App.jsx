@@ -9,6 +9,7 @@ import { AppShell } from './components/layout/AppShell.jsx';
 import { HomePage } from './pages/public/HomePage.jsx';
 import { AboutPage } from './pages/public/AboutPage.jsx';
 import { TemplatesPage } from './pages/public/TemplatesPage.jsx';
+import { TemplatesHubPage } from './pages/public/TemplatesHubPage.jsx';
 import { LoginPage } from './pages/public/LoginPage.jsx';
 import { RegisterPage } from './pages/public/RegisterPage.jsx';
 import { PreviewPage } from './pages/public/PreviewPage.jsx';
@@ -29,7 +30,8 @@ export default function App() {
         <Route element={<AppShell />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/about" element={<AboutPage />} />
-          <Route path="/templates" element={<TemplatesPage />} />
+          <Route path="/templates" element={<TemplatesHubPage />} />
+          <Route path="/templates/browse" element={<TemplatesPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/preview/:slug" element={<PreviewPage />} />
