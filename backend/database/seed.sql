@@ -1,17 +1,17 @@
 INSERT INTO roles (name)
- SELECT * FROM (
-   SELECT 'USER' AS name
-   UNION ALL
-   SELECT 'ADMIN' AS name
- ) AS r
- WHERE NOT EXISTS (SELECT 1 FROM roles WHERE roles.name = r.name);
+  SELECT * FROM (
+    SELECT 'USER' AS name
+    UNION ALL
+    SELECT 'ADMIN' AS name
+  ) AS r
+  WHERE NOT EXISTS (SELECT 1 FROM roles WHERE roles.name = r.name);
 
 INSERT INTO templates (name, category, preview_image_url, structure_json)
 VALUES
 (
   'StrideWorks',
   'Sports',
-  NULL,
+  '/uploads/template-previews/strideworks.svg',
   JSON_OBJECT(
     'designSystem', JSON_OBJECT(
       'colors', JSON_OBJECT('primary','#ffffff','secondary','#000000','background','#0a0a0a','surface','rgba(255,255,255,0.08)','text','rgba(255,255,255,0.92)','mutedText','rgba(255,255,255,0.72)'),
@@ -38,7 +38,7 @@ VALUES
             'primaryCta', JSON_OBJECT('label','Join the club','href','/plans'),
             'items', JSON_ARRAY(JSON_OBJECT('value','24/7','label','support'),JSON_OBJECT('value','48h','label','shipping options'),JSON_OBJECT('value','30 days','label','returns'))
           ), 'styles', JSON_OBJECT()),
-          JSON_OBJECT('type','FOOTER_LINKS','props', JSON_OBJECT('brand','StrideWorks','description','A black/white performance brand template.','columns', JSON_ARRAY(
+          JSON_OBJECT('type','FOOTER_LINKS','props', JSON_OBJECT('brand','StrideWorks','description','Adidas-like performance brand template.','columns', JSON_ARRAY(
             JSON_OBJECT('title','Shop','links', JSON_ARRAY(JSON_OBJECT('label','Collections','href','/collections'))),
             JSON_OBJECT('title','Stories','links', JSON_ARRAY(JSON_OBJECT('label','Stories','href','/stories'))),
             JSON_OBJECT('title','Support','links', JSON_ARRAY(JSON_OBJECT('label','FAQ','href','/faq'),JSON_OBJECT('label','Contact','href','/contact')))
@@ -109,7 +109,7 @@ VALUES
 (
   'MonoTech',
   'Software',
-  NULL,
+  '/uploads/template-previews/monotech.svg',
   JSON_OBJECT(
     'designSystem', JSON_OBJECT(
       'colors', JSON_OBJECT('primary','#ffffff','secondary','#94a3b8','background','#0b0b0c','surface','rgba(255,255,255,0.05)','text','rgba(255,255,255,0.92)','mutedText','rgba(255,255,255,0.70)'),
@@ -179,7 +179,7 @@ VALUES
 (
   'VoltDrive',
   'Automotive',
-  NULL,
+  '/uploads/template-previews/voltdrive.svg',
   JSON_OBJECT(
     'designSystem', JSON_OBJECT(
       'colors', JSON_OBJECT('primary','#ef4444','secondary','#ffffff','background','#0b0f17','surface','rgba(255,255,255,0.06)','text','rgba(255,255,255,0.92)','mutedText','rgba(255,255,255,0.70)'),
@@ -247,7 +247,7 @@ VALUES
 (
   'StayAtlas',
   'Travel',
-  NULL,
+  '/uploads/template-previews/stayatlas.svg',
   JSON_OBJECT(
     'designSystem', JSON_OBJECT(
       'colors', JSON_OBJECT('primary','#ff385c','secondary','#ffffff','background','#0b1220','surface','rgba(255,255,255,0.06)','text','rgba(255,255,255,0.92)','mutedText','rgba(255,255,255,0.70)'),
@@ -331,7 +331,7 @@ VALUES
 (
   'Blackline Studio',
   'Agency',
-  NULL,
+  '/uploads/template-previews/blackline-studio.svg',
   JSON_OBJECT(
     'designSystem', JSON_OBJECT(
       'colors', JSON_OBJECT('primary','#a855f7','secondary','#ffffff','background','#070a12','surface','rgba(255,255,255,0.06)','text','rgba(255,255,255,0.92)','mutedText','rgba(255,255,255,0.70)'),
@@ -408,7 +408,7 @@ VALUES
 (
   'ArcBank',
   'Finance',
-  NULL,
+  '/uploads/template-previews/arcbank.svg',
   JSON_OBJECT(
     'designSystem', JSON_OBJECT(
       'colors', JSON_OBJECT('primary','#0ea5e9','secondary','#22c55e','background','#07111f','surface','rgba(255,255,255,0.06)','text','rgba(255,255,255,0.92)','mutedText','rgba(255,255,255,0.70)'),
@@ -475,7 +475,7 @@ VALUES
 (
   'Cedar & Co.',
   'Restaurant',
-  NULL,
+  '/uploads/template-previews/cedar-and-co.svg',
   JSON_OBJECT(
     'designSystem', JSON_OBJECT(
       'colors', JSON_OBJECT('primary','#f59e0b','secondary','#ffffff','background','#0b0f17','surface','rgba(255,255,255,0.06)','text','rgba(255,255,255,0.92)','mutedText','rgba(255,255,255,0.70)'),
@@ -545,7 +545,7 @@ VALUES
 (
   'Apex Athletics',
   'Sports',
-  NULL,
+  '/uploads/template-previews/apex-athletics.svg',
   JSON_OBJECT(
     'designSystem', JSON_OBJECT(
       'colors', JSON_OBJECT('primary','#22c55e','secondary','#ffffff','background','#060a12','surface','rgba(255,255,255,0.06)','text','rgba(255,255,255,0.92)','mutedText','rgba(255,255,255,0.70)'),
@@ -650,12 +650,12 @@ VALUES
 (
   'Nimbus SaaS',
   'Software',
-  NULL,
+  '/uploads/template-previews/nimbus-saas.svg',
   JSON_OBJECT(
     'designSystem', JSON_OBJECT(
       'colors', JSON_OBJECT('primary','#6366f1','secondary','#22c55e','background','#070a12','surface','rgba(255,255,255,0.06)','text','rgba(255,255,255,0.92)','mutedText','rgba(255,255,255,0.70)'),
-      'typography', JSON_OBJECT('fontFamily','Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif','baseFontSize',16,'lineHeight',1.5,'headingWeight',700,'bodyWeight',400),
-      'spacing', JSON_OBJECT('sectionY',64,'containerX',16)
+      'typography', JSON_OBJECT('fontFamily','Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif','baseFontSize',16,'lineHeight',1.55,'headingWeight',700,'bodyWeight',400),
+      'spacing', JSON_OBJECT('sectionY',64,'containerX',18)
     ),
     'pages', JSON_ARRAY(
       JSON_OBJECT('name','Home','path','/','meta', JSON_OBJECT('title','Nimbus SaaS','description','Modern SaaS template with product, pricing, and growth sections.'),
@@ -738,7 +738,7 @@ VALUES
 (
   'Harbor Dental',
   'Healthcare',
-  NULL,
+  '/uploads/template-previews/harbor-dental.svg',
   JSON_OBJECT(
     'designSystem', JSON_OBJECT(
       'colors', JSON_OBJECT('primary','#22c55e','secondary','#0ea5e9','background','#070a12','surface','rgba(255,255,255,0.06)','text','rgba(255,255,255,0.92)','mutedText','rgba(255,255,255,0.70)'),

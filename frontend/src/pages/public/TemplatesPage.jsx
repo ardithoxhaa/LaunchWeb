@@ -4,6 +4,9 @@ import { api } from '../../lib/api.js';
 import { useAuth } from '../../auth/AuthContext.jsx';
 import { SiteRenderer } from '../../components/website/SiteRenderer.jsx';
 
+const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const ASSET_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '');
+
 export function TemplatesPage() {
   const nav = useNavigate();
   const { accessToken } = useAuth();
@@ -177,7 +180,19 @@ export function TemplatesPage() {
           <div key={t.id} className="rounded-xl border border-white/10 bg-white/5 p-5">
             <div className="text-sm text-white/60">{t.category}</div>
             <div className="mt-2 text-lg font-semibold">{t.name}</div>
-            <div className="mt-4 h-24 rounded-lg bg-gradient-to-br from-white/10 to-transparent" />
+            <div className="mt-4 h-24 overflow-hidden rounded-lg bg-gradient-to-br from-white/10 to-transparent">
+              {t.preview_image_url ? (
+                <img
+                  src={`${ASSET_BASE_URL}${t.preview_image_url}`}
+                  alt={`${t.name} preview`}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              ) : null}
+            </div>
             <button
               type="button"
               onClick={() => openPreview(t.id)}
