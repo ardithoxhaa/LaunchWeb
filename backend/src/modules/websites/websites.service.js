@@ -2,6 +2,7 @@ import { pool } from '../../config/db.js';
 import { badRequest, forbidden, notFound } from '../../utils/httpError.js';
 import { withTransaction } from '../../utils/dbTx.js';
 import { slugify } from '../../utils/slugify.js';
+import crypto from 'node:crypto';
 
 function defaultDesignSystem({ brandName }) {
   return {
@@ -68,6 +69,11 @@ function parseJsonMaybe(json, fallback) {
   } catch {
     return fallback;
   }
+}
+
+function makeNodeId() {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return crypto.randomBytes(16).toString('hex');
 }
 
 async function generateUniqueWebsiteSlug({ conn, baseSlug }) {
@@ -301,6 +307,137 @@ async function listPagesWithComponents({ conn, websiteId }) {
       styles: parseJsonMaybe(c.style_json, {}),
     })),
   }));
+}
+
+function buildDefaultBuilderFromFlatComponents(components) {
+  const sectionId = makeNodeId();
+  const containerId = makeNodeId();
+  const columnId = makeNodeId();
+
+  return {
+    version: 1,
+    root: {
+      id: makeNodeId(),
+      type: 'ROOT',
+      children: [
+        {
+          id: sectionId,
+          type: 'SECTION',
+          props: {},
+          style: {},
+          responsive: {},
+          children: [
+            {
+              id: containerId,
+              type: 'CONTAINER',
+              props: { width: 'boxed' },
+              style: {},
+              responsive: {},
+              children: [
+                {
+                  id: columnId,
+                  type: 'COLUMN',
+                  props: { width: 12 },
+                  style: {},
+                  responsive: {},
+                  children: (components ?? []).map((c) => ({
+                    id: makeNodeId(),
+                    type: 'WIDGET',
+                    widgetType: c.type,
+                    props: c.props ?? {},
+                    style: c.styles ?? {},
+                    responsive: {},
+                    children: [],
+                  })),
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  };
+}
+
+async function listPagesWithBuilder({ conn, websiteId }) {
+  // Step 1: Get page metadata without large builder_json (avoids MySQL sort memory issues)
+  const [pagesMeta] = await conn.query(
+    'SELECT id, website_id, name, path, sort_order, meta_json FROM pages WHERE website_id = :websiteId ORDER BY sort_order ASC, id ASC',
+    { websiteId }
+  );
+  if (pagesMeta.length === 0) return [];
+
+  // Step 2: Get builder_json separately (no sorting needed for this query)
+  const metaPageIds = pagesMeta.map((p) => p.id);
+  const [builderRows] = await conn.query(
+    `SELECT id, builder_json FROM pages WHERE id IN (${metaPageIds.map(() => '?').join(',')})`,
+    metaPageIds
+  );
+  
+  // Step 3: Create a map of page id to builder_json
+  const builderMap = new Map();
+  for (const row of builderRows) {
+    builderMap.set(row.id, row.builder_json);
+  }
+  
+  // Step 4: Merge the data
+  const pages = pagesMeta.map(p => ({
+    ...p,
+    builder_json: builderMap.get(p.id) || null
+  }));
+
+  // Step 5: Get components for these pages
+  const [components] = await conn.query(
+    `SELECT id, page_id, type, order_index, props_json, style_json
+     FROM components
+     WHERE page_id IN (${metaPageIds.map(() => '?').join(',')})
+     ORDER BY page_id ASC, order_index ASC, id ASC`,
+    metaPageIds
+  );
+
+  const byPage = new Map();
+  for (const c of components) {
+    const arr = byPage.get(c.page_id) ?? [];
+    arr.push({
+      id: c.id,
+      type: c.type,
+      orderIndex: c.order_index,
+      props: parseJsonMaybe(c.props_json, {}),
+      styles: parseJsonMaybe(c.style_json, {}),
+    });
+    byPage.set(c.page_id, arr);
+  }
+
+  const needsInit = [];
+  const result = pages.map((p) => {
+    const builder = parseJsonMaybe(p.builder_json, null);
+    if (!builder) {
+      needsInit.push(p.id);
+    }
+    return {
+      id: p.id,
+      name: p.name,
+      path: p.path,
+      sortOrder: p.sort_order,
+      meta: parseJsonMaybe(p.meta_json, {}),
+      builder: builder ?? null,
+      _flatComponents: byPage.get(p.id) ?? [],
+    };
+  });
+
+  if (needsInit.length) {
+    for (const p of result) {
+      if (p.builder) continue;
+      const nextBuilder = buildDefaultBuilderFromFlatComponents(p._flatComponents);
+      p.builder = nextBuilder;
+      await conn.query('UPDATE pages SET builder_json = :builderJson WHERE id = :id', {
+        id: p.id,
+        builderJson: JSON.stringify(nextBuilder),
+      });
+    }
+  }
+
+  return result.map(({ _flatComponents, ...p }) => p);
 }
 
 async function createVersionSnapshot({ conn, websiteId, userId, snapshot }) {
@@ -609,6 +746,26 @@ export const websitesService = {
     };
   },
 
+  async getWebsiteBuilder({ userId, websiteId }) {
+    const conn = pool;
+    const website = await assertWebsiteOwned({ conn, userId, websiteId });
+    const pages = await listPagesWithBuilder({ conn, websiteId });
+
+    return {
+      website: {
+        id: website.id,
+        businessId: website.business_id,
+        templateId: website.template_id,
+        name: website.name,
+        slug: website.slug,
+        status: website.status,
+        settings: parseJsonMaybe(website.settings_json, {}),
+        seo: parseJsonMaybe(website.seo_json, {}),
+      },
+      pages,
+    };
+  },
+
   async replaceWebsiteStructure({ userId, websiteId, pages }) {
     return withTransaction(async (conn) => {
       const website = await assertWebsiteOwned({ conn, userId, websiteId });
@@ -633,6 +790,54 @@ export const websitesService = {
       await replacePagesAndComponents({ conn, websiteId, pages });
 
       return this.getWebsiteStructure({ userId, websiteId });
+    });
+  },
+
+  async replaceWebsiteBuilder({ userId, websiteId, pages }) {
+    return withTransaction(async (conn) => {
+      const website = await assertWebsiteOwned({ conn, userId, websiteId });
+      const currentBuilderPages = await listPagesWithBuilder({ conn, websiteId });
+
+      const snapshot = {
+        website: {
+          id: website.id,
+          businessId: website.business_id,
+          templateId: website.template_id,
+          name: website.name,
+          slug: website.slug,
+          status: website.status,
+          settings: website.settings_json,
+          seo: website.seo_json,
+        },
+        builderPages: currentBuilderPages.map((p) => ({
+          id: p.id,
+          name: p.name,
+          path: p.path,
+          sortOrder: p.sortOrder,
+          meta: p.meta,
+          builder: p.builder,
+        })),
+      };
+
+      await createVersionSnapshot({ conn, websiteId, userId, snapshot });
+
+      for (const p of pages ?? []) {
+        if (!p?.id) continue;
+        await conn.query(
+          'UPDATE pages SET name = :name, path = :path, sort_order = :sortOrder, meta_json = :metaJson, builder_json = :builderJson WHERE id = :id AND website_id = :websiteId',
+          {
+            id: p.id,
+            websiteId,
+            name: p.name,
+            path: p.path,
+            sortOrder: p.sortOrder ?? 0,
+            metaJson: JSON.stringify(p.meta ?? {}),
+            builderJson: JSON.stringify(p.builder ?? {}),
+          }
+        );
+      }
+
+      return this.getWebsiteBuilder({ userId, websiteId });
     });
   },
 
@@ -706,6 +911,57 @@ export const websitesService = {
       if (!version) throw notFound('Version not found');
 
       const snapshot = parseJsonMaybe(version.snapshot_json, {});
+      const builderPages = Array.isArray(snapshot?.builderPages) ? snapshot.builderPages : null;
+
+      if (builderPages?.length) {
+        const currentBuilderPages = await listPagesWithBuilder({ conn, websiteId });
+        const website = await getWebsiteRow({ conn, websiteId });
+
+        await createVersionSnapshot({
+          conn,
+          websiteId,
+          userId,
+          snapshot: {
+            website: {
+              id: website.id,
+              businessId: website.business_id,
+              templateId: website.template_id,
+              name: website.name,
+              slug: website.slug,
+              status: website.status,
+              settings: parseJsonMaybe(website.settings_json, {}),
+              seo: parseJsonMaybe(website.seo_json, {}),
+            },
+            builderPages: currentBuilderPages.map((p) => ({
+              id: p.id,
+              name: p.name,
+              path: p.path,
+              sortOrder: p.sortOrder,
+              meta: p.meta,
+              builder: p.builder,
+            })),
+          },
+        });
+
+        for (const p of builderPages) {
+          if (!p?.id) continue;
+          await conn.query(
+            'UPDATE pages SET name = :name, path = :path, sort_order = :sortOrder, meta_json = :metaJson, builder_json = :builderJson WHERE id = :id AND website_id = :websiteId',
+            {
+              id: p.id,
+              websiteId,
+              name: p.name,
+              path: p.path,
+              sortOrder: p.sortOrder ?? p.sort_order ?? 0,
+              metaJson: JSON.stringify(p.meta ?? p.meta_json ?? {}),
+              builderJson: JSON.stringify(p.builder ?? p.builder_json ?? {}),
+            }
+          );
+        }
+
+        return this.getWebsiteBuilder({ userId, websiteId });
+      }
+
       const pages = snapshot?.pages ?? [];
 
       const normalizedPages = pages.map((p, idx) => ({

@@ -1,8 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../../lib/api.js';
 import { SiteRenderer } from '../../components/website/SiteRenderer.jsx';
-import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCenter, useDraggable, useSensor, useSensors } from '@dnd-kit/core';
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -52,22 +62,67 @@ function isHexColor(value) {
   return typeof value === 'string' && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value.trim());
 }
 
+function CollapsibleSection({ title, icon, defaultOpen = true, children }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="rounded-xl border border-white/10 bg-black/20 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-white/5 transition"
+      >
+        <div className="flex items-center gap-2">
+          {icon ? <span className="text-white/60">{icon}</span> : null}
+          <span className="text-xs font-semibold uppercase tracking-wide">{title}</span>
+        </div>
+        <span className="text-white/40 text-xs">{open ? '▾' : '▸'}</span>
+      </button>
+      {open ? <div className="px-3 pb-3 space-y-3">{children}</div> : null}
+    </div>
+  );
+}
+
+function ResponsiveTabs({ value, onChange }) {
+  const tabs = [
+    { id: 'desktop', icon: '🖥', label: 'Desktop' },
+    { id: 'tablet', icon: '📱', label: 'Tablet' },
+    { id: 'mobile', icon: '📲', label: 'Mobile' },
+  ];
+  return (
+    <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-black/30 p-1">
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          onClick={() => onChange(t.id)}
+          title={t.label}
+          className={`flex-1 rounded-md px-2 py-1.5 text-center text-sm transition ${
+            value === t.id ? 'bg-indigo-500/30 text-white' : 'text-white/60 hover:bg-white/10 hover:text-white'
+          }`}
+        >
+          {t.icon}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function ColorPickerField({ label, value, onChange, placeholder }) {
   const safeValue = isHexColor(value) ? value.trim() : '#000000';
   return (
     <label className="block">
-      <div className="text-sm text-white/70">{label}</div>
-      <div className="mt-1 flex items-center gap-2">
+      <div className="text-[11px] font-medium text-white/60 uppercase tracking-wide mb-1">{label}</div>
+      <div className="flex items-center gap-2">
         <input
           type="color"
           value={safeValue}
           onChange={(e) => onChange(e.target.value)}
-          className="h-10 w-12 rounded-md border border-white/10 bg-black/30"
+          className="h-8 w-10 rounded border border-white/10 bg-black/30 cursor-pointer"
         />
         <input
           value={value ?? ''}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
+          className="flex-1 rounded-md border border-white/10 bg-black/30 px-2 py-1.5 text-xs"
           placeholder={placeholder}
         />
       </div>
@@ -75,10 +130,707 @@ function ColorPickerField({ label, value, onChange, placeholder }) {
   );
 }
 
+function NumberSliderField({ label, value, onChange, min = 0, max = 200, step = 1, unit = 'px' }) {
+  const vNum = value === null || value === undefined || value === '' ? null : Number(value);
+  const sliderValue = Number.isFinite(vNum) ? vNum : min;
+
+  return (
+    <label className="block">
+      <div className="text-[11px] font-medium text-white/60 uppercase tracking-wide mb-1">{label}</div>
+      <div className="flex items-center gap-2">
+        <input
+          type="range"
+          min={String(min)}
+          max={String(max)}
+          step={String(step)}
+          value={String(sliderValue)}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="flex-1 accent-indigo-500"
+        />
+        <div className="flex items-center gap-1">
+          <input
+            value={vNum == null ? '' : String(vNum)}
+            onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
+            className="w-14 rounded border border-white/10 bg-black/30 px-2 py-1 text-xs text-center"
+          />
+          <span className="text-[10px] text-white/40">{unit}</span>
+        </div>
+      </div>
+    </label>
+  );
+}
+
+function SelectField({ label, value, onChange, options }) {
+  return (
+    <label className="block">
+      <div className="text-[11px] font-medium text-white/60 uppercase tracking-wide mb-1">{label}</div>
+      <select
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-md border border-white/10 bg-black/30 px-2 py-1.5 text-xs"
+      >
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function BoxSpacingControl({ label, values, onChange }) {
+  const v = values ?? {};
+  return (
+    <div className="space-y-2">
+      <div className="text-[11px] font-medium text-white/60 uppercase tracking-wide">{label}</div>
+      <div className="grid grid-cols-4 gap-1">
+        <div className="col-span-4 flex justify-center">
+          <input
+            type="number"
+            value={v.top ?? ''}
+            onChange={(e) => onChange({ ...v, top: e.target.value === '' ? null : Number(e.target.value) })}
+            placeholder="T"
+            className="w-14 rounded border border-white/10 bg-black/30 px-2 py-1 text-xs text-center"
+          />
+        </div>
+        <div className="col-span-2 flex justify-end pr-2">
+          <input
+            type="number"
+            value={v.left ?? ''}
+            onChange={(e) => onChange({ ...v, left: e.target.value === '' ? null : Number(e.target.value) })}
+            placeholder="L"
+            className="w-14 rounded border border-white/10 bg-black/30 px-2 py-1 text-xs text-center"
+          />
+        </div>
+        <div className="col-span-2 flex justify-start pl-2">
+          <input
+            type="number"
+            value={v.right ?? ''}
+            onChange={(e) => onChange({ ...v, right: e.target.value === '' ? null : Number(e.target.value) })}
+            placeholder="R"
+            className="w-14 rounded border border-white/10 bg-black/30 px-2 py-1 text-xs text-center"
+          />
+        </div>
+        <div className="col-span-4 flex justify-center">
+          <input
+            type="number"
+            value={v.bottom ?? ''}
+            onChange={(e) => onChange({ ...v, bottom: e.target.value === '' ? null : Number(e.target.value) })}
+            placeholder="B"
+            className="w-14 rounded border border-white/10 bg-black/30 px-2 py-1 text-xs text-center"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LinkedBoxControl({ label, top, right, bottom, left, onChangeTop, onChangeRight, onChangeBottom, onChangeLeft }) {
+  const [linked, setLinked] = useState(false);
+  const handleChange = (setter, val) => {
+    setter(val);
+    if (linked) {
+      onChangeTop(val);
+      onChangeRight(val);
+      onChangeBottom(val);
+      onChangeLeft(val);
+    }
+  };
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="text-[11px] font-medium text-white/60 uppercase tracking-wide">{label}</div>
+        <button
+          type="button"
+          onClick={() => setLinked(!linked)}
+          className={`text-[10px] px-2 py-0.5 rounded ${linked ? 'bg-indigo-500/30 text-indigo-300' : 'bg-white/10 text-white/50'}`}
+        >
+          {linked ? '🔗 Linked' : '⛓ Link'}
+        </button>
+      </div>
+      <div className="grid grid-cols-4 gap-1.5">
+        <input
+          type="number"
+          value={top ?? ''}
+          onChange={(e) => handleChange(onChangeTop, e.target.value === '' ? null : Number(e.target.value))}
+          placeholder="↑"
+          className="rounded border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-center"
+        />
+        <input
+          type="number"
+          value={right ?? ''}
+          onChange={(e) => handleChange(onChangeRight, e.target.value === '' ? null : Number(e.target.value))}
+          placeholder="→"
+          className="rounded border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-center"
+        />
+        <input
+          type="number"
+          value={bottom ?? ''}
+          onChange={(e) => handleChange(onChangeBottom, e.target.value === '' ? null : Number(e.target.value))}
+          placeholder="↓"
+          className="rounded border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-center"
+        />
+        <input
+          type="number"
+          value={left ?? ''}
+          onChange={(e) => handleChange(onChangeLeft, e.target.value === '' ? null : Number(e.target.value))}
+          placeholder="←"
+          className="rounded border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-center"
+        />
+      </div>
+    </div>
+  );
+}
+
+function BorderControl({ border, onChange }) {
+  const b = border ?? {};
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        <SelectField
+          label="Style"
+          value={b.style ?? 'none'}
+          onChange={(v) => onChange({ ...b, style: v })}
+          options={[
+            { value: 'none', label: 'None' },
+            { value: 'solid', label: 'Solid' },
+            { value: 'dashed', label: 'Dashed' },
+            { value: 'dotted', label: 'Dotted' },
+            { value: 'double', label: 'Double' },
+          ]}
+        />
+        <NumberSliderField
+          label="Width"
+          value={b.width}
+          onChange={(v) => onChange({ ...b, width: v })}
+          min={0}
+          max={20}
+        />
+      </div>
+      <ColorPickerField
+        label="Color"
+        value={b.color ?? ''}
+        onChange={(v) => onChange({ ...b, color: v })}
+        placeholder="#ffffff"
+      />
+      <NumberSliderField
+        label="Radius"
+        value={b.radius}
+        onChange={(v) => onChange({ ...b, radius: v })}
+        min={0}
+        max={100}
+      />
+    </div>
+  );
+}
+
+function ShadowControl({ shadow, onChange }) {
+  const s = shadow ?? {};
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        <NumberSliderField label="X" value={s.x} onChange={(v) => onChange({ ...s, x: v })} min={-50} max={50} />
+        <NumberSliderField label="Y" value={s.y} onChange={(v) => onChange({ ...s, y: v })} min={-50} max={50} />
+        <NumberSliderField label="Blur" value={s.blur} onChange={(v) => onChange({ ...s, blur: v })} min={0} max={100} />
+        <NumberSliderField label="Spread" value={s.spread} onChange={(v) => onChange({ ...s, spread: v })} min={-50} max={50} />
+      </div>
+      <ColorPickerField
+        label="Color"
+        value={s.color ?? ''}
+        onChange={(v) => onChange({ ...s, color: v })}
+        placeholder="rgba(0,0,0,0.25)"
+      />
+    </div>
+  );
+}
+
+function TypographyControl({ styles, onChange }) {
+  const s = styles ?? {};
+  return (
+    <div className="space-y-3">
+      <SelectField
+        label="Font Family"
+        value={s.fontFamily ?? ''}
+        onChange={(v) => onChange({ ...s, fontFamily: v || null })}
+        options={[
+          { value: '', label: 'Default' },
+          { value: 'Inter, sans-serif', label: 'Inter' },
+          { value: 'system-ui, sans-serif', label: 'System UI' },
+          { value: 'Georgia, serif', label: 'Georgia' },
+          { value: 'Menlo, monospace', label: 'Monospace' },
+          { value: "'Playfair Display', serif", label: 'Playfair Display' },
+          { value: "'Roboto', sans-serif", label: 'Roboto' },
+          { value: "'Open Sans', sans-serif", label: 'Open Sans' },
+        ]}
+      />
+      <div className="grid grid-cols-2 gap-2">
+        <NumberSliderField
+          label="Size"
+          value={s.fontSize}
+          onChange={(v) => onChange({ ...s, fontSize: v })}
+          min={8}
+          max={120}
+        />
+        <NumberSliderField
+          label="Weight"
+          value={s.fontWeight}
+          onChange={(v) => onChange({ ...s, fontWeight: v })}
+          min={100}
+          max={900}
+          step={100}
+          unit=""
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <NumberSliderField
+          label="Line Height"
+          value={s.lineHeight}
+          onChange={(v) => onChange({ ...s, lineHeight: v })}
+          min={0.5}
+          max={3}
+          step={0.1}
+          unit="em"
+        />
+        <NumberSliderField
+          label="Letter Spacing"
+          value={s.letterSpacing}
+          onChange={(v) => onChange({ ...s, letterSpacing: v })}
+          min={-5}
+          max={20}
+          step={0.5}
+        />
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <SelectField
+          label="Align"
+          value={s.textAlign ?? 'left'}
+          onChange={(v) => onChange({ ...s, textAlign: v })}
+          options={[
+            { value: 'left', label: '◀ Left' },
+            { value: 'center', label: '◆ Center' },
+            { value: 'right', label: '▶ Right' },
+            { value: 'justify', label: '▣ Justify' },
+          ]}
+        />
+        <SelectField
+          label="Transform"
+          value={s.textTransform ?? ''}
+          onChange={(v) => onChange({ ...s, textTransform: v || null })}
+          options={[
+            { value: '', label: 'None' },
+            { value: 'uppercase', label: 'UPPER' },
+            { value: 'lowercase', label: 'lower' },
+            { value: 'capitalize', label: 'Title' },
+          ]}
+        />
+        <SelectField
+          label="Decoration"
+          value={s.textDecoration ?? ''}
+          onChange={(v) => onChange({ ...s, textDecoration: v || null })}
+          options={[
+            { value: '', label: 'None' },
+            { value: 'underline', label: 'Underline' },
+            { value: 'line-through', label: 'Strike' },
+            { value: 'overline', label: 'Overline' },
+          ]}
+        />
+      </div>
+      <ColorPickerField
+        label="Color"
+        value={s.color ?? ''}
+        onChange={(v) => onChange({ ...s, color: v || null })}
+        placeholder="#ffffff"
+      />
+    </div>
+  );
+}
+
+function LayoutControl({ styles, onChange }) {
+  const s = styles ?? {};
+  return (
+    <div className="space-y-3">
+      <SelectField
+        label="Display"
+        value={s.display ?? ''}
+        onChange={(v) => onChange({ ...s, display: v || null })}
+        options={[
+          { value: '', label: 'Default' },
+          { value: 'block', label: 'Block' },
+          { value: 'flex', label: 'Flex' },
+          { value: 'grid', label: 'Grid' },
+          { value: 'inline-block', label: 'Inline Block' },
+          { value: 'inline-flex', label: 'Inline Flex' },
+          { value: 'none', label: 'None (Hidden)' },
+        ]}
+      />
+      {(s.display === 'flex' || s.display === 'inline-flex') && (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            <SelectField
+              label="Direction"
+              value={s.flexDirection ?? 'row'}
+              onChange={(v) => onChange({ ...s, flexDirection: v })}
+              options={[
+                { value: 'row', label: '→ Row' },
+                { value: 'row-reverse', label: '← Row Reverse' },
+                { value: 'column', label: '↓ Column' },
+                { value: 'column-reverse', label: '↑ Column Reverse' },
+              ]}
+            />
+            <SelectField
+              label="Wrap"
+              value={s.flexWrap ?? 'nowrap'}
+              onChange={(v) => onChange({ ...s, flexWrap: v })}
+              options={[
+                { value: 'nowrap', label: 'No Wrap' },
+                { value: 'wrap', label: 'Wrap' },
+                { value: 'wrap-reverse', label: 'Wrap Reverse' },
+              ]}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <SelectField
+              label="Justify"
+              value={s.justifyContent ?? 'flex-start'}
+              onChange={(v) => onChange({ ...s, justifyContent: v })}
+              options={[
+                { value: 'flex-start', label: 'Start' },
+                { value: 'center', label: 'Center' },
+                { value: 'flex-end', label: 'End' },
+                { value: 'space-between', label: 'Space Between' },
+                { value: 'space-around', label: 'Space Around' },
+                { value: 'space-evenly', label: 'Space Evenly' },
+              ]}
+            />
+            <SelectField
+              label="Align Items"
+              value={s.alignItems ?? 'stretch'}
+              onChange={(v) => onChange({ ...s, alignItems: v })}
+              options={[
+                { value: 'stretch', label: 'Stretch' },
+                { value: 'flex-start', label: 'Start' },
+                { value: 'center', label: 'Center' },
+                { value: 'flex-end', label: 'End' },
+                { value: 'baseline', label: 'Baseline' },
+              ]}
+            />
+          </div>
+          <NumberSliderField
+            label="Gap"
+            value={s.gap}
+            onChange={(v) => onChange({ ...s, gap: v })}
+            min={0}
+            max={100}
+          />
+        </>
+      )}
+      {s.display === 'grid' && (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            <NumberSliderField
+              label="Columns"
+              value={s.gridColumns}
+              onChange={(v) => onChange({ ...s, gridColumns: v })}
+              min={1}
+              max={12}
+              unit=""
+            />
+            <NumberSliderField
+              label="Rows"
+              value={s.gridRows}
+              onChange={(v) => onChange({ ...s, gridRows: v })}
+              min={1}
+              max={12}
+              unit=""
+            />
+          </div>
+          <NumberSliderField
+            label="Gap"
+            value={s.gap}
+            onChange={(v) => onChange({ ...s, gap: v })}
+            min={0}
+            max={100}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+function PositionControl({ styles, onChange }) {
+  const s = styles ?? {};
+  return (
+    <div className="space-y-3">
+      <SelectField
+        label="Position"
+        value={s.position ?? ''}
+        onChange={(v) => onChange({ ...s, position: v || null })}
+        options={[
+          { value: '', label: 'Default (Static)' },
+          { value: 'relative', label: 'Relative' },
+          { value: 'absolute', label: 'Absolute' },
+          { value: 'fixed', label: 'Fixed' },
+          { value: 'sticky', label: 'Sticky' },
+        ]}
+      />
+      {s.position && s.position !== 'static' && (
+        <div className="grid grid-cols-2 gap-2">
+          <NumberSliderField label="Top" value={s.top} onChange={(v) => onChange({ ...s, top: v })} min={-500} max={500} />
+          <NumberSliderField label="Right" value={s.right} onChange={(v) => onChange({ ...s, right: v })} min={-500} max={500} />
+          <NumberSliderField label="Bottom" value={s.bottom} onChange={(v) => onChange({ ...s, bottom: v })} min={-500} max={500} />
+          <NumberSliderField label="Left" value={s.left} onChange={(v) => onChange({ ...s, left: v })} min={-500} max={500} />
+        </div>
+      )}
+      <NumberSliderField
+        label="Z-Index"
+        value={s.zIndex}
+        onChange={(v) => onChange({ ...s, zIndex: v })}
+        min={-10}
+        max={9999}
+        unit=""
+      />
+    </div>
+  );
+}
+
+function SizeControl({ styles, onChange }) {
+  const s = styles ?? {};
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        <NumberSliderField label="Width" value={s.width} onChange={(v) => onChange({ ...s, width: v })} min={0} max={1200} />
+        <NumberSliderField label="Height" value={s.height} onChange={(v) => onChange({ ...s, height: v })} min={0} max={1200} />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <NumberSliderField label="Min Width" value={s.minWidth} onChange={(v) => onChange({ ...s, minWidth: v })} min={0} max={1200} />
+        <NumberSliderField label="Min Height" value={s.minHeight} onChange={(v) => onChange({ ...s, minHeight: v })} min={0} max={1200} />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <NumberSliderField label="Max Width" value={s.maxWidth} onChange={(v) => onChange({ ...s, maxWidth: v })} min={0} max={2000} />
+        <NumberSliderField label="Max Height" value={s.maxHeight} onChange={(v) => onChange({ ...s, maxHeight: v })} min={0} max={2000} />
+      </div>
+      <SelectField
+        label="Overflow"
+        value={s.overflow ?? ''}
+        onChange={(v) => onChange({ ...s, overflow: v || null })}
+        options={[
+          { value: '', label: 'Visible' },
+          { value: 'hidden', label: 'Hidden' },
+          { value: 'scroll', label: 'Scroll' },
+          { value: 'auto', label: 'Auto' },
+        ]}
+      />
+    </div>
+  );
+}
+
+function BackgroundControl({ styles, onChange }) {
+  const s = styles ?? {};
+  return (
+    <div className="space-y-3">
+      <SelectField
+        label="Type"
+        value={s.backgroundType ?? 'color'}
+        onChange={(v) => onChange({ ...s, backgroundType: v })}
+        options={[
+          { value: 'color', label: 'Solid Color' },
+          { value: 'gradient', label: 'Gradient' },
+          { value: 'image', label: 'Image' },
+        ]}
+      />
+      {(s.backgroundType ?? 'color') === 'color' && (
+        <ColorPickerField
+          label="Background Color"
+          value={s.backgroundColor ?? ''}
+          onChange={(v) => onChange({ ...s, backgroundColor: v || null })}
+          placeholder="#000000"
+        />
+      )}
+      {s.backgroundType === 'gradient' && (
+        <>
+          <SelectField
+            label="Gradient Type"
+            value={s.gradientType ?? 'linear'}
+            onChange={(v) => onChange({ ...s, gradientType: v })}
+            options={[
+              { value: 'linear', label: 'Linear' },
+              { value: 'radial', label: 'Radial' },
+            ]}
+          />
+          <NumberSliderField
+            label="Angle"
+            value={s.gradientAngle}
+            onChange={(v) => onChange({ ...s, gradientAngle: v })}
+            min={0}
+            max={360}
+            unit="°"
+          />
+          <ColorPickerField
+            label="Start Color"
+            value={s.gradientStart ?? ''}
+            onChange={(v) => onChange({ ...s, gradientStart: v })}
+            placeholder="#000000"
+          />
+          <ColorPickerField
+            label="End Color"
+            value={s.gradientEnd ?? ''}
+            onChange={(v) => onChange({ ...s, gradientEnd: v })}
+            placeholder="#ffffff"
+          />
+        </>
+      )}
+      {s.backgroundType === 'image' && (
+        <>
+          <label className="block">
+            <div className="text-[11px] font-medium text-white/60 uppercase tracking-wide mb-1">Image URL</div>
+            <input
+              value={s.backgroundImage ?? ''}
+              onChange={(e) => onChange({ ...s, backgroundImage: e.target.value || null })}
+              className="w-full rounded-md border border-white/10 bg-black/30 px-2 py-1.5 text-xs"
+              placeholder="https://..."
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <SelectField
+              label="Size"
+              value={s.backgroundSize ?? 'cover'}
+              onChange={(v) => onChange({ ...s, backgroundSize: v })}
+              options={[
+                { value: 'cover', label: 'Cover' },
+                { value: 'contain', label: 'Contain' },
+                { value: 'auto', label: 'Auto' },
+              ]}
+            />
+            <SelectField
+              label="Position"
+              value={s.backgroundPosition ?? 'center'}
+              onChange={(v) => onChange({ ...s, backgroundPosition: v })}
+              options={[
+                { value: 'center', label: 'Center' },
+                { value: 'top', label: 'Top' },
+                { value: 'bottom', label: 'Bottom' },
+                { value: 'left', label: 'Left' },
+                { value: 'right', label: 'Right' },
+              ]}
+            />
+          </div>
+          <SelectField
+            label="Repeat"
+            value={s.backgroundRepeat ?? 'no-repeat'}
+            onChange={(v) => onChange({ ...s, backgroundRepeat: v })}
+            options={[
+              { value: 'no-repeat', label: 'No Repeat' },
+              { value: 'repeat', label: 'Repeat' },
+              { value: 'repeat-x', label: 'Repeat X' },
+              { value: 'repeat-y', label: 'Repeat Y' },
+            ]}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+function TransformControl({ styles, onChange }) {
+  const s = styles ?? {};
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        <NumberSliderField label="Rotate" value={s.rotate} onChange={(v) => onChange({ ...s, rotate: v })} min={-360} max={360} unit="°" />
+        <NumberSliderField label="Scale" value={s.scale} onChange={(v) => onChange({ ...s, scale: v })} min={0} max={3} step={0.1} unit="x" />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <NumberSliderField label="Translate X" value={s.translateX} onChange={(v) => onChange({ ...s, translateX: v })} min={-500} max={500} />
+        <NumberSliderField label="Translate Y" value={s.translateY} onChange={(v) => onChange({ ...s, translateY: v })} min={-500} max={500} />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <NumberSliderField label="Skew X" value={s.skewX} onChange={(v) => onChange({ ...s, skewX: v })} min={-45} max={45} unit="°" />
+        <NumberSliderField label="Skew Y" value={s.skewY} onChange={(v) => onChange({ ...s, skewY: v })} min={-45} max={45} unit="°" />
+      </div>
+      <NumberSliderField
+        label="Opacity"
+        value={s.opacity != null ? s.opacity * 100 : 100}
+        onChange={(v) => onChange({ ...s, opacity: v / 100 })}
+        min={0}
+        max={100}
+        unit="%"
+      />
+    </div>
+  );
+}
+
+function EffectsControl({ styles, onChange }) {
+  const s = styles ?? {};
+  return (
+    <div className="space-y-3">
+      <SelectField
+        label="Cursor"
+        value={s.cursor ?? ''}
+        onChange={(v) => onChange({ ...s, cursor: v || null })}
+        options={[
+          { value: '', label: 'Default' },
+          { value: 'pointer', label: 'Pointer' },
+          { value: 'grab', label: 'Grab' },
+          { value: 'crosshair', label: 'Crosshair' },
+          { value: 'not-allowed', label: 'Not Allowed' },
+          { value: 'zoom-in', label: 'Zoom In' },
+        ]}
+      />
+      <SelectField
+        label="Mix Blend Mode"
+        value={s.mixBlendMode ?? ''}
+        onChange={(v) => onChange({ ...s, mixBlendMode: v || null })}
+        options={[
+          { value: '', label: 'Normal' },
+          { value: 'multiply', label: 'Multiply' },
+          { value: 'screen', label: 'Screen' },
+          { value: 'overlay', label: 'Overlay' },
+          { value: 'darken', label: 'Darken' },
+          { value: 'lighten', label: 'Lighten' },
+          { value: 'color-dodge', label: 'Color Dodge' },
+          { value: 'difference', label: 'Difference' },
+        ]}
+      />
+      <NumberSliderField
+        label="Blur Filter"
+        value={s.filterBlur}
+        onChange={(v) => onChange({ ...s, filterBlur: v })}
+        min={0}
+        max={50}
+      />
+      <NumberSliderField
+        label="Brightness"
+        value={s.filterBrightness != null ? s.filterBrightness * 100 : 100}
+        onChange={(v) => onChange({ ...s, filterBrightness: v / 100 })}
+        min={0}
+        max={200}
+        unit="%"
+      />
+      <NumberSliderField
+        label="Contrast"
+        value={s.filterContrast != null ? s.filterContrast * 100 : 100}
+        onChange={(v) => onChange({ ...s, filterContrast: v / 100 })}
+        min={0}
+        max={200}
+        unit="%"
+      />
+      <NumberSliderField
+        label="Saturate"
+        value={s.filterSaturate != null ? s.filterSaturate * 100 : 100}
+        onChange={(v) => onChange({ ...s, filterSaturate: v / 100 })}
+        min={0}
+        max={200}
+        unit="%"
+      />
+    </div>
+  );
+}
+
 function TextInput({ label, value, onChange, placeholder }) {
   return (
     <label className="block">
-      <div className="text-sm text-white/70">{label}</div>
+      <div className="text-[11px] font-medium text-white/60 uppercase tracking-wide mb-1">{label}</div>
       <input
         value={value ?? ''}
         placeholder={placeholder}
@@ -94,6 +846,706 @@ function randomId() {
     return globalThis.crypto.randomUUID();
   }
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function deepClone(value) {
+  return value == null ? value : JSON.parse(JSON.stringify(value));
+}
+
+function collectWidgetNodes(builder) {
+  const out = [];
+  const root = builder?.root;
+  if (!root) return out;
+
+  function walk(node) {
+    if (!node) return;
+    if (node.type === 'WIDGET') out.push(node);
+    const children = Array.isArray(node.children) ? node.children : [];
+    for (const ch of children) walk(ch);
+  }
+
+  walk(root);
+  return out;
+}
+
+function collectWidgetNodesInRenderOrder(builder) {
+  const b = ensureBuilderHasColumn(builder);
+  const root = b?.root;
+  if (!root) return [];
+
+  const out = [];
+  const sections = (root.children ?? []).filter((n) => n?.type === 'SECTION');
+
+  if (!sections.length) {
+    return collectWidgetNodes(b);
+  }
+
+  for (const section of sections) {
+    const sectionChildren = section?.children ?? [];
+    const containers = sectionChildren.filter((n) => n?.type === 'CONTAINER');
+    const effectiveContainers = containers.length ? containers : [null];
+
+    for (const container of effectiveContainers) {
+      const containerChildren = container ? container.children ?? [] : sectionChildren;
+      const columns = containerChildren.filter((n) => n?.type === 'COLUMN');
+
+      if (!columns.length) {
+        for (const n of containerChildren) {
+          if (n?.type === 'WIDGET') out.push(n);
+        }
+        continue;
+      }
+
+      for (const col of columns) {
+        const widgets = (col?.children ?? []).filter((n) => n?.type === 'WIDGET');
+        for (const w of widgets) out.push(w);
+      }
+    }
+  }
+
+  return out;
+}
+
+function findFirstColumnNode(builder) {
+  const root = builder?.root;
+  if (!root) return null;
+
+  let found = null;
+  function walk(node) {
+    if (!node || found) return;
+    if (node.type === 'COLUMN') {
+      found = node;
+      return;
+    }
+    const children = Array.isArray(node.children) ? node.children : [];
+    for (const ch of children) walk(ch);
+  }
+  walk(root);
+  return found;
+}
+
+function findNodePathById(builder, nodeId) {
+  const b = ensureBuilderHasColumn(builder);
+  const root = b?.root;
+  if (!root || !nodeId) return [];
+
+  let out = [];
+  function walk(node, stack) {
+    if (!node || out.length) return;
+    const nextStack = [...(stack ?? []), node];
+    if (node.id === nodeId) {
+      out = nextStack;
+      return;
+    }
+    const children = Array.isArray(node.children) ? node.children : [];
+    for (const ch of children) walk(ch, nextStack);
+  }
+  walk(root, []);
+  return out;
+}
+
+function deriveHierarchyFromWidgetId(builder, widgetId) {
+  const path = findNodePathById(builder, widgetId);
+  if (!path.length) return { section: null, container: null, column: null, columnIndex: 0 };
+
+  const section = [...path].reverse().find((n) => n?.type === 'SECTION') ?? null;
+  const container = [...path].reverse().find((n) => n?.type === 'CONTAINER') ?? null;
+  const column = [...path].reverse().find((n) => n?.type === 'COLUMN') ?? null;
+
+  const columns = container ? (container.children ?? []).filter((c) => c?.type === 'COLUMN') : [];
+  const columnIndex = column ? Math.max(0, columns.findIndex((c) => c?.id === column.id)) : 0;
+
+  return { section, container, column, columnIndex };
+}
+
+function removeWidgetById(builder, widgetId) {
+  const b = ensureBuilderHasColumn(builder);
+  const path = findNodePathById(b, widgetId);
+  if (!path.length) return b;
+  const parent = path.length >= 2 ? path[path.length - 2] : null;
+  if (!parent || parent.type !== 'COLUMN') return b;
+  const children = Array.isArray(parent.children) ? [...parent.children] : [];
+  const idx = children.findIndex((n) => n?.type === 'WIDGET' && n?.id === widgetId);
+  if (idx < 0) return b;
+  children.splice(idx, 1);
+  parent.children = children;
+  return b;
+}
+
+function insertSectionAt(builder, index) {
+  const b = ensureBuilderHasColumn(builder);
+  const root = b?.root;
+  if (!root) return b;
+
+  const nextSection = {
+    id: randomId(),
+    type: 'SECTION',
+    props: {},
+    style: {},
+    responsive: {},
+    children: [
+      {
+        id: randomId(),
+        type: 'CONTAINER',
+        props: { width: 'boxed' },
+        style: {},
+        responsive: {},
+        children: [
+          {
+            id: randomId(),
+            type: 'COLUMN',
+            props: { width: 12 },
+            style: {},
+            responsive: {},
+            children: [],
+          },
+        ],
+      },
+    ],
+  };
+
+  const children = Array.isArray(root.children) ? [...root.children] : [];
+  const insertionIndex = Math.max(0, Math.min(Number(index) || 0, children.length));
+  children.splice(insertionIndex, 0, nextSection);
+  root.children = children;
+  return { builder: b, sectionId: nextSection.id };
+}
+
+function insertContainerIntoSection(builder, sectionId) {
+  const b = ensureBuilderHasColumn(builder);
+  const section = sectionId ? findAnyNodeById(b, sectionId) : findFirstSectionNode(b);
+  if (!section || section.type !== 'SECTION') return { builder: b, containerId: null };
+
+  const nextContainer = {
+    id: randomId(),
+    type: 'CONTAINER',
+    props: { width: 'boxed' },
+    style: {},
+    responsive: {},
+    children: [
+      {
+        id: randomId(),
+        type: 'COLUMN',
+        props: { width: 12 },
+        style: {},
+        responsive: {},
+        children: [],
+      },
+    ],
+  };
+
+  const children = Array.isArray(section.children) ? [...section.children] : [];
+  children.push(nextContainer);
+  section.children = children;
+  return { builder: b, containerId: nextContainer.id };
+}
+
+function applyTwoColumnsToContainer(builder, containerId, preset = '50-50') {
+  const b = ensureBuilderHasColumn(builder);
+  const container = containerId ? findAnyNodeById(b, containerId) : findFirstContainerNode(b);
+  if (!container || container.type !== 'CONTAINER') return b;
+
+  const widths =
+    preset === '66-33'
+      ? [8, 4]
+      : preset === '33-66'
+        ? [4, 8]
+        : preset === '75-25'
+          ? [9, 3]
+          : preset === '25-75'
+            ? [3, 9]
+            : [6, 6];
+
+  const existingCols = (container.children ?? []).filter((c) => c?.type === 'COLUMN');
+  if (existingCols.length >= 2) {
+    existingCols[0].props = { ...(existingCols[0].props ?? {}), width: widths[0] };
+    existingCols[1].props = { ...(existingCols[1].props ?? {}), width: widths[1] };
+    return b;
+  }
+
+  const first = existingCols[0] ?? {
+    id: randomId(),
+    type: 'COLUMN',
+    props: { width: widths[0] },
+    style: {},
+    responsive: {},
+    children: [],
+  };
+  first.props = { ...(first.props ?? {}), width: widths[0] };
+
+  const second = {
+    id: randomId(),
+    type: 'COLUMN',
+    props: { width: widths[1] },
+    style: {},
+    responsive: {},
+    children: [],
+  };
+
+  container.children = [first, second];
+  return b;
+}
+
+function duplicateWidgetById(builder, widgetId) {
+  const b = ensureBuilderHasColumn(builder);
+  const src = findAnyNodeById(b, widgetId);
+  if (!src || src.type !== 'WIDGET') return b;
+  const path = findNodePathById(b, widgetId);
+  if (!path.length) return b;
+  const parent = path.length >= 2 ? path[path.length - 2] : null;
+  if (!parent || parent.type !== 'COLUMN') return b;
+  const children = Array.isArray(parent.children) ? [...parent.children] : [];
+  const idx = children.findIndex((n) => n?.type === 'WIDGET' && n?.id === widgetId);
+  if (idx < 0) return b;
+  children.splice(idx + 1, 0, {
+    id: randomId(),
+    type: 'WIDGET',
+    widgetType: src.widgetType,
+    props: deepClone(src.props ?? {}),
+    style: deepClone(src.style ?? {}),
+    responsive: {},
+    children: [],
+  });
+  parent.children = children;
+  return b;
+}
+
+function findFirstSectionNode(builder) {
+  const root = builder?.root;
+  if (!root) return null;
+
+  let found = null;
+  function walk(node) {
+    if (!node || found) return;
+    if (node.type === 'SECTION') {
+      found = node;
+      return;
+    }
+    const children = Array.isArray(node.children) ? node.children : [];
+    for (const ch of children) walk(ch);
+  }
+  walk(root);
+  return found;
+}
+
+function getSectionContainerColumns(builder) {
+  const b = ensureBuilderHasColumn(builder);
+  const section = findFirstSectionNode(b);
+  const container = findFirstContainerNode(b);
+  const cols = container ? (container.children ?? []).filter((c) => c?.type === 'COLUMN') : [];
+  return { builder: b, section, container, columns: cols };
+}
+
+function findFirstContainerNode(builder) {
+  const root = builder?.root;
+  if (!root) return null;
+
+  let found = null;
+  function walk(node) {
+    if (!node || found) return;
+    if (node.type === 'CONTAINER') {
+      found = node;
+      return;
+    }
+    const children = Array.isArray(node.children) ? node.children : [];
+    for (const ch of children) walk(ch);
+  }
+  walk(root);
+  return found;
+}
+
+function getColumns(builder) {
+  const b = ensureBuilderHasColumn(builder);
+  const container = findFirstContainerNode(b);
+  if (!container) return { builder: b, columns: [] };
+  const cols = (container.children ?? []).filter((c) => c?.type === 'COLUMN');
+  return { builder: b, columns: cols };
+}
+
+function ensureTwoColumns(builder, preset = '50-50') {
+  const b = ensureBuilderHasColumn(builder);
+  const container = findFirstContainerNode(b);
+  if (!container) return b;
+
+  const existingCols = (container.children ?? []).filter((c) => c?.type === 'COLUMN');
+  if (existingCols.length >= 2) {
+    const [a, c] = existingCols;
+    const widths = preset === '66-33' ? [8, 4] : preset === '33-66' ? [4, 8] : preset === '75-25' ? [9, 3] : preset === '25-75' ? [3, 9] : [6, 6];
+    a.props = { ...(a.props ?? {}), width: widths[0] };
+    c.props = { ...(c.props ?? {}), width: widths[1] };
+    return b;
+  }
+
+  const col = existingCols[0] ?? findFirstColumnNode(b);
+  if (!col) return b;
+
+  const widths = preset === '66-33' ? [8, 4] : preset === '33-66' ? [4, 8] : preset === '75-25' ? [9, 3] : preset === '25-75' ? [3, 9] : [6, 6];
+  col.props = { ...(col.props ?? {}), width: widths[0] };
+
+  const second = {
+    id: randomId(),
+    type: 'COLUMN',
+    props: { width: widths[1] },
+    style: {},
+    responsive: {},
+    children: [],
+  };
+
+  const children = Array.isArray(container.children) ? [...container.children] : [];
+  const idx = children.findIndex((c) => c?.id === col.id);
+  if (idx >= 0) {
+    children.splice(idx + 1, 0, second);
+  } else {
+    children.push(second);
+  }
+  container.children = children;
+  return b;
+}
+
+function collectWidgetNodesForColumn(builder, columnIndex) {
+  const { builder: b, columns } = getColumns(builder);
+  const col = columns?.[columnIndex] ?? null;
+  const widgets = (col?.children ?? []).filter((n) => n?.type === 'WIDGET');
+  return { builder: b, widgets };
+}
+
+function insertWidgetIntoColumn(builder, columnIndex, index, widgetType, props, style) {
+  const b = ensureBuilderHasColumn(builder);
+  const container = findFirstContainerNode(b);
+  if (!container) return b;
+  const cols = (container.children ?? []).filter((c) => c?.type === 'COLUMN');
+  const col = cols?.[columnIndex] ?? cols?.[0] ?? null;
+  if (!col) return b;
+
+  const children = Array.isArray(col.children) ? [...col.children] : [];
+  const insertionIndex = Math.max(0, Math.min(Number(index), children.length));
+  children.splice(insertionIndex, 0, {
+    id: randomId(),
+    type: 'WIDGET',
+    widgetType,
+    props: props ?? {},
+    style: style ?? {},
+    responsive: {},
+    children: [],
+  });
+  col.children = children;
+  return b;
+}
+
+function removeWidgetFromColumn(builder, columnIndex, index) {
+  const b = ensureBuilderHasColumn(builder);
+  const container = findFirstContainerNode(b);
+  if (!container) return b;
+  const cols = (container.children ?? []).filter((c) => c?.type === 'COLUMN');
+  const col = cols?.[columnIndex] ?? cols?.[0] ?? null;
+  if (!col) return b;
+
+  const children = Array.isArray(col.children) ? [...col.children] : [];
+  const i = Number(index);
+  if (!Number.isFinite(i) || i < 0 || i >= children.length) return b;
+  children.splice(i, 1);
+  col.children = children;
+  return b;
+}
+
+function moveWidgetBetweenColumns(builder, widgetId, toColumnIndex, toIndex) {
+  const b = ensureBuilderHasColumn(builder);
+  const container = findFirstContainerNode(b);
+  if (!container) return b;
+  const cols = (container.children ?? []).filter((c) => c?.type === 'COLUMN');
+  if (!cols.length) return b;
+
+  let fromColIndex = -1;
+  let fromIdx = -1;
+  for (let ci = 0; ci < cols.length; ci++) {
+    const ch = Array.isArray(cols[ci].children) ? cols[ci].children : [];
+    const idx = ch.findIndex((n) => n?.id === widgetId);
+    if (idx >= 0) {
+      fromColIndex = ci;
+      fromIdx = idx;
+      break;
+    }
+  }
+  if (fromColIndex < 0) return b;
+
+  const targetCol = cols[toColumnIndex] ?? cols[0];
+  const sourceCol = cols[fromColIndex];
+  const srcChildren = Array.isArray(sourceCol.children) ? [...sourceCol.children] : [];
+  const [moved] = srcChildren.splice(fromIdx, 1);
+  sourceCol.children = srcChildren;
+
+  const dstChildren = Array.isArray(targetCol.children) ? [...targetCol.children] : [];
+  let insertAt = Math.max(0, Math.min(Number(toIndex), dstChildren.length));
+  if (fromColIndex === toColumnIndex && fromIdx < insertAt) {
+    insertAt = Math.max(0, insertAt - 1);
+  }
+  dstChildren.splice(insertAt, 0, moved);
+  targetCol.children = dstChildren;
+  return b;
+}
+
+function reorderWidgetsInColumn(builder, columnIndex, fromIndex, toIndex) {
+  const b = ensureBuilderHasColumn(builder);
+  const container = findFirstContainerNode(b);
+  if (!container) return b;
+  const cols = (container.children ?? []).filter((c) => c?.type === 'COLUMN');
+  const col = cols?.[columnIndex] ?? cols?.[0] ?? null;
+  if (!col) return b;
+  const children = Array.isArray(col.children) ? [...col.children] : [];
+  if (fromIndex < 0 || fromIndex >= children.length) return b;
+  if (toIndex < 0 || toIndex >= children.length) return b;
+  const [moved] = children.splice(fromIndex, 1);
+  children.splice(toIndex, 0, moved);
+  col.children = children;
+  return b;
+}
+
+function ensureBuilderHasColumn(builder) {
+  const b = deepClone(builder ?? null);
+  if (b?.root) {
+    const existing = findFirstColumnNode(b);
+    if (existing) return b;
+  }
+
+  const makeId = () => randomId();
+  const sectionId = makeId();
+  const containerId = makeId();
+  const columnId = makeId();
+
+  return {
+    version: 1,
+    root: {
+      id: makeId(),
+      type: 'ROOT',
+      children: [
+        {
+          id: sectionId,
+          type: 'SECTION',
+          props: {},
+          style: {},
+          responsive: {},
+          children: [
+            {
+              id: containerId,
+              type: 'CONTAINER',
+              props: { width: 'boxed' },
+              style: {},
+              responsive: {},
+              children: [
+                {
+                  id: columnId,
+                  type: 'COLUMN',
+                  props: { width: 12 },
+                  style: {},
+                  responsive: {},
+                  children: [],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  };
+}
+
+function widgetNodesToFlatComponents(widgetNodes) {
+  return (widgetNodes ?? []).map((n, idx) => ({
+    id: n.id,
+    type: n.widgetType,
+    orderIndex: idx,
+    props: n.props ?? {},
+    styles: n.style ?? {},
+    __cid: n.id,
+  }));
+}
+
+function ElementsGroup({ title, icon, count, open, onToggle, children }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-black/10">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full px-3 py-2 flex items-center justify-between hover:bg-white/5"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="h-7 w-7 grid place-items-center rounded-lg border border-white/10 bg-black/20 text-sm">{icon}</div>
+          <div className="min-w-0">
+            <div className="text-xs font-semibold truncate">{title}</div>
+            <div className="text-[11px] text-white/50">{count} items</div>
+          </div>
+        </div>
+        <div className="text-white/60 text-xs">{open ? '▾' : '▸'}</div>
+      </button>
+      {open ? <div className="p-3 pt-2">{children}</div> : null}
+    </div>
+  );
+}
+
+function NavigatorRow({ depth = 0, icon, title, subtitle, active, onClick, actions, hasChildren, expanded, onToggle, onContextMenu }) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onContextMenu={onContextMenu}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') onClick?.(e);
+      }}
+      className={
+        `group flex items-center justify-between gap-1 rounded-lg px-2 py-1.5 text-xs transition-all ${
+          active ? 'bg-indigo-500/20 ring-1 ring-indigo-500/30 text-indigo-200' : 'hover:bg-white/10'
+        }`
+      }
+      style={{ paddingLeft: 8 + depth * 16 }}
+    >
+      <div className="flex items-center gap-1.5 min-w-0">
+        {hasChildren ? (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onToggle?.(); }}
+            className="h-4 w-4 grid place-items-center text-white/40 hover:text-white/70 transition"
+          >
+            {expanded ? '▾' : '▸'}
+          </button>
+        ) : (
+          <div className="w-4" />
+        )}
+        <div className={`h-6 w-6 grid place-items-center rounded-md border text-[11px] transition ${
+          active ? 'border-indigo-500/40 bg-indigo-500/20' : 'border-white/10 bg-black/20'
+        }`}>
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <div className="truncate font-medium text-[11px]">{title}</div>
+        </div>
+      </div>
+      <div className="opacity-0 group-hover:opacity-100 transition flex items-center gap-0.5">{actions}</div>
+    </div>
+  );
+}
+
+function NavigatorActionButton({ icon, title, onClick, variant = 'default' }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+      title={title}
+      className={`h-5 w-5 grid place-items-center rounded text-[10px] transition ${
+        variant === 'danger' 
+          ? 'hover:bg-red-500/30 hover:text-red-300' 
+          : 'hover:bg-white/20'
+      }`}
+    >
+      {icon}
+    </button>
+  );
+}
+
+function updateWidgetNodeById(builder, widgetId, mutator) {
+  const b = ensureBuilderHasColumn(builder);
+  function walk(node) {
+    if (!node) return;
+    if (node.type === 'WIDGET' && node.id === widgetId) {
+      mutator(node);
+      return true;
+    }
+    const children = Array.isArray(node.children) ? node.children : [];
+    for (const ch of children) {
+      if (walk(ch)) return true;
+    }
+    return false;
+  }
+  walk(b.root);
+  return b;
+}
+
+function findAnyNodeById(builder, nodeId) {
+  const b = ensureBuilderHasColumn(builder);
+  let found = null;
+  function walk(node) {
+    if (!node || found) return;
+    if (node.id === nodeId) {
+      found = node;
+      return;
+    }
+    const children = Array.isArray(node.children) ? node.children : [];
+    for (const ch of children) walk(ch);
+  }
+  walk(b.root);
+  return found;
+}
+
+function updateAnyNodeById(builder, nodeId, mutator) {
+  const b = ensureBuilderHasColumn(builder);
+  function walk(node) {
+    if (!node) return false;
+    if (node.id === nodeId) {
+      mutator(node);
+      return true;
+    }
+    const children = Array.isArray(node.children) ? node.children : [];
+    for (const ch of children) {
+      if (walk(ch)) return true;
+    }
+    return false;
+  }
+  walk(b.root);
+  return b;
+}
+
+function updateWidgetPropsAtIndex(builder, componentIndex, patch) {
+  const b = ensureBuilderHasColumn(builder);
+  const widgets = collectWidgetNodesInRenderOrder(b);
+  const widget = widgets?.[Number(componentIndex)];
+  if (!widget) return b;
+  return updateWidgetNodeById(b, widget.id, (node) => {
+    node.props = { ...(node.props ?? {}), ...(patch ?? {}) };
+  });
+}
+
+function reorderWidgetsInFirstColumn(builder, fromIndex, toIndex) {
+  const b = ensureBuilderHasColumn(builder);
+  const col = findFirstColumnNode(b);
+  if (!col) return b;
+  const children = Array.isArray(col.children) ? [...col.children] : [];
+  if (fromIndex < 0 || fromIndex >= children.length) return b;
+  if (toIndex < 0 || toIndex >= children.length) return b;
+  const [moved] = children.splice(fromIndex, 1);
+  children.splice(toIndex, 0, moved);
+  col.children = children;
+  return b;
+}
+
+function insertWidgetIntoFirstColumn(builder, index, widgetType, props, style) {
+  const b = ensureBuilderHasColumn(builder);
+  const col = findFirstColumnNode(b);
+  if (!col) return b;
+  const children = Array.isArray(col.children) ? [...col.children] : [];
+  const insertionIndex = Math.max(0, Math.min(Number(index), children.length));
+  children.splice(insertionIndex, 0, {
+    id: randomId(),
+    type: 'WIDGET',
+    widgetType,
+    props: props ?? {},
+    style: style ?? {},
+    responsive: {},
+    children: [],
+  });
+  col.children = children;
+  return b;
+}
+
+function removeWidgetFromFirstColumn(builder, index) {
+  const b = ensureBuilderHasColumn(builder);
+  const col = findFirstColumnNode(b);
+  if (!col) return b;
+  const children = Array.isArray(col.children) ? [...col.children] : [];
+  const i = Number(index);
+  if (!Number.isFinite(i) || i < 0 || i >= children.length) return b;
+  children.splice(i, 1);
+  col.children = children;
+  return b;
 }
 
 function ensureClientIds(nextPages) {
@@ -168,7 +1620,7 @@ function SortableLayerItem({ id, active, indexLabel, title, onSelect, onDuplicat
   );
 }
 
-function PaletteDraggable({ type, onClick }) {
+function PaletteDraggable({ type, label, icon, desc, onClick }) {
   const id = `new:${type}`;
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id });
 
@@ -176,15 +1628,122 @@ function PaletteDraggable({ type, onClick }) {
     <div
       ref={setNodeRef}
       onClick={onClick}
-      className={`select-none rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs font-medium text-white/80 ${
-        isDragging ? 'opacity-60' : ''
+      className={`group select-none rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-xs font-medium text-white/85 hover:bg-indigo-500/10 hover:border-indigo-500/30 transition-all cursor-grab active:cursor-grabbing ${
+        isDragging ? 'opacity-60 scale-95' : ''
       }`}
       {...attributes}
       {...listeners}
     >
-      {type}
+      <div className="flex items-center gap-2.5">
+        <div className="h-9 w-9 rounded-lg border border-white/10 bg-gradient-to-br from-white/5 to-black/20 grid place-items-center text-base group-hover:border-indigo-500/30 group-hover:from-indigo-500/10 transition-all">
+          {icon ?? '▦'}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-xs font-semibold group-hover:text-indigo-200 transition-colors">{label ?? type}</div>
+          <div className="truncate text-[10px] text-white/40">{desc ?? type}</div>
+        </div>
+      </div>
     </div>
   );
+}
+
+function typeMeta(type) {
+  const map = {
+    // Structure
+    SECTION: { label: 'Section', icon: '▭', desc: 'Full-width container' },
+    CONTAINER: { label: 'Container', icon: '▢', desc: 'Content wrapper' },
+    COLUMNS: { label: 'Columns', icon: '▦', desc: 'Multi-column layout' },
+    // Basic Elements
+    HEADING: { label: 'Heading', icon: 'T', desc: 'Title text' },
+    TEXT: { label: 'Text', icon: '≡', desc: 'Paragraph text' },
+    BUTTON: { label: 'Button', icon: '⏺', desc: 'Call to action' },
+    DIVIDER: { label: 'Divider', icon: '—', desc: 'Horizontal line' },
+    SPACER: { label: 'Spacer', icon: '↕', desc: 'Vertical space' },
+    ICON: { label: 'Icon', icon: '◆', desc: 'Single icon' },
+    ICON_BOX: { label: 'Icon Box', icon: '◈', desc: 'Icon with text' },
+    STAR_RATING: { label: 'Star Rating', icon: '★', desc: 'Rating stars' },
+    // Media
+    IMAGE: { label: 'Image', icon: '▣', desc: 'Single image' },
+    GALLERY: { label: 'Gallery', icon: '▥', desc: 'Image gallery' },
+    VIDEO: { label: 'Video', icon: '▶', desc: 'Video embed' },
+    ICON_LIST: { label: 'Icon List', icon: '☰', desc: 'List with icons' },
+    IMAGE_BOX: { label: 'Image Box', icon: '▤', desc: 'Image with overlay' },
+    // Navigation
+    NAVBAR: { label: 'Navbar', icon: '≣', desc: 'Navigation bar' },
+    ADVANCED_NAVBAR: { label: 'Navbar Pro', icon: '≣', desc: 'Advanced navbar' },
+    MENU: { label: 'Menu', icon: '☰', desc: 'Navigation menu' },
+    BREADCRUMBS: { label: 'Breadcrumbs', icon: '›', desc: 'Page path' },
+    // Hero & Headers
+    HERO: { label: 'Hero', icon: '★', desc: 'Hero section' },
+    PAGE_HEADER: { label: 'Page Header', icon: '▔', desc: 'Page title area' },
+    CALL_TO_ACTION: { label: 'CTA', icon: '◉', desc: 'Call to action' },
+    // Content Blocks
+    FEATURES: { label: 'Features', icon: '✓', desc: 'Feature list' },
+    CONTENT: { label: 'Content', icon: '▤', desc: 'Content block' },
+    CARDS: { label: 'Cards', icon: '▦', desc: 'Card grid' },
+    ICON_CARDS: { label: 'Icon Cards', icon: '◈', desc: 'Cards with icons' },
+    TEAM: { label: 'Team', icon: '👥', desc: 'Team members' },
+    ABOUT: { label: 'About', icon: 'ℹ', desc: 'About section' },
+    // Social Proof
+    TESTIMONIALS: { label: 'Testimonials', icon: '💬', desc: 'Customer quotes' },
+    LOGO_CLOUD: { label: 'Logo Cloud', icon: '☁', desc: 'Partner logos' },
+    REVIEWS: { label: 'Reviews', icon: '★', desc: 'Customer reviews' },
+    COUNTER: { label: 'Counter', icon: '#', desc: 'Animated number' },
+    STATS_CTA: { label: 'Stats CTA', icon: '📊', desc: 'Stats with CTA' },
+    // Products & Commerce
+    PRODUCT_GRID: { label: 'Products', icon: '▦', desc: 'Product grid' },
+    FILTER_TABS: { label: 'Filter Tabs', icon: '⊟', desc: 'Filterable grid' },
+    PRICING: { label: 'Pricing', icon: '$', desc: 'Pricing table' },
+    PRICE_TABLE: { label: 'Price Table', icon: '💰', desc: 'Price comparison' },
+    // Interactive
+    FAQ: { label: 'FAQ', icon: '?', desc: 'FAQ accordion' },
+    ACCORDION: { label: 'Accordion', icon: '▼', desc: 'Collapsible content' },
+    TABS: { label: 'Tabs', icon: '⊡', desc: 'Tabbed content' },
+    TOGGLE: { label: 'Toggle', icon: '◐', desc: 'Toggle switch' },
+    // Carousels
+    FEATURE_CAROUSEL: { label: 'Feature Slider', icon: '⇆', desc: 'Feature carousel' },
+    MULTI_ROW_CAROUSEL: { label: 'Carousel', icon: '⇆', desc: 'Multi-row slider' },
+    TESTIMONIAL_SLIDER: { label: 'Testimonial Slider', icon: '⇄', desc: 'Quote carousel' },
+    IMAGE_CAROUSEL: { label: 'Image Slider', icon: '⇌', desc: 'Image carousel' },
+    // Forms
+    CONTACT_FORM: { label: 'Contact Form', icon: '✉', desc: 'Contact form' },
+    NEWSLETTER: { label: 'Newsletter', icon: '📧', desc: 'Email signup' },
+    SEARCH_BOX: { label: 'Search', icon: '🔍', desc: 'Search input' },
+    // Footer
+    FOOTER: { label: 'Footer', icon: '▁', desc: 'Page footer' },
+    FOOTER_LINKS: { label: 'Footer Links', icon: '▁', desc: 'Footer navigation' },
+    SOCIAL_ICONS: { label: 'Social Icons', icon: '◎', desc: 'Social media links' },
+    COPYRIGHT: { label: 'Copyright', icon: '©', desc: 'Copyright text' },
+  };
+  return map[type] ?? { label: type, icon: '▦', desc: 'Widget' };
+}
+
+function buildHierarchyTree(builder) {
+  const b = ensureBuilderHasColumn(builder);
+  const root = b?.root;
+  if (!root) return [];
+
+  const sections = (root.children ?? []).filter((n) => n?.type === 'SECTION');
+  if (!sections.length) return [];
+
+  return sections.map((s) => ({
+    id: s.id,
+    type: 'SECTION',
+    children: (s.children ?? []).filter((n) => n?.type === 'CONTAINER').map((c) => ({
+      id: c.id,
+      type: 'CONTAINER',
+      children: (c.children ?? []).filter((n) => n?.type === 'COLUMN').map((col) => ({
+        id: col.id,
+        type: 'COLUMN',
+        children: (col.children ?? []).filter((n) => n?.type === 'WIDGET').map((w) => ({
+          id: w.id,
+          type: 'WIDGET',
+          widgetType: w.widgetType,
+          children: [],
+        })),
+      })),
+    })),
+  }));
 }
 
 function defaultPropsForType(type) {
@@ -212,6 +1771,18 @@ function defaultPropsForType(type) {
       return { items: [{ title: 'Feature', text: 'Describe value' }] };
     case 'CONTENT':
       return { title: 'Section title', paragraphs: ['Your paragraph here.'] };
+    case 'HEADING':
+      return { text: 'Heading', level: 2, align: 'left' };
+    case 'TEXT':
+      return { text: 'Text', align: 'left' };
+    case 'BUTTON':
+      return { label: 'Button', href: '#', align: 'left' };
+    case 'DIVIDER':
+      return { thickness: 1 };
+    case 'SPACER':
+      return { height: 24 };
+    case 'IMAGE':
+      return { src: '', alt: 'Image', fit: 'cover' };
     case 'LOGO_CLOUD':
       return {
         label: 'Trusted by',
@@ -438,6 +2009,57 @@ function defaultPropsForType(type) {
           { value: 'Versioned', label: 'safe edits' },
         ],
       };
+    // New component types
+    case 'ICON':
+      return { icon: '★', size: 48 };
+    case 'ICON_BOX':
+      return { icon: '★', title: 'Icon Box Title', text: 'Description text goes here', align: 'center' };
+    case 'STAR_RATING':
+      return { rating: 4, maxRating: 5, size: 24 };
+    case 'VIDEO':
+      return { url: 'https://www.youtube.com/embed/dQw4w9WgXcQ', aspectRatio: '16:9' };
+    case 'ICON_LIST':
+      return { items: [{ icon: '✓', text: 'List item one' }, { icon: '✓', text: 'List item two' }, { icon: '✓', text: 'List item three' }] };
+    case 'IMAGE_BOX':
+      return { src: '', title: 'Image Title', text: 'Image description', overlay: true };
+    case 'MENU':
+      return { items: [{ label: 'Home', href: '/' }, { label: 'About', href: '/about' }, { label: 'Contact', href: '/contact' }] };
+    case 'BREADCRUMBS':
+      return { items: [{ label: 'Home', href: '/' }, { label: 'Page', href: '#' }], separator: '/' };
+    case 'PAGE_HEADER':
+      return { title: 'Page Title', subtitle: 'Page subtitle or description', backgroundImage: '' };
+    case 'CALL_TO_ACTION':
+      return { headline: 'Ready to get started?', text: 'Join thousands of satisfied customers today.', primaryCta: { label: 'Get Started', href: '/contact' }, secondaryCta: { label: 'Learn More', href: '/about' } };
+    case 'ICON_CARDS':
+      return { cards: [{ icon: '★', title: 'Card One', text: 'Description' }, { icon: '◆', title: 'Card Two', text: 'Description' }, { icon: '●', title: 'Card Three', text: 'Description' }] };
+    case 'TEAM':
+      return { headline: 'Meet our team', members: [{ name: 'John Doe', role: 'CEO', image: '', bio: 'Short bio' }, { name: 'Jane Smith', role: 'CTO', image: '', bio: 'Short bio' }] };
+    case 'ABOUT':
+      return { headline: 'About Us', text: 'We are a company dedicated to excellence.', image: '' };
+    case 'REVIEWS':
+      return { headline: 'Customer Reviews', items: [{ name: 'Customer', rating: 5, text: 'Great product!' }] };
+    case 'COUNTER':
+      return { value: 1000, suffix: '+', label: 'Happy Customers', duration: 2 };
+    case 'PRICE_TABLE':
+      return { plans: [{ name: 'Basic', price: '$9', features: ['Feature 1', 'Feature 2'] }, { name: 'Pro', price: '$29', features: ['Feature 1', 'Feature 2', 'Feature 3'] }] };
+    case 'ACCORDION':
+      return { items: [{ title: 'Section 1', content: 'Content for section 1' }, { title: 'Section 2', content: 'Content for section 2' }] };
+    case 'TABS':
+      return { tabs: [{ label: 'Tab 1', content: 'Content for tab 1' }, { label: 'Tab 2', content: 'Content for tab 2' }] };
+    case 'TOGGLE':
+      return { label: 'Toggle option', defaultChecked: false };
+    case 'TESTIMONIAL_SLIDER':
+      return { items: [{ name: 'Customer', quote: 'Amazing service!', role: 'CEO' }] };
+    case 'IMAGE_CAROUSEL':
+      return { images: [{ src: '', alt: 'Image 1' }, { src: '', alt: 'Image 2' }] };
+    case 'NEWSLETTER':
+      return { headline: 'Subscribe to our newsletter', placeholder: 'Enter your email', buttonLabel: 'Subscribe' };
+    case 'SEARCH_BOX':
+      return { placeholder: 'Search...', buttonLabel: 'Search' };
+    case 'SOCIAL_ICONS':
+      return { icons: [{ platform: 'twitter', url: '#' }, { platform: 'facebook', url: '#' }, { platform: 'instagram', url: '#' }] };
+    case 'COPYRIGHT':
+      return { text: `© ${new Date().getFullYear()} My Business. All rights reserved.` };
     default:
       return {};
   }
@@ -457,6 +2079,16 @@ function defaultStylesForType(type) {
       return { layout: 'card' };
     case 'FOOTER':
       return { variant: 'dark' };
+    case 'HEADING':
+      return { textAlign: 'left', fontSize: 32, fontWeight: 700, color: null };
+    case 'TEXT':
+      return { textAlign: 'left', fontSize: 16, color: null };
+    case 'BUTTON':
+      return { backgroundColor: null, color: null, borderRadius: 10 };
+    case 'DIVIDER':
+      return { color: 'rgba(255,255,255,0.12)' };
+    case 'IMAGE':
+      return { borderRadius: 16 };
     default:
       return {};
   }
@@ -471,15 +2103,35 @@ export function BuilderPage() {
   const [error, setError] = useState(null);
   const [status, setStatus] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
 
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [activeComponentIndex, setActiveComponentIndex] = useState(0);
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const [selectedNodeType, setSelectedNodeType] = useState('WIDGET');
+  const [selectedColumnIndex, setSelectedColumnIndex] = useState(0);
+  const [inspectorTab, setInspectorTab] = useState('content');
   const [dragIndex, setDragIndex] = useState(null);
   const [dragNewType, setDragNewType] = useState(null);
   const [hoverIndex, setHoverIndex] = useState(null);
   const [activeDragId, setActiveDragId] = useState(null);
 
+  const [paletteQuery, setPaletteQuery] = useState('');
+  const [paletteOpen, setPaletteOpen] = useState({});
+
+  const [leftTab, setLeftTab] = useState('elements');
+  const [navigatorExpanded, setNavigatorExpanded] = useState({});
+
+  const [canvasPointer, setCanvasPointer] = useState(null);
+  const [dropIndicator, setDropIndicator] = useState(null);
+
   const [previewMode, setPreviewMode] = useState('desktop');
+  const [responsiveBreakpoint, setResponsiveBreakpoint] = useState('desktop');
+
+  const [widgetClipboard, setWidgetClipboard] = useState(null);
+  const [styleClipboard, setStyleClipboard] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null);
 
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelTab, setPanelTab] = useState('website');
@@ -497,25 +2149,272 @@ export function BuilderPage() {
   const [focusCanvas, setFocusCanvas] = useState(false);
   const [canvasZoom, setCanvasZoom] = useState(1);
 
+  const paletteGroups = useMemo(
+    () => ({
+      'Structure': ['SECTION', 'CONTAINER', 'COLUMNS'],
+      'Basic Elements': ['HEADING', 'TEXT', 'BUTTON', 'DIVIDER', 'SPACER', 'ICON', 'ICON_BOX', 'STAR_RATING'],
+      'Media': ['IMAGE', 'GALLERY', 'VIDEO', 'ICON_LIST', 'IMAGE_BOX'],
+      'Navigation': ['NAVBAR', 'ADVANCED_NAVBAR', 'MENU', 'BREADCRUMBS'],
+      'Hero & Headers': ['HERO', 'PAGE_HEADER', 'CALL_TO_ACTION'],
+      'Content Blocks': ['FEATURES', 'CONTENT', 'CARDS', 'ICON_CARDS', 'TEAM', 'ABOUT'],
+      'Social Proof': ['TESTIMONIALS', 'LOGO_CLOUD', 'REVIEWS', 'COUNTER', 'STATS_CTA'],
+      'Products & Commerce': ['PRODUCT_GRID', 'FILTER_TABS', 'PRICING', 'PRICE_TABLE'],
+      'Interactive': ['FAQ', 'ACCORDION', 'TABS', 'TOGGLE'],
+      'Carousels': ['FEATURE_CAROUSEL', 'MULTI_ROW_CAROUSEL', 'TESTIMONIAL_SLIDER', 'IMAGE_CAROUSEL'],
+      'Forms': ['CONTACT_FORM', 'NEWSLETTER', 'SEARCH_BOX'],
+      'Footer': ['FOOTER', 'FOOTER_LINKS', 'SOCIAL_ICONS', 'COPYRIGHT'],
+    }),
+    []
+  );
+
+  const paletteFiltered = useMemo(() => {
+    const q = paletteQuery.trim().toLowerCase();
+    if (!q) return paletteGroups;
+    const next = {};
+    for (const [group, items] of Object.entries(paletteGroups)) {
+      const filtered = (items ?? []).filter((t) => String(t).toLowerCase().includes(q));
+      if (filtered.length) next[group] = filtered;
+    }
+    return next;
+  }, [paletteGroups, paletteQuery]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
+  const { setNodeRef: setCanvasDropRef, isOver: isOverCanvas } = useDroppable({
+    id: 'canvas-drop',
+  });
+
+  function computeDropIndicatorY({ columnIndex, insertIndex }) {
+    if (!canvasPointer?.root) return null;
+    const root = canvasPointer.root;
+    const rootRect = root.getBoundingClientRect();
+    const selector = columnIndex == null ? '[data-builder-comp-idx]' : `[data-builder-col="${columnIndex}"][data-builder-comp-idx]`;
+    const nodes = Array.from(root.querySelectorAll(selector));
+    if (!nodes.length) return 16;
+
+    const idx = Math.max(0, Number(insertIndex) || 0);
+    if (idx >= nodes.length) {
+      const last = nodes[nodes.length - 1].getBoundingClientRect();
+      return Math.max(0, last.bottom - rootRect.top);
+    }
+    const rect = nodes[idx].getBoundingClientRect();
+    return Math.max(0, rect.top - rootRect.top);
+  }
+
+  function computeCanvasInsertIndexFromPointer() {
+    if (!canvasPointer) return null;
+    const root = canvasPointer.root;
+    if (!root) return null;
+    const nodes = root.querySelectorAll('[data-builder-comp-idx]');
+    if (!nodes?.length) return 0;
+
+    const y = canvasPointer.y;
+    let bestIdx = null;
+    let bestDist = Infinity;
+    for (const el of nodes) {
+      const idxStr = el.getAttribute('data-builder-comp-idx');
+      const idx = Number(idxStr);
+      if (!Number.isFinite(idx)) continue;
+      const rect = el.getBoundingClientRect();
+      const mid = rect.top + rect.height / 2;
+      const d = Math.abs(y - mid);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = idx;
+      }
+    }
+    if (bestIdx === null) return 0;
+    const bestEl = root.querySelector(`[data-builder-comp-idx="${bestIdx}"]`);
+    if (!bestEl) return bestIdx;
+    const r = bestEl.getBoundingClientRect();
+    const mid = r.top + r.height / 2;
+    return y < mid ? bestIdx : bestIdx + 1;
+  }
+
+  function computeCanvasInsertIndexForColumnFromPointer(columnIndex) {
+    if (!canvasPointer) return null;
+    const root = canvasPointer.root;
+    if (!root) return null;
+    const nodes = root.querySelectorAll(`[data-builder-comp-idx][data-builder-col="${columnIndex}"]`);
+    if (!nodes?.length) return 0;
+    const y = canvasPointer.y;
+    let bestIdx = null;
+    let bestDist = Infinity;
+    for (const el of nodes) {
+      const idxStr = el.getAttribute('data-builder-comp-idx');
+      const idx = Number(idxStr);
+      if (!Number.isFinite(idx)) continue;
+      const rect = el.getBoundingClientRect();
+      const mid = rect.top + rect.height / 2;
+      const d = Math.abs(y - mid);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = idx;
+      }
+    }
+    if (bestIdx === null) return 0;
+    const bestEl = root.querySelector(`[data-builder-col="${columnIndex}"][data-builder-comp-idx="${bestIdx}"]`);
+    if (!bestEl) return bestIdx;
+    const r = bestEl.getBoundingClientRect();
+    const mid = r.top + r.height / 2;
+    return y < mid ? bestIdx : bestIdx + 1;
+  }
+
+  function computeColumnTargetFromPointer() {
+    if (!canvasPointer) return 0;
+    const root = canvasPointer.root;
+    if (!root) return 0;
+    const rect = root.getBoundingClientRect();
+    const midX = rect.left + rect.width / 2;
+    return canvasPointer.x < midX ? 0 : 1;
+  }
+
+  useEffect(() => {
+    if (!pages?.length) return;
+    const p = pages?.[activePageIndex];
+    const builder = ensureBuilderHasColumn(p?.builder);
+    const widgets = collectWidgetNodesInRenderOrder(builder);
+    const nextId = widgets?.[activeComponentIndex]?.id ?? null;
+    if (!nextId) return;
+    const { columnIndex } = deriveHierarchyFromWidgetId(builder, nextId);
+    setSelectedNodeId(nextId);
+    setSelectedNodeType('WIDGET');
+    setSelectedColumnIndex(columnIndex);
+  }, [pages, activePageIndex, activeComponentIndex]);
+
+  // Unsaved changes warning
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // Check if page is empty to show welcome
+  useEffect(() => {
+    if (!pages?.length) return;
+    const p = pages?.[activePageIndex];
+    const builder = p?.builder;
+    const widgets = collectWidgetNodesInRenderOrder(ensureBuilderHasColumn(builder));
+    if (widgets.length === 0 && !showWelcome) {
+      setShowWelcome(true);
+    }
+  }, [pages, activePageIndex]);
+
+  // Helper to update pages and mark as unsaved
+  function updatePagesWithChange(updater) {
+    setPages(updater);
+    setHasUnsavedChanges(true);
+  }
+
+  function selectWidget({ widgetId, columnIndex = 0, componentIndex = 0 }) {
+    const p = pages?.[activePageIndex];
+    const b = ensureBuilderHasColumn(p?.builder);
+    const derived = widgetId ? deriveHierarchyFromWidgetId(b, widgetId) : null;
+    const nextColumnIndex = derived?.columnIndex ?? columnIndex;
+    setSelectedNodeId(widgetId ?? null);
+    setSelectedNodeType('WIDGET');
+    setSelectedColumnIndex(nextColumnIndex);
+    setActiveComponentIndex(componentIndex);
+    setInspectorTab('content');
+  }
+
+  function selectColumn({ columnIndex }) {
+    setSelectedNodeType('COLUMN');
+    setSelectedColumnIndex(columnIndex);
+    const { columns } = getColumns(pages?.[activePageIndex]?.builder);
+    const colId = columns?.[columnIndex]?.id ?? null;
+    setSelectedNodeId(colId);
+    setInspectorTab('style');
+  }
+
+  function selectContainer() {
+    const p = pages?.[activePageIndex];
+    const b = ensureBuilderHasColumn(p?.builder);
+    const derived = selectedNodeType === 'WIDGET' && selectedNodeId ? deriveHierarchyFromWidgetId(b, selectedNodeId) : null;
+    const { container } = derived?.container ? { container: derived.container } : getSectionContainerColumns(b);
+    setSelectedNodeType('CONTAINER');
+    setSelectedNodeId(container?.id ?? null);
+    setInspectorTab('style');
+  }
+
+  function selectSection() {
+    const p = pages?.[activePageIndex];
+    const b = ensureBuilderHasColumn(p?.builder);
+    const derived = selectedNodeType === 'WIDGET' && selectedNodeId ? deriveHierarchyFromWidgetId(b, selectedNodeId) : null;
+    const { section } = derived?.section ? { section: derived.section } : getSectionContainerColumns(b);
+    setSelectedNodeType('SECTION');
+    setSelectedNodeId(section?.id ?? null);
+    setInspectorTab('style');
+  }
+
+  function updateSelectedNodeStyle(patch) {
+    setPages((prev) => {
+      const next = deepClone(prev ?? []);
+      const p = next?.[activePageIndex];
+      if (!p) return prev;
+      if (!selectedNodeId) return prev;
+      p.builder = updateAnyNodeById(p.builder, selectedNodeId, (node) => {
+        node.style = { ...(node.style ?? {}), ...(patch ?? {}) };
+      });
+      return next;
+    });
+    setHasUnsavedChanges(true);
+  }
+
+  function updateSelectedColumn(mutator) {
+    setPages((prev) => {
+      const next = deepClone(prev ?? []);
+      const p = next?.[activePageIndex];
+      if (!p) return prev;
+      const { builder: b, columns } = getColumns(p.builder);
+      const col = columns?.[selectedColumnIndex] ?? null;
+      if (!col) return prev;
+      mutator(col);
+      p.builder = b;
+      return next;
+    });
+    setHasUnsavedChanges(true);
+  }
+
+  async function reloadBuilder() {
+    const { data: payload } = await api.get(`/websites/${websiteId}/builder`);
+    setWebsite(payload.website);
+    setPages(payload.pages ?? []);
+    setActivePageIndex(0);
+    setActiveComponentIndex(0);
+  }
+
   function updateActiveComponent(mutator) {
     setPages((prev) => {
-      const next = (prev ?? []).map((p) => ({
-        ...p,
-        components: (p.components ?? []).map((c) => ({
-          ...c,
-          props: { ...(c.props ?? {}) },
-          styles: { ...(c.styles ?? {}) },
-        })),
-      }));
+      const next = deepClone(prev ?? []);
       const page2 = next?.[activePageIndex];
-      const comp = page2?.components?.[activeComponentIndex];
-      if (!page2 || !comp) return prev;
-      mutator(comp);
+      if (!page2) return prev;
+      setHasUnsavedChanges(true);
+
+      const widgets = collectWidgetNodesInRenderOrder(ensureBuilderHasColumn(page2.builder));
+      const widget = widgets?.[activeComponentIndex];
+      if (!widget) return prev;
+
+      page2.builder = updateWidgetNodeById(page2.builder, widget.id, (node) => {
+        const proxy = {
+          type: node.widgetType,
+          props: node.props ?? {},
+          styles: node.style ?? {},
+        };
+        mutator(proxy);
+        node.props = proxy.props ?? {};
+        node.style = proxy.styles ?? {};
+      });
+
       return next;
     });
   }
@@ -526,10 +2425,10 @@ export function BuilderPage() {
     async function load() {
       try {
         setError(null);
-        const { data: payload } = await api.get(`/websites/${websiteId}/structure`);
+        const { data: payload } = await api.get(`/websites/${websiteId}/builder`);
         if (!canceled) {
           setWebsite(payload.website);
-          setPages(ensureClientIds(payload.pages));
+          setPages(payload.pages ?? []);
           setActivePageIndex(0);
           setActiveComponentIndex(0);
         }
@@ -605,31 +2504,43 @@ export function BuilderPage() {
   }
 
   async function saveStructure(nextPages) {
+    if (!Number.isFinite(websiteId)) {
+      setError('Invalid website ID');
+      return;
+    }
+    
     setSaving(true);
-    setStatus(null);
+    setStatus('Saving...');
+    setError(null);
+    
     try {
       const payloadPages = (nextPages ?? []).map((p, pidx) => ({
+        id: p.id,
         name: p.name,
         path: p.path,
         sortOrder: p.sortOrder ?? p.sort_order ?? pidx,
         meta: p.meta ?? {},
-        components: (p.components ?? []).map((c, idx) => ({
-          type: c.type,
-          orderIndex: idx,
-          props: c.props ?? {},
-          styles: c.styles ?? {},
-        })),
+        builder: p.builder ?? {},
       }));
 
-      const { data: resp } = await api.put(`/websites/${websiteId}/structure`, { pages: payloadPages });
-      setWebsite(resp.website);
-      setPages(resp.pages);
-      setStatus('Saved');
+      console.log('Saving builder data:', { websiteId, pages: payloadPages });
+      
+      const { data: resp } = await api.put(`/websites/${websiteId}/builder`, { pages: payloadPages });
+      
+      console.log('Save response:', resp);
+      
+      if (resp?.website) setWebsite(resp.website);
+      if (resp?.pages) setPages(resp.pages);
+      setHasUnsavedChanges(false);
+      setStatus('Saved ✓');
     } catch (err) {
-      setError(err?.response?.data?.error?.message ?? 'Failed to save');
+      console.error('Save error:', err);
+      const errorMsg = err?.response?.data?.error?.message || err?.response?.data?.message || err?.message || 'Failed to save';
+      setError(errorMsg);
+      setStatus('Save failed');
     } finally {
       setSaving(false);
-      setTimeout(() => setStatus(null), 1500);
+      setTimeout(() => setStatus(null), 2500);
     }
   }
 
@@ -714,48 +2625,31 @@ export function BuilderPage() {
     if (fromIndex === toIndex) return;
 
     setPages((prev) => {
-      const next = (prev ?? []).map((p) => ({
-        ...p,
-        components: (p.components ?? []).map((c) => ({ ...c, props: { ...(c.props ?? {}) }, styles: { ...(c.styles ?? {}) } })),
-      }));
+      const next = deepClone(prev ?? []);
       const page = next?.[activePageIndex];
       if (!page) return prev;
-      const comps = [...(page.components ?? [])];
-      if (fromIndex < 0 || fromIndex >= comps.length) return prev;
-      if (toIndex < 0 || toIndex >= comps.length) return prev;
-      const [moved] = comps.splice(fromIndex, 1);
-      comps.splice(toIndex, 0, moved);
-      page.components = comps;
+
+      page.builder = reorderWidgetsInFirstColumn(page.builder, fromIndex, toIndex);
       return next;
     });
-
+    setHasUnsavedChanges(true);
     setActiveComponentIndex(toIndex);
   }
 
   function duplicateComponentAt(index) {
     setPages((prev) => {
-      const next = (prev ?? []).map((p) => ({
-        ...p,
-        components: (p.components ?? []).map((c) => ({ ...c, props: { ...(c.props ?? {}) }, styles: { ...(c.styles ?? {}) } })),
-      }));
+      const next = deepClone(prev ?? []);
       const page2 = next?.[activePageIndex];
       if (!page2) return prev;
-      const comps2 = [...(page2.components ?? [])];
-      const i = Number(index);
-      const src = comps2?.[i];
-      if (!src) return prev;
 
-      const copy = {
-        type: src.type,
-        orderIndex: i + 1,
-        props: JSON.parse(JSON.stringify(src.props ?? {})),
-        styles: JSON.parse(JSON.stringify(src.styles ?? {})),
-        __cid: randomId(),
-      };
-      comps2.splice(i + 1, 0, copy);
-      page2.components = comps2;
+      const widgets = collectWidgetNodesInRenderOrder(ensureBuilderHasColumn(page2.builder));
+      const i = Number(index);
+      const src = widgets?.[i];
+      if (!src?.id) return prev;
+      page2.builder = duplicateWidgetById(page2.builder, src.id);
       return next;
     });
+    setHasUnsavedChanges(true);
     setActiveComponentIndex((cur) => {
       const i = Number(index);
       if (!Number.isFinite(i)) return cur;
@@ -770,26 +2664,173 @@ export function BuilderPage() {
   function insertComponentAt(index, type) {
     if (!type) return;
     setPages((prev) => {
-      const next = (prev ?? []).map((p) => ({
-        ...p,
-        components: (p.components ?? []).map((c) => ({ ...c, props: { ...(c.props ?? {}) }, styles: { ...(c.styles ?? {}) } })),
-      }));
+      const next = deepClone(prev ?? []);
       const page = next?.[activePageIndex];
       if (!page) return prev;
-      const comps = [...(page.components ?? [])];
-      const insertionIndex = Math.max(0, Math.min(Number(index), comps.length));
-      comps.splice(insertionIndex, 0, {
+
+      const insertionIndex = Math.max(0, Number(index) || 0);
+      page.builder = insertWidgetIntoFirstColumn(
+        page.builder,
+        insertionIndex,
         type,
-        orderIndex: insertionIndex,
-        props: defaultPropsForType(type),
-        styles: defaultStylesForType(type),
-        __cid: randomId(),
-      });
-      page.components = comps;
+        defaultPropsForType(type),
+        defaultStylesForType(type)
+      );
       return next;
     });
+    setHasUnsavedChanges(true);
     setActiveComponentIndex(Math.max(0, Number(index) || 0));
   }
+
+  function insertLayout(type, indexHint) {
+    if (!type) return;
+    if (!pages?.length) return;
+    const p0 = pages?.[activePageIndex];
+    if (!p0) return;
+
+    const currentBuilder = ensureBuilderHasColumn(p0.builder);
+    const derived =
+      selectedNodeType === 'WIDGET' && selectedNodeId
+        ? deriveHierarchyFromWidgetId(currentBuilder, selectedNodeId)
+        : { section: findFirstSectionNode(currentBuilder), container: findFirstContainerNode(currentBuilder), column: null, columnIndex: 0 };
+
+    setPages((prev) => {
+      const next = deepClone(prev ?? []);
+      const page = next?.[activePageIndex];
+      if (!page) return prev;
+
+      const b = ensureBuilderHasColumn(page.builder);
+
+      if (type === 'SECTION') {
+        const root = b?.root;
+        const sections = (root?.children ?? []).filter((n) => n?.type === 'SECTION');
+        const baseIdx = sections.findIndex((s) => s?.id === derived?.section?.id);
+        const insertAt = Number.isFinite(Number(indexHint)) ? Number(indexHint) : baseIdx >= 0 ? baseIdx + 1 : (root?.children ?? []).length;
+        const result = insertSectionAt(b, insertAt);
+        page.builder = result.builder;
+        setSelectedNodeType('SECTION');
+        setSelectedNodeId(result.sectionId);
+        setInspectorTab('style');
+        return next;
+      }
+
+      if (type === 'CONTAINER') {
+        const sectionId = derived?.section?.id ?? null;
+        const result = insertContainerIntoSection(b, sectionId);
+        page.builder = result.builder;
+        if (result.containerId) {
+          setSelectedNodeType('CONTAINER');
+          setSelectedNodeId(result.containerId);
+          setInspectorTab('style');
+        }
+        return next;
+      }
+
+      if (type === 'COLUMNS') {
+        const containerId = derived?.container?.id ?? null;
+        page.builder = applyTwoColumnsToContainer(b, containerId, '50-50');
+        if (containerId) {
+          setSelectedNodeType('CONTAINER');
+          setSelectedNodeId(containerId);
+        }
+        setInspectorTab('style');
+        return next;
+      }
+
+      return prev;
+    });
+    setHasUnsavedChanges(true);
+  }
+
+  const twoColEnabledForShortcuts = (() => {
+    const p = pages?.[activePageIndex];
+    if (!p) return false;
+    const { columns } = getColumns(p.builder);
+    return (columns?.length ?? 0) >= 2;
+  })();
+
+  useEffect(() => {
+    function isTypingTarget(target) {
+      const el = target;
+      if (!el) return false;
+      const tag = String(el.tagName ?? '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+      if (el.isContentEditable) return true;
+      return false;
+    }
+
+    function onKeyDown(e) {
+      if (isTypingTarget(e.target)) return;
+
+      const key = String(e.key ?? '').toLowerCase();
+      const meta = !!(e.metaKey || e.ctrlKey);
+
+      if (key === 'escape') {
+        if (contextMenu) {
+          e.preventDefault();
+          closeContextMenu();
+        }
+        return;
+      }
+
+      if (key === 'delete' || key === 'backspace') {
+        if (selectedNodeType === 'WIDGET') {
+          e.preventDefault();
+          closeContextMenu();
+          deleteSelectedWidget();
+        }
+        return;
+      }
+
+      if (meta && key === 'd') {
+        if (selectedNodeType === 'WIDGET') {
+          e.preventDefault();
+          closeContextMenu();
+          duplicateSelectedWidget();
+        }
+        return;
+      }
+
+      if (meta && key === 'c') {
+        if (selectedNodeType === 'WIDGET') {
+          e.preventDefault();
+          copySelectedWidget();
+        } else if (selectedNodeType === 'SECTION' || selectedNodeType === 'CONTAINER' || selectedNodeType === 'COLUMN') {
+          e.preventDefault();
+          copySelectedStyle();
+        }
+        return;
+      }
+
+      if (meta && key === 'v') {
+        if (selectedNodeType === 'WIDGET') {
+          e.preventDefault();
+          closeContextMenu();
+          pasteAfterSelectedWidget();
+        } else if (selectedNodeType === 'SECTION' || selectedNodeType === 'CONTAINER' || selectedNodeType === 'COLUMN') {
+          e.preventDefault();
+          closeContextMenu();
+          pasteSelectedStyle();
+        }
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [
+    pages,
+    activePageIndex,
+    activeComponentIndex,
+    selectedNodeId,
+    selectedNodeType,
+    selectedColumnIndex,
+    widgetClipboard,
+    styleClipboard,
+    twoColEnabledForShortcuts,
+    contextMenu,
+  ]);
+
+  const navigatorTree = useMemo(() => buildHierarchyTree(pages?.[activePageIndex]?.builder), [pages, activePageIndex]);
 
   if (error) {
     return (
@@ -809,7 +2850,18 @@ export function BuilderPage() {
     );
   }
 
-  const page = pages?.[activePageIndex] ?? null;
+  const derivedPages = (pages ?? []).map((p) => {
+    const builder = ensureBuilderHasColumn(p.builder);
+    const widgets = collectWidgetNodesInRenderOrder(builder);
+    return {
+      ...p,
+      builder,
+      _widgetIds: widgets.map((w) => w.id),
+      components: widgetNodesToFlatComponents(widgets),
+    };
+  });
+
+  const page = derivedPages?.[activePageIndex] ?? null;
   const comps = page?.components ?? [];
   const activeComponent = comps?.[activeComponentIndex] ?? null;
 
@@ -825,7 +2877,164 @@ export function BuilderPage() {
     return comp?.type ?? null;
   })();
 
+  const selectedNodeStyle = (() => {
+    const p = pages?.[activePageIndex];
+    if (!p || !selectedNodeId) return {};
+    const node = findAnyNodeById(p.builder, selectedNodeId);
+    return node?.style ?? {};
+  })();
+
   const previewWidth = previewMode === 'mobile' ? 375 : previewMode === 'tablet' ? 768 : null;
+
+  const twoColInfo = (() => {
+    if (!page) return { enabled: false };
+    const { columns } = getColumns(page.builder);
+    return { enabled: (columns?.length ?? 0) >= 2 };
+  })();
+
+  const selectedLabel = (() => {
+    if (!selectedNodeId) return 'None';
+    if (selectedNodeType === 'COLUMN') return `Column ${selectedColumnIndex + 1}`;
+    if (selectedNodeType === 'CONTAINER') return 'Container';
+    if (selectedNodeType === 'SECTION') return 'Section';
+    return activeComponent?.type ?? 'Widget';
+  })();
+
+  const breadcrumbIds = (() => {
+    const p = pages?.[activePageIndex];
+    const b = ensureBuilderHasColumn(p?.builder);
+
+    if (selectedNodeType === 'WIDGET' && selectedNodeId) {
+      const derived = deriveHierarchyFromWidgetId(b, selectedNodeId);
+      return {
+        sectionId: derived?.section?.id ?? null,
+        containerId: derived?.container?.id ?? null,
+        columnId: derived?.column?.id ?? null,
+        widgetId: selectedNodeId,
+      };
+    }
+
+    const { section, container, columns } = getSectionContainerColumns(b);
+    const colId = columns?.[selectedColumnIndex]?.id ?? null;
+    return {
+      sectionId: section?.id ?? null,
+      containerId: container?.id ?? null,
+      columnId: colId,
+      widgetId: null,
+    };
+  })();
+
+  function closeContextMenu() {
+    setContextMenu(null);
+  }
+
+  function copySelectedWidget() {
+    const p = pages?.[activePageIndex];
+    if (!p) return;
+    if (selectedNodeType !== 'WIDGET' || !selectedNodeId) return;
+
+    const node = findAnyNodeById(p.builder, selectedNodeId);
+    if (!node || node.type !== 'WIDGET') return;
+    setWidgetClipboard({ widgetType: node.widgetType, props: deepClone(node.props ?? {}), style: deepClone(node.style ?? {}) });
+    setStatus('Copied');
+    setTimeout(() => setStatus(null), 800);
+  }
+
+  function copySelectedStyle() {
+    const p = pages?.[activePageIndex];
+    if (!p) return;
+    if (!(selectedNodeType === 'SECTION' || selectedNodeType === 'CONTAINER' || selectedNodeType === 'COLUMN')) return;
+    if (!selectedNodeId) return;
+
+    const node = findAnyNodeById(p.builder, selectedNodeId);
+    if (!node) return;
+    setStyleClipboard({ style: deepClone(node.style ?? {}) });
+    setStatus('Copied');
+    setTimeout(() => setStatus(null), 800);
+  }
+
+  function pasteSelectedStyle() {
+    if (!styleClipboard?.style) return;
+    if (!(selectedNodeType === 'SECTION' || selectedNodeType === 'CONTAINER' || selectedNodeType === 'COLUMN')) return;
+    if (!selectedNodeId) return;
+    updateSelectedNodeStyle(deepClone(styleClipboard.style));
+  }
+
+  function deleteSelectedWidget() {
+    if (selectedNodeType !== 'WIDGET') return;
+    setPages((prev) => {
+      const next = deepClone(prev ?? []);
+      const page2 = next?.[activePageIndex];
+      if (!page2) return prev;
+
+      const widgets = collectWidgetNodesInRenderOrder(ensureBuilderHasColumn(page2.builder));
+      const idx = Number(activeComponentIndex);
+      const widgetId = widgets?.[idx]?.id ?? selectedNodeId ?? null;
+      if (!widgetId) return prev;
+      page2.builder = removeWidgetById(page2.builder, widgetId);
+
+      return next;
+    });
+    setHasUnsavedChanges(true);
+    setActiveComponentIndex((cur) => Math.max(0, Number(cur) - 1));
+    setSelectedNodeId(null);
+  }
+
+  function duplicateSelectedWidget() {
+    if (selectedNodeType !== 'WIDGET' || !selectedNodeId) return;
+    setPages((prev) => {
+      const next = deepClone(prev ?? []);
+      const page2 = next?.[activePageIndex];
+      if (!page2) return prev;
+
+      page2.builder = duplicateWidgetById(page2.builder, selectedNodeId);
+      return next;
+    });
+    setHasUnsavedChanges(true);
+    setActiveComponentIndex((cur) => {
+      const i = Number(cur);
+      if (!Number.isFinite(i)) return cur;
+      return i + 1;
+    });
+  }
+
+  function pasteAfterSelectedWidget() {
+    if (!widgetClipboard?.widgetType) return;
+    setPages((prev) => {
+      const next = deepClone(prev ?? []);
+      const page2 = next?.[activePageIndex];
+      if (!page2) return prev;
+
+      const idx = Number(activeComponentIndex);
+      const insertAt = Number.isFinite(idx) ? idx + 1 : 0;
+      if (twoColInfo.enabled) {
+        page2.builder = insertWidgetIntoColumn(
+          page2.builder,
+          selectedColumnIndex,
+          insertAt,
+          widgetClipboard.widgetType,
+          deepClone(widgetClipboard.props ?? {}),
+          deepClone(widgetClipboard.style ?? {})
+        );
+      } else {
+        page2.builder = insertWidgetIntoFirstColumn(
+          page2.builder,
+          insertAt,
+          widgetClipboard.widgetType,
+          deepClone(widgetClipboard.props ?? {}),
+          deepClone(widgetClipboard.style ?? {})
+        );
+      }
+
+      return next;
+    });
+    setHasUnsavedChanges(true);
+    setActiveComponentIndex((cur) => {
+      const i = Number(cur);
+      if (!Number.isFinite(i)) return cur;
+      return i + 1;
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -845,8 +3054,8 @@ export function BuilderPage() {
           >
             {website?.status ?? '—'}
           </div>
-          <SmallButton variant="neutral" onClick={() => saveStructure(pages)} disabled={saving}>
-            Save
+          <SmallButton variant={hasUnsavedChanges ? "primary" : "neutral"} onClick={() => saveStructure(pages)} disabled={saving}>
+            {saving ? 'Saving...' : hasUnsavedChanges ? '● Save*' : 'Save'}
           </SmallButton>
           <SmallButton variant="primary" onClick={publishToggle} disabled={saving}>
             {website?.status === 'PUBLISHED' ? 'Unpublish' : 'Publish'}
@@ -1397,11 +3606,8 @@ export function BuilderPage() {
                               try {
                                 setPanelBusy(true);
                                 setError(null);
-                                const { data } = await api.post(`/websites/${websiteId}/versions/${v.id}/restore`);
-                                setWebsite(data.website);
-                                setPages(data.pages);
-                                setActivePageIndex(0);
-                                setActiveComponentIndex(0);
+                                await api.post(`/websites/${websiteId}/versions/${v.id}/restore`);
+                                await reloadBuilder();
                                 setStatus('Restored');
                                 await loadVersions();
                               } catch (err) {
@@ -1426,6 +3632,303 @@ export function BuilderPage() {
         </div>
       ) : null}
 
+      {contextMenu ? (
+        <div className="fixed inset-0 z-50" onMouseDown={closeContextMenu}>
+          <div
+            className="absolute rounded-xl border border-white/10 bg-black/90 shadow-xl p-1 min-w-[180px]"
+            style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {selectedNodeType === 'WIDGET' ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeContextMenu();
+                    copySelectedWidget();
+                  }}
+                  className="w-full rounded-lg px-3 py-2 text-left text-xs text-white/80 hover:bg-white/10"
+                >
+                  Copy
+                </button>
+                <button
+                  type="button"
+                  disabled={!widgetClipboard?.widgetType}
+                  onClick={() => {
+                    closeContextMenu();
+                    pasteAfterSelectedWidget();
+                  }}
+                  className="w-full rounded-lg px-3 py-2 text-left text-xs text-white/80 hover:bg-white/10 disabled:opacity-40"
+                >
+                  Paste
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeContextMenu();
+                    duplicateSelectedWidget();
+                  }}
+                  className="w-full rounded-lg px-3 py-2 text-left text-xs text-white/80 hover:bg-white/10"
+                >
+                  Duplicate
+                </button>
+                <div className="my-1 h-px bg-white/10" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeContextMenu();
+                    deleteSelectedWidget();
+                  }}
+                  className="w-full rounded-lg px-3 py-2 text-left text-xs text-red-200 hover:bg-red-500/10"
+                >
+                  Delete
+                </button>
+              </>
+            ) : selectedNodeType === 'SECTION' || selectedNodeType === 'CONTAINER' || selectedNodeType === 'COLUMN' ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeContextMenu();
+                    copySelectedStyle();
+                  }}
+                  className="w-full rounded-lg px-3 py-2 text-left text-xs text-white/80 hover:bg-white/10"
+                >
+                  Copy Style
+                </button>
+                <button
+                  type="button"
+                  disabled={!styleClipboard?.style}
+                  onClick={() => {
+                    closeContextMenu();
+                    pasteSelectedStyle();
+                  }}
+                  className="w-full rounded-lg px-3 py-2 text-left text-xs text-white/80 hover:bg-white/10 disabled:opacity-40"
+                >
+                  Paste Style
+                </button>
+              </>
+            ) : (
+              <div className="px-3 py-2 text-xs text-white/60">No actions</div>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Welcome Layout Picker Modal */}
+      {showWelcome ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={(e) => { e.stopPropagation(); setShowWelcome(false); }}>
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+          <div className="relative z-10 w-full max-w-4xl overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-slate-900 to-black shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="border-b border-white/10 bg-black/40 px-6 py-4 flex items-center justify-between">
+              <div>
+                <div className="text-xl font-bold">Welcome to the Builder</div>
+                <div className="text-sm text-white/60 mt-1">Choose a starting layout or start from scratch</div>
+              </div>
+              <button type="button" onClick={() => setShowWelcome(false)} className="text-white/60 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+            <div className="p-6 max-h-[70vh] overflow-auto">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {/* Blank Page */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowWelcome(false);
+                    setTimeout(() => insertLayout('SECTION', null), 50);
+                  }}
+                  className="group rounded-xl border-2 border-dashed border-white/20 bg-white/5 p-6 text-center hover:border-indigo-500/50 hover:bg-indigo-500/10 transition-all"
+                >
+                  <div className="h-24 flex items-center justify-center text-4xl text-white/30 group-hover:text-indigo-400">+</div>
+                  <div className="mt-3 font-semibold">Blank Page</div>
+                  <div className="text-xs text-white/50 mt-1">Start from scratch</div>
+                </button>
+
+                {/* Landing Page */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowWelcome(false);
+                    setTimeout(() => {
+                      insertLayout('SECTION', null);
+                      setTimeout(() => {
+                        insertComponentAt(0, 'NAVBAR');
+                        insertComponentAt(1, 'HERO');
+                        insertComponentAt(2, 'FEATURES');
+                        insertComponentAt(3, 'TESTIMONIALS');
+                        insertComponentAt(4, 'FAQ');
+                        insertComponentAt(5, 'FOOTER_LINKS');
+                      }, 100);
+                    }, 50);
+                  }}
+                  className="group rounded-xl border border-white/10 bg-white/5 p-6 text-center hover:border-indigo-500/50 hover:bg-indigo-500/10 transition-all"
+                >
+                  <div className="h-24 flex flex-col items-center justify-center gap-1">
+                    <div className="w-full h-3 bg-white/20 rounded group-hover:bg-indigo-500/40"></div>
+                    <div className="w-full h-8 bg-white/10 rounded group-hover:bg-indigo-500/20"></div>
+                    <div className="w-full flex gap-1">
+                      <div className="flex-1 h-4 bg-white/10 rounded group-hover:bg-indigo-500/20"></div>
+                      <div className="flex-1 h-4 bg-white/10 rounded group-hover:bg-indigo-500/20"></div>
+                      <div className="flex-1 h-4 bg-white/10 rounded group-hover:bg-indigo-500/20"></div>
+                    </div>
+                    <div className="w-full h-3 bg-white/10 rounded group-hover:bg-indigo-500/20"></div>
+                  </div>
+                  <div className="mt-3 font-semibold">Landing Page</div>
+                  <div className="text-xs text-white/50 mt-1">Hero, Features, Testimonials</div>
+                </button>
+
+                {/* Business Page */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowWelcome(false);
+                    setTimeout(() => {
+                      insertLayout('SECTION', null);
+                      setTimeout(() => {
+                        insertComponentAt(0, 'ADVANCED_NAVBAR');
+                        insertComponentAt(1, 'HERO');
+                        insertComponentAt(2, 'LOGO_CLOUD');
+                        insertComponentAt(3, 'FEATURES');
+                        insertComponentAt(4, 'CARDS');
+                        insertComponentAt(5, 'STATS_CTA');
+                        insertComponentAt(6, 'FOOTER_LINKS');
+                      }, 100);
+                    }, 50);
+                  }}
+                  className="group rounded-xl border border-white/10 bg-white/5 p-6 text-center hover:border-indigo-500/50 hover:bg-indigo-500/10 transition-all"
+                >
+                  <div className="h-24 flex flex-col items-center justify-center gap-1">
+                    <div className="w-full h-3 bg-white/20 rounded group-hover:bg-indigo-500/40"></div>
+                    <div className="w-full h-6 bg-white/10 rounded group-hover:bg-indigo-500/20"></div>
+                    <div className="w-full flex gap-1">
+                      <div className="w-4 h-4 bg-white/20 rounded group-hover:bg-indigo-500/30"></div>
+                      <div className="w-4 h-4 bg-white/20 rounded group-hover:bg-indigo-500/30"></div>
+                      <div className="w-4 h-4 bg-white/20 rounded group-hover:bg-indigo-500/30"></div>
+                    </div>
+                    <div className="w-full h-6 bg-white/10 rounded group-hover:bg-indigo-500/20"></div>
+                  </div>
+                  <div className="mt-3 font-semibold">Business</div>
+                  <div className="text-xs text-white/50 mt-1">Professional layout</div>
+                </button>
+
+                {/* E-commerce */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowWelcome(false);
+                    setTimeout(() => {
+                      insertLayout('SECTION', null);
+                      setTimeout(() => {
+                        insertComponentAt(0, 'ADVANCED_NAVBAR');
+                        insertComponentAt(1, 'HERO');
+                        insertComponentAt(2, 'FILTER_TABS');
+                        insertComponentAt(3, 'PRODUCT_GRID');
+                        insertComponentAt(4, 'TESTIMONIALS');
+                        insertComponentAt(5, 'FOOTER_LINKS');
+                      }, 100);
+                    }, 50);
+                  }}
+                  className="group rounded-xl border border-white/10 bg-white/5 p-6 text-center hover:border-indigo-500/50 hover:bg-indigo-500/10 transition-all"
+                >
+                  <div className="h-24 flex flex-col items-center justify-center gap-1">
+                    <div className="w-full h-3 bg-white/20 rounded group-hover:bg-indigo-500/40"></div>
+                    <div className="w-full grid grid-cols-3 gap-1">
+                      <div className="h-8 bg-white/10 rounded group-hover:bg-indigo-500/20"></div>
+                      <div className="h-8 bg-white/10 rounded group-hover:bg-indigo-500/20"></div>
+                      <div className="h-8 bg-white/10 rounded group-hover:bg-indigo-500/20"></div>
+                      <div className="h-8 bg-white/10 rounded group-hover:bg-indigo-500/20"></div>
+                      <div className="h-8 bg-white/10 rounded group-hover:bg-indigo-500/20"></div>
+                      <div className="h-8 bg-white/10 rounded group-hover:bg-indigo-500/20"></div>
+                    </div>
+                  </div>
+                  <div className="mt-3 font-semibold">E-commerce</div>
+                  <div className="text-xs text-white/50 mt-1">Products & Shop</div>
+                </button>
+
+                {/* Portfolio */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowWelcome(false);
+                    setTimeout(() => {
+                      insertLayout('SECTION', null);
+                      setTimeout(() => {
+                        insertComponentAt(0, 'NAVBAR');
+                        insertComponentAt(1, 'HERO');
+                        insertComponentAt(2, 'GALLERY');
+                        insertComponentAt(3, 'CONTACT_FORM');
+                        insertComponentAt(4, 'FOOTER');
+                      }, 100);
+                    }, 50);
+                  }}
+                  className="group rounded-xl border border-white/10 bg-white/5 p-6 text-center hover:border-indigo-500/50 hover:bg-indigo-500/10 transition-all"
+                >
+                  <div className="h-24 flex flex-col items-center justify-center gap-1">
+                    <div className="w-full h-3 bg-white/20 rounded group-hover:bg-indigo-500/40"></div>
+                    <div className="w-full h-6 bg-white/10 rounded group-hover:bg-indigo-500/20"></div>
+                    <div className="w-full grid grid-cols-4 gap-1">
+                      <div className="h-6 bg-white/15 rounded group-hover:bg-indigo-500/25"></div>
+                      <div className="h-6 bg-white/15 rounded group-hover:bg-indigo-500/25"></div>
+                      <div className="h-6 bg-white/15 rounded group-hover:bg-indigo-500/25"></div>
+                      <div className="h-6 bg-white/15 rounded group-hover:bg-indigo-500/25"></div>
+                    </div>
+                  </div>
+                  <div className="mt-3 font-semibold">Portfolio</div>
+                  <div className="text-xs text-white/50 mt-1">Gallery & Contact</div>
+                </button>
+
+                {/* SaaS */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowWelcome(false);
+                    setTimeout(() => {
+                      insertLayout('SECTION', null);
+                      setTimeout(() => {
+                        insertComponentAt(0, 'ADVANCED_NAVBAR');
+                        insertComponentAt(1, 'HERO');
+                        insertComponentAt(2, 'FEATURES');
+                        insertComponentAt(3, 'PRICING');
+                        insertComponentAt(4, 'FAQ');
+                        insertComponentAt(5, 'FOOTER_LINKS');
+                      }, 100);
+                    }, 50);
+                  }}
+                  className="group rounded-xl border border-white/10 bg-white/5 p-6 text-center hover:border-indigo-500/50 hover:bg-indigo-500/10 transition-all"
+                >
+                  <div className="h-24 flex flex-col items-center justify-center gap-1">
+                    <div className="w-full h-3 bg-white/20 rounded group-hover:bg-indigo-500/40"></div>
+                    <div className="w-full h-6 bg-white/10 rounded group-hover:bg-indigo-500/20"></div>
+                    <div className="w-full flex gap-1 justify-center">
+                      <div className="w-8 h-10 bg-white/10 rounded group-hover:bg-indigo-500/20"></div>
+                      <div className="w-8 h-12 bg-white/20 rounded group-hover:bg-indigo-500/30"></div>
+                      <div className="w-8 h-10 bg-white/10 rounded group-hover:bg-indigo-500/20"></div>
+                    </div>
+                  </div>
+                  <div className="mt-3 font-semibold">SaaS</div>
+                  <div className="text-xs text-white/50 mt-1">Features & Pricing</div>
+                </button>
+              </div>
+
+              <div className="mt-6 text-center">
+                <button
+                  type="button"
+                  onClick={() => setShowWelcome(false)}
+                  className="text-sm text-white/50 hover:text-white/80 underline"
+                >
+                  Skip and start empty
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div
         className={
           focusCanvas
@@ -1437,183 +3940,825 @@ export function BuilderPage() {
           className={
             focusCanvas
               ? 'hidden'
-              : 'rounded-2xl border border-white/10 bg-white/5 p-4 overflow-y-auto'
+              : 'rounded-2xl border border-white/10 bg-white/5 p-4 space-y-4 overflow-y-auto'
           }
         >
-          <div className="text-sm font-semibold">Pages</div>
-          <div className="mt-3 space-y-2">
-            <select
-              className="w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
-              value={activePageIndex}
-              onChange={(e) => {
-                setActivePageIndex(Number(e.target.value));
-                setActiveComponentIndex(0);
-              }}
-            >
-              {(pages ?? []).map((p, idx) => (
-                <option key={p.id ?? `${p.path}-${idx}`} value={idx}>
-                  {p.name} ({p.path})
-                </option>
-              ))}
-            </select>
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-semibold">Panels</div>
           </div>
-@@
-          <div className="mt-6">
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragStart={(evt) => {
-                setActiveDragId(evt.active.id);
-              }}
-              onDragEnd={(evt) => {
-                const { active, over } = evt;
-                setActiveDragId(null);
-                if (!over) return;
 
-                const activeId = active.id;
-                const overId = over.id;
-
-                if (typeof activeId === 'string' && activeId.startsWith('new:')) {
-                  const type = activeId.slice('new:'.length);
-                  const overIndex = layerIds.indexOf(overId);
-                  const insertIndex = overIndex >= 0 ? overIndex : comps.length;
-                  insertComponentAt(insertIndex, type);
-                  return;
-                }
-
-                const oldIndex = layerIds.indexOf(activeId);
-                const newIndex = layerIds.indexOf(overId);
-                if (oldIndex < 0 || newIndex < 0) return;
-                if (oldIndex === newIndex) return;
-
-                const nextOrder = arrayMove(layerIds, oldIndex, newIndex);
-                const fromIndex = oldIndex;
-                const toIndex = nextOrder.indexOf(activeId);
-                reorderComponents(fromIndex, toIndex);
-              }}
+          <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-black/20 p-1">
+            <button
+              type="button"
+              onClick={() => setLeftTab('elements')}
+              className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition ${
+                leftTab === 'elements'
+                  ? 'bg-indigo-500/30 text-white'
+                  : 'text-white/60 hover:bg-white/10 hover:text-white'
+              }`}
             >
-              <div className="text-sm font-semibold">Component library</div>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                {COMPONENT_TYPES.map((t) => (
-                  <PaletteDraggable
-                    key={t}
-                    type={t}
-                    onClick={() => {
-                      insertComponentAt(comps.length, t);
-                      setDragNewType(null);
-                      setDragIndex(null);
-                    }}
-                  />
-                ))}
-              </div>
+              ▦ Elements
+            </button>
+            <button
+              type="button"
+              onClick={() => setLeftTab('navigator')}
+              className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition ${
+                leftTab === 'navigator'
+                  ? 'bg-indigo-500/30 text-white'
+                  : 'text-white/60 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              ☰ Navigator
+            </button>
+            <button
+              type="button"
+              onClick={() => setLeftTab('settings')}
+              className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition ${
+                leftTab === 'settings'
+                  ? 'bg-indigo-500/30 text-white'
+                  : 'text-white/60 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              ⚙ Settings
+            </button>
+          </div>
 
-              <div className="mt-6">
-                <div className="text-sm font-semibold">Canvas layers</div>
-                <div className="mt-3 space-y-2">
-                  {comps.length ? (
-                    <SortableContext items={layerIds} strategy={verticalListSortingStrategy}>
-                      <div className="space-y-2">
-                        {comps.map((c, idx) => {
-                          const itemId = layerIds[idx];
+          {leftTab === 'elements' ? (
+            <div className="space-y-3">
+              <label className="block">
+                <div className="text-xs text-white/60">Search</div>
+                <input
+                  value={paletteQuery}
+                  onChange={(e) => setPaletteQuery(e.target.value)}
+                  placeholder="Search components…"
+                  className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
+                />
+              </label>
+
+              <div className="space-y-2">
+                {Object.entries(paletteFiltered ?? {}).map(([group, items]) => {
+                  const open = paletteOpen[group] !== false;
+                  const groupIcons = {
+                    'Structure': '▭',
+                    'Basic Elements': '▢',
+                    'Media': '▣',
+                    'Navigation': '≣',
+                    'Hero & Headers': '★',
+                    'Content Blocks': '▤',
+                    'Social Proof': '💬',
+                    'Products & Commerce': '💰',
+                    'Interactive': '▼',
+                    'Carousels': '⇆',
+                    'Forms': '✉',
+                    'Footer': '▁',
+                  };
+                  const groupIcon = groupIcons[group] ?? '▦';
+                  return (
+                    <ElementsGroup
+                      key={group}
+                      title={group}
+                      icon={groupIcon}
+                      count={(items ?? []).length}
+                      open={open}
+                      onToggle={() => setPaletteOpen((p) => ({ ...(p ?? {}), [group]: !(p?.[group] !== false) }))}
+                    >
+                      <div className="grid grid-cols-1 gap-1.5">
+                        {(items ?? []).map((t) => {
+                          const meta = typeMeta(t);
                           return (
-                            <SortableLayerItem
-                              key={itemId}
-                              id={itemId}
-                              active={idx === activeComponentIndex}
-                              indexLabel={`#${idx + 1}`}
-                              title={c.type}
-                              onSelect={() => setActiveComponentIndex(idx)}
-                              onDuplicate={(e) => {
-                                e?.stopPropagation?.();
-                                duplicateComponentAt(idx);
+                            <PaletteDraggable
+                              key={t}
+                              type={t}
+                              label={meta.label}
+                              icon={meta.icon}
+                              desc={meta.desc}
+                              onClick={() => {
+                                if (!t) return;
+                                if (t === 'SECTION' || t === 'CONTAINER' || t === 'COLUMNS') {
+                                  insertLayout(t, null);
+                                  return;
+                                }
+                                insertComponentAt(comps.length, t);
                               }}
-                              onMoveUp={(e) => {
-                                e?.stopPropagation?.();
-                                reorderComponents(idx, idx - 1);
-                              }}
-                              onMoveDown={(e) => {
-                                e?.stopPropagation?.();
-                                reorderComponents(idx, idx + 1);
-                              }}
-                              disableUp={idx <= 0}
-                              disableDown={idx >= (comps?.length ?? 0) - 1}
                             />
                           );
                         })}
                       </div>
-                    </SortableContext>
-                  ) : (
-                    <div className="text-sm text-white/60">Drag components from the library into the canvas.</div>
-                  )}
+                    </ElementsGroup>
+                  );
+                })}
+              </div>
+            </div>
+          ) : leftTab === 'navigator' ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-white/60">Structure</div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setNavigatorExpanded({})}
+                    className="text-[10px] px-2 py-0.5 rounded bg-white/10 hover:bg-white/15 transition"
+                    title="Collapse all"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const all = {};
+                      (navigatorTree ?? []).forEach((s) => {
+                        all[s.id] = true;
+                        (s.children ?? []).forEach((c) => {
+                          all[c.id] = true;
+                          (c.children ?? []).forEach((col) => { all[col.id] = true; });
+                        });
+                      });
+                      setNavigatorExpanded(all);
+                    }}
+                    className="text-[10px] px-2 py-0.5 rounded bg-white/10 hover:bg-white/15 transition"
+                    title="Expand all"
+                  >
+                    ▼
+                  </button>
                 </div>
               </div>
+              <div className="space-y-0.5">
+                {(navigatorTree ?? []).map((section, sIdx) => {
+                  const sectionExpanded = navigatorExpanded[section.id] !== false;
+                  return (
+                    <div key={section.id}>
+                      <NavigatorRow
+                        depth={0}
+                        icon={typeMeta('SECTION').icon}
+                        title={`Section ${sIdx + 1}`}
+                        active={selectedNodeId === section.id && selectedNodeType === 'SECTION'}
+                        hasChildren={(section.children ?? []).length > 0}
+                        expanded={sectionExpanded}
+                        onToggle={() => setNavigatorExpanded((p) => ({ ...p, [section.id]: !sectionExpanded }))}
+                        onClick={() => {
+                          setSelectedNodeType('SECTION');
+                          setSelectedNodeId(section.id);
+                          setInspectorTab('style');
+                        }}
+                        actions={
+                          <>
+                            <NavigatorActionButton icon="+" title="Add container" onClick={() => insertLayout('CONTAINER', null)} />
+                          </>
+                        }
+                      />
+                      {sectionExpanded && (section.children ?? []).map((container, cIdx) => {
+                        const containerExpanded = navigatorExpanded[container.id] !== false;
+                        return (
+                          <div key={container.id}>
+                            <NavigatorRow
+                              depth={1}
+                              icon={typeMeta('CONTAINER').icon}
+                              title={`Container ${cIdx + 1}`}
+                              active={selectedNodeId === container.id && selectedNodeType === 'CONTAINER'}
+                              hasChildren={(container.children ?? []).length > 0}
+                              expanded={containerExpanded}
+                              onToggle={() => setNavigatorExpanded((p) => ({ ...p, [container.id]: !containerExpanded }))}
+                              onClick={() => {
+                                setSelectedNodeType('CONTAINER');
+                                setSelectedNodeId(container.id);
+                                setInspectorTab('style');
+                              }}
+                              actions={
+                                <>
+                                  <NavigatorActionButton icon="▦" title="Add columns" onClick={() => insertLayout('COLUMNS', null)} />
+                                </>
+                              }
+                            />
+                            {containerExpanded && (container.children ?? []).map((col, colIdx) => {
+                              const colExpanded = navigatorExpanded[col.id] !== false;
+                              return (
+                                <div key={col.id}>
+                                  <NavigatorRow
+                                    depth={2}
+                                    icon={typeMeta('COLUMNS').icon}
+                                    title={`Column ${colIdx + 1}`}
+                                    active={selectedNodeId === col.id && selectedNodeType === 'COLUMN'}
+                                    hasChildren={(col.children ?? []).length > 0}
+                                    expanded={colExpanded}
+                                    onToggle={() => setNavigatorExpanded((p) => ({ ...p, [col.id]: !colExpanded }))}
+                                    onClick={() => {
+                                      const { columns } = getColumns(page?.builder);
+                                      const idx = (columns ?? []).findIndex((c) => c?.id === col.id);
+                                      selectColumn({ columnIndex: idx >= 0 ? idx : 0 });
+                                    }}
+                                  />
+                                  {colExpanded && (col.children ?? []).map((w) => {
+                                    const wm = typeMeta(w.widgetType);
+                                    return (
+                                      <NavigatorRow
+                                        key={w.id}
+                                        depth={3}
+                                        icon={wm.icon}
+                                        title={wm.label}
+                                        active={selectedNodeId === w.id && selectedNodeType === 'WIDGET'}
+                                        hasChildren={false}
+                                        onClick={() => {
+                                          const b = ensureBuilderHasColumn(page?.builder);
+                                          const derived = deriveHierarchyFromWidgetId(b, w.id);
+                                          const idx = (page?._widgetIds ?? []).indexOf(w.id);
+                                          selectWidget({ widgetId: w.id, columnIndex: derived?.columnIndex ?? 0, componentIndex: idx >= 0 ? idx : 0 });
+                                        }}
+                                        actions={
+                                          <>
+                                            <NavigatorActionButton
+                                              icon="⧉"
+                                              title="Duplicate"
+                                              onClick={() => {
+                                                setPages((prev) => {
+                                                  const next = deepClone(prev ?? []);
+                                                  const page2 = next?.[activePageIndex];
+                                                  if (!page2) return prev;
+                                                  page2.builder = duplicateWidgetById(page2.builder, w.id);
+                                                  return next;
+                                                });
+                                                setHasUnsavedChanges(true);
+                                              }}
+                                            />
+                                            <NavigatorActionButton
+                                              icon="✕"
+                                              title="Delete"
+                                              variant="danger"
+                                              onClick={() => {
+                                                setPages((prev) => {
+                                                  const next = deepClone(prev ?? []);
+                                                  const page2 = next?.[activePageIndex];
+                                                  if (!page2) return prev;
+                                                  page2.builder = removeWidgetById(page2.builder, w.id);
+                                                  return next;
+                                                });
+                                                setHasUnsavedChanges(true);
+                                                if (selectedNodeId === w.id) {
+                                                  setSelectedNodeId(null);
+                                                }
+                                              }}
+                                            />
+                                          </>
+                                        }
+                                      />
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
 
-              <DragOverlay>
-                {activeDragLabel ? (
-                  <div className="rounded-lg border border-white/10 bg-black/70 px-3 py-2 text-xs font-medium text-white/90 shadow-xl">
-                    {activeDragLabel}
+                {(!navigatorTree || navigatorTree.length === 0) && (comps?.length ?? 0) === 0 ? (
+                  <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-3 text-xs text-white/50 text-center">
+                    <div className="mb-2">No elements yet</div>
+                    <button
+                      type="button"
+                      onClick={() => insertLayout('SECTION', null)}
+                      className="text-indigo-300 hover:text-indigo-200 underline"
+                    >
+                      Add a section
+                    </button>
                   </div>
                 ) : null}
-              </DragOverlay>
-            </DndContext>
-          </div>
+              </div>
+            </div>
+          ) : leftTab === 'settings' ? (
+            <div className="space-y-3">
+              <div className="text-xs text-white/60">Site Settings</div>
+              
+              <CollapsibleSection title="Global Colors" icon="🎨" defaultOpen={true}>
+                <div className="space-y-3">
+                  <ColorPickerField
+                    label="Primary Color"
+                    value={themeDraft?.primaryColor ?? website?.settings?.theme?.primaryColor ?? '#6366f1'}
+                    onChange={(v) => setThemeDraft((d) => ({ ...(d ?? {}), primaryColor: v }))}
+                    placeholder="#6366f1"
+                  />
+                  <ColorPickerField
+                    label="Secondary Color"
+                    value={themeDraft?.secondaryColor ?? website?.settings?.theme?.secondaryColor ?? '#8b5cf6'}
+                    onChange={(v) => setThemeDraft((d) => ({ ...(d ?? {}), secondaryColor: v }))}
+                    placeholder="#8b5cf6"
+                  />
+                  <ColorPickerField
+                    label="Accent Color"
+                    value={themeDraft?.accentColor ?? website?.settings?.theme?.accentColor ?? '#f59e0b'}
+                    onChange={(v) => setThemeDraft((d) => ({ ...(d ?? {}), accentColor: v }))}
+                    placeholder="#f59e0b"
+                  />
+                  <ColorPickerField
+                    label="Text Color"
+                    value={themeDraft?.textColor ?? website?.settings?.theme?.textColor ?? '#ffffff'}
+                    onChange={(v) => setThemeDraft((d) => ({ ...(d ?? {}), textColor: v }))}
+                    placeholder="#ffffff"
+                  />
+                  <ColorPickerField
+                    label="Background Color"
+                    value={themeDraft?.backgroundColor ?? website?.settings?.theme?.backgroundColor ?? '#0f172a'}
+                    onChange={(v) => setThemeDraft((d) => ({ ...(d ?? {}), backgroundColor: v }))}
+                    placeholder="#0f172a"
+                  />
+                </div>
+              </CollapsibleSection>
+
+              <CollapsibleSection title="Typography" icon="T" defaultOpen={false}>
+                <div className="space-y-3">
+                  <SelectField
+                    label="Heading Font"
+                    value={designSystemDraft?.headingFont ?? website?.settings?.designSystem?.headingFont ?? ''}
+                    onChange={(v) => setDesignSystemDraft((d) => ({ ...(d ?? {}), headingFont: v || null }))}
+                    options={[
+                      { value: '', label: 'Default (System)' },
+                      { value: 'Inter, sans-serif', label: 'Inter' },
+                      { value: "'Playfair Display', serif", label: 'Playfair Display' },
+                      { value: "'Roboto', sans-serif", label: 'Roboto' },
+                      { value: "'Open Sans', sans-serif", label: 'Open Sans' },
+                      { value: "'Poppins', sans-serif", label: 'Poppins' },
+                      { value: "'Montserrat', sans-serif", label: 'Montserrat' },
+                      { value: "Georgia, serif", label: 'Georgia' },
+                    ]}
+                  />
+                  <SelectField
+                    label="Body Font"
+                    value={designSystemDraft?.bodyFont ?? website?.settings?.designSystem?.bodyFont ?? ''}
+                    onChange={(v) => setDesignSystemDraft((d) => ({ ...(d ?? {}), bodyFont: v || null }))}
+                    options={[
+                      { value: '', label: 'Default (System)' },
+                      { value: 'Inter, sans-serif', label: 'Inter' },
+                      { value: "'Roboto', sans-serif", label: 'Roboto' },
+                      { value: "'Open Sans', sans-serif", label: 'Open Sans' },
+                      { value: "'Lato', sans-serif", label: 'Lato' },
+                      { value: "'Source Sans Pro', sans-serif", label: 'Source Sans Pro' },
+                      { value: "Georgia, serif", label: 'Georgia' },
+                    ]}
+                  />
+                  <NumberSliderField
+                    label="Base Font Size"
+                    value={designSystemDraft?.baseFontSize ?? website?.settings?.designSystem?.baseFontSize ?? 16}
+                    onChange={(v) => setDesignSystemDraft((d) => ({ ...(d ?? {}), baseFontSize: v }))}
+                    min={12}
+                    max={24}
+                  />
+                  <NumberSliderField
+                    label="Line Height"
+                    value={designSystemDraft?.lineHeight ?? website?.settings?.designSystem?.lineHeight ?? 1.6}
+                    onChange={(v) => setDesignSystemDraft((d) => ({ ...(d ?? {}), lineHeight: v }))}
+                    min={1}
+                    max={2.5}
+                    step={0.1}
+                    unit=""
+                  />
+                </div>
+              </CollapsibleSection>
+
+              <CollapsibleSection title="Spacing & Layout" icon="↔" defaultOpen={false}>
+                <div className="space-y-3">
+                  <NumberSliderField
+                    label="Container Max Width"
+                    value={designSystemDraft?.containerMaxWidth ?? website?.settings?.designSystem?.containerMaxWidth ?? 1280}
+                    onChange={(v) => setDesignSystemDraft((d) => ({ ...(d ?? {}), containerMaxWidth: v }))}
+                    min={800}
+                    max={1920}
+                  />
+                  <NumberSliderField
+                    label="Section Padding"
+                    value={designSystemDraft?.sectionPadding ?? website?.settings?.designSystem?.sectionPadding ?? 80}
+                    onChange={(v) => setDesignSystemDraft((d) => ({ ...(d ?? {}), sectionPadding: v }))}
+                    min={20}
+                    max={200}
+                  />
+                  <NumberSliderField
+                    label="Element Gap"
+                    value={designSystemDraft?.elementGap ?? website?.settings?.designSystem?.elementGap ?? 24}
+                    onChange={(v) => setDesignSystemDraft((d) => ({ ...(d ?? {}), elementGap: v }))}
+                    min={8}
+                    max={64}
+                  />
+                </div>
+              </CollapsibleSection>
+
+              <CollapsibleSection title="Buttons" icon="⏺" defaultOpen={false}>
+                <div className="space-y-3">
+                  <NumberSliderField
+                    label="Border Radius"
+                    value={designSystemDraft?.buttonRadius ?? website?.settings?.designSystem?.buttonRadius ?? 8}
+                    onChange={(v) => setDesignSystemDraft((d) => ({ ...(d ?? {}), buttonRadius: v }))}
+                    min={0}
+                    max={50}
+                  />
+                  <NumberSliderField
+                    label="Padding X"
+                    value={designSystemDraft?.buttonPaddingX ?? website?.settings?.designSystem?.buttonPaddingX ?? 24}
+                    onChange={(v) => setDesignSystemDraft((d) => ({ ...(d ?? {}), buttonPaddingX: v }))}
+                    min={8}
+                    max={64}
+                  />
+                  <NumberSliderField
+                    label="Padding Y"
+                    value={designSystemDraft?.buttonPaddingY ?? website?.settings?.designSystem?.buttonPaddingY ?? 12}
+                    onChange={(v) => setDesignSystemDraft((d) => ({ ...(d ?? {}), buttonPaddingY: v }))}
+                    min={4}
+                    max={32}
+                  />
+                  <SelectField
+                    label="Button Style"
+                    value={designSystemDraft?.buttonStyle ?? website?.settings?.designSystem?.buttonStyle ?? 'filled'}
+                    onChange={(v) => setDesignSystemDraft((d) => ({ ...(d ?? {}), buttonStyle: v }))}
+                    options={[
+                      { value: 'filled', label: 'Filled' },
+                      { value: 'outline', label: 'Outline' },
+                      { value: 'ghost', label: 'Ghost' },
+                    ]}
+                  />
+                </div>
+              </CollapsibleSection>
+
+              <CollapsibleSection title="Borders & Shadows" icon="◐" defaultOpen={false}>
+                <div className="space-y-3">
+                  <NumberSliderField
+                    label="Default Border Radius"
+                    value={designSystemDraft?.borderRadius ?? website?.settings?.designSystem?.borderRadius ?? 12}
+                    onChange={(v) => setDesignSystemDraft((d) => ({ ...(d ?? {}), borderRadius: v }))}
+                    min={0}
+                    max={32}
+                  />
+                  <ColorPickerField
+                    label="Border Color"
+                    value={designSystemDraft?.borderColor ?? website?.settings?.designSystem?.borderColor ?? 'rgba(255,255,255,0.1)'}
+                    onChange={(v) => setDesignSystemDraft((d) => ({ ...(d ?? {}), borderColor: v }))}
+                    placeholder="rgba(255,255,255,0.1)"
+                  />
+                  <SelectField
+                    label="Shadow Style"
+                    value={designSystemDraft?.shadowStyle ?? website?.settings?.designSystem?.shadowStyle ?? 'subtle'}
+                    onChange={(v) => setDesignSystemDraft((d) => ({ ...(d ?? {}), shadowStyle: v }))}
+                    options={[
+                      { value: 'none', label: 'None' },
+                      { value: 'subtle', label: 'Subtle' },
+                      { value: 'medium', label: 'Medium' },
+                      { value: 'strong', label: 'Strong' },
+                    ]}
+                  />
+                </div>
+              </CollapsibleSection>
+
+              {(themeDraft || designSystemDraft) && (
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setThemeDraft(null);
+                      setDesignSystemDraft(null);
+                    }}
+                    className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium hover:bg-white/10 transition"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setPanelBusy(true);
+                      try {
+                        const updates = {};
+                        if (themeDraft) updates.theme = { ...(website?.settings?.theme ?? {}), ...themeDraft };
+                        if (designSystemDraft) updates.designSystem = { ...(website?.settings?.designSystem ?? {}), ...designSystemDraft };
+                        await api.patch(`/websites/${websiteId}`, { settings: { ...(website?.settings ?? {}), ...updates } });
+                        setThemeDraft(null);
+                        setDesignSystemDraft(null);
+                        window.location.reload();
+                      } catch (err) {
+                        console.error(err);
+                      } finally {
+                        setPanelBusy(false);
+                      }
+                    }}
+                    disabled={panelBusy}
+                    className="flex-1 rounded-lg bg-indigo-500 px-3 py-2 text-xs font-medium hover:bg-indigo-400 transition disabled:opacity-50"
+                  >
+                    {panelBusy ? 'Saving...' : 'Apply Changes'}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-black/10 overflow-hidden h-full">
-          <div className="h-full overflow-auto">
-            <div
-              className="mx-auto"
-              style={
-                previewWidth
-                  ? {
-                      width: `${previewWidth}px`,
-                      transform: `scale(${canvasZoom})`,
-                      transformOrigin: 'top center',
-                    }
-                  : {
-                      transform: `scale(${canvasZoom})`,
-                      transformOrigin: 'top center',
-                    }
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={(evt) => {
+            setActiveDragId(evt.active.id);
+          }}
+          onDragMove={(evt) => {
+            if (!evt?.activatorEvent) return;
+            const e = evt.activatorEvent;
+            const x = e.clientX;
+            const y = e.clientY;
+            setCanvasPointer((prev) => {
+              const container = document.querySelector('[data-canvas-drop-root]');
+              if (!container) return prev;
+              return { x, y, root: container };
+            });
+
+            if (!isOverCanvas) {
+              setDropIndicator(null);
+              return;
+            }
+
+            if (!twoColInfo.enabled) {
+              const idx = computeCanvasInsertIndexFromPointer();
+              const yPx = computeDropIndicatorY({ columnIndex: null, insertIndex: idx ?? 0 });
+              setDropIndicator({ columnIndex: null, index: idx ?? 0, yPx });
+              return;
+            }
+
+            const colIdx = computeColumnTargetFromPointer();
+            const idx = computeCanvasInsertIndexForColumnFromPointer(colIdx);
+            const yPx = computeDropIndicatorY({ columnIndex: colIdx, insertIndex: idx ?? 0 });
+            setDropIndicator({ columnIndex: colIdx, index: idx ?? 0, yPx });
+          }}
+          onDragEnd={(evt) => {
+            const { active, over } = evt;
+            setActiveDragId(null);
+            setDropIndicator(null);
+            if (!over) return;
+
+            const activeId = active.id;
+            const overId = over.id;
+
+            if (typeof activeId === 'string' && activeId.startsWith('new:')) {
+              const type = activeId.slice('new:'.length);
+              if (overId === 'canvas-drop') {
+                if (type === 'SECTION' || type === 'CONTAINER' || type === 'COLUMNS') {
+                  insertLayout(type, null);
+                  return;
+                }
+                if (!twoColInfo.enabled) {
+                  const idx = computeCanvasInsertIndexFromPointer();
+                  insertComponentAt(idx ?? comps.length, type);
+                  return;
+                }
+                const colIdx = computeColumnTargetFromPointer();
+                const idx = computeCanvasInsertIndexForColumnFromPointer(colIdx);
+                setPages((prev) => {
+                  const next = deepClone(prev ?? []);
+                  const p = next?.[activePageIndex];
+                  if (!p) return prev;
+                  p.builder = insertWidgetIntoColumn(p.builder, colIdx, idx ?? 0, type, defaultPropsForType(type), defaultStylesForType(type));
+                  return next;
+                });
+                setHasUnsavedChanges(true);
+                return;
               }
-            >
-              <SiteRenderer
-                pages={pages}
-                activePageIndex={activePageIndex}
-                theme={website?.settings?.theme}
-                designSystem={website?.settings?.designSystem}
-                editor={{
-                  selectedIndex: activeComponentIndex,
-                  onSelect: setActiveComponentIndex,
-                  dragIndex,
-                  onSetDragIndex: setDragIndex,
-                  dragNewType,
-                  onSetDragNewType: setDragNewType,
-                  hoverIndex,
-                  onSetHoverIndex: setHoverIndex,
-                  onMove: reorderComponents,
-                  onInsert: insertComponentAt,
-                  onUpdateProps: (componentIndex, patch) => {
-                    setPages((prev) => {
-                      const next = (prev ?? []).map((p) => ({
-                        ...p,
-                        components: (p.components ?? []).map((c) => ({
-                          ...c,
-                          props: { ...(c.props ?? {}) },
-                          styles: { ...(c.styles ?? {}) },
-                        })),
+              const overIndex = layerIds.indexOf(overId);
+              const insertIndex = overIndex >= 0 ? overIndex : comps.length;
+              if (type === 'SECTION' || type === 'CONTAINER' || type === 'COLUMNS') {
+                insertLayout(type, insertIndex);
+                return;
+              }
+              insertComponentAt(insertIndex, type);
+              return;
+            }
+
+            if (overId === 'canvas-drop') {
+              const oldIndex = layerIds.indexOf(activeId);
+              if (oldIndex < 0) return;
+              if (!twoColInfo.enabled) {
+                const idx = computeCanvasInsertIndexFromPointer();
+                reorderComponents(oldIndex, idx ?? Math.max(0, (comps?.length ?? 1) - 1));
+                return;
+              }
+              // In 2-col mode, move the widget node between columns based on pointer X/Y.
+              const widgetId = String(activeId);
+              const colIdx = computeColumnTargetFromPointer();
+              const idx = computeCanvasInsertIndexForColumnFromPointer(colIdx);
+              setPages((prev) => {
+                const next = deepClone(prev ?? []);
+                const p = next?.[activePageIndex];
+                if (!p) return prev;
+                p.builder = moveWidgetBetweenColumns(p.builder, widgetId, colIdx, idx ?? 0);
+                return next;
+              });
+              setHasUnsavedChanges(true);
+              return;
+            }
+
+            const oldIndex = layerIds.indexOf(activeId);
+            const newIndex = layerIds.indexOf(overId);
+            if (oldIndex < 0 || newIndex < 0) return;
+            if (oldIndex === newIndex) return;
+
+            const nextOrder = arrayMove(layerIds, oldIndex, newIndex);
+            const fromIndex = oldIndex;
+            const toIndex = nextOrder.indexOf(activeId);
+            reorderComponents(fromIndex, toIndex);
+          }}
+        >
+          <div
+            ref={setCanvasDropRef}
+            className={
+              isOverCanvas
+                ? 'rounded-2xl border border-indigo-400/50 bg-indigo-500/10 overflow-hidden h-full'
+                : 'rounded-2xl border border-white/10 bg-black/10 overflow-hidden h-full'
+            }
+          >
+            <div className="h-full overflow-auto">
+              <div
+                data-canvas-drop-root
+                className="relative mx-auto"
+                style={
+                  previewWidth
+                    ? {
+                        width: `${previewWidth}px`,
+                        transform: `scale(${canvasZoom})`,
+                        transformOrigin: 'top center',
+                      }
+                    : {
+                        transform: `scale(${canvasZoom})`,
+                        transformOrigin: 'top center',
+                      }
+                }
+              >
+                {dropIndicator ? (
+                  <div
+                    className="pointer-events-none absolute left-0 right-0 z-50"
+                    style={{
+                      top: `${Math.max(0, Number(dropIndicator.yPx ?? 0))}px`,
+                    }}
+                  >
+                    <div className="mx-auto max-w-6xl px-4">
+                      <div className="h-0.5 w-full rounded bg-indigo-400 shadow" />
+                    </div>
+                  </div>
+                ) : null}
+
+                {twoColInfo.enabled ? (
+                  <div className="grid grid-cols-2 gap-6">
+                    {[0, 1].map((colIdx) => {
+                      const { builder: baseBuilder, columns } = getColumns(page?.builder);
+                      const colNode = columns?.[colIdx] ?? null;
+                      const { widgets } = collectWidgetNodesForColumn(page?.builder, colIdx);
+                      const colComps = widgetNodesToFlatComponents(widgets).map((c, idx) => ({
+                        ...c,
+                        __cid: c.__cid ?? `${c.id}-${idx}`,
+                        __col: colIdx,
+                        __idx: idx,
                       }));
-                      const page2 = next?.[activePageIndex];
-                      const comp = page2?.components?.[componentIndex];
-                      if (!page2 || !comp) return prev;
-                      comp.props = { ...(comp.props ?? {}), ...(patch ?? {}) };
-                      return next;
-                    });
-                  },
-                }}
-              />
+                      const colPages = [
+                        {
+                          ...(page ?? {}),
+                          components: colComps.map((c) => ({
+                            id: c.id,
+                            type: c.type,
+                            orderIndex: c.orderIndex,
+                            props: c.props,
+                            styles: c.styles,
+                            __cid: c.__cid,
+                          })),
+                        },
+                      ];
+                      return (
+                        <div
+                          key={colIdx}
+                          data-builder-col-root={colIdx}
+                          className={
+                            selectedNodeType === 'COLUMN' && selectedColumnIndex === colIdx
+                              ? 'min-h-[200px] rounded-xl outline outline-2 outline-indigo-400/50'
+                              : 'min-h-[200px] rounded-xl outline outline-1 outline-transparent'
+                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            selectColumn({ columnIndex: colIdx });
+                          }}
+                        >
+                          <SiteRenderer
+                            pages={colPages}
+                            activePageIndex={0}
+                            theme={website?.settings?.theme}
+                            designSystem={website?.settings?.designSystem}
+                            editor={{
+                              columnId: colIdx,
+                              selectedIndex: selectedNodeType === 'WIDGET' && selectedColumnIndex === colIdx ? activeComponentIndex : null,
+                              dragIndex,
+                              dragNewType,
+                              onSetDragIndex: setDragIndex,
+                              onSetDragNewType: setDragNewType,
+                              onContextMenu: ({ componentIndex, columnIndex, nodeType, nodeId, x, y }) => {
+                                if (nodeType && nodeId) {
+                                  setSelectedNodeType(nodeType);
+                                  setSelectedNodeId(nodeId);
+                                  if (nodeType === 'COLUMN') setSelectedColumnIndex(Number.isFinite(Number(columnIndex)) ? Number(columnIndex) : colIdx);
+                                  if (nodeType === 'SECTION' || nodeType === 'CONTAINER' || nodeType === 'COLUMN') setInspectorTab('style');
+                                  setContextMenu({ x, y });
+                                  return;
+                                }
+
+                                const { widgets } = collectWidgetNodesForColumn(page?.builder, columnIndex);
+                                const w = widgets?.[Number(componentIndex)] ?? null;
+                                if (w?.id) {
+                                  selectWidget({ widgetId: w.id, columnIndex, componentIndex: Number(componentIndex) || 0 });
+                                }
+                                setContextMenu({ x, y });
+                              },
+                              onInsert: (idx, type) => {
+                                setPages((prev) => {
+                                  const next = deepClone(prev ?? []);
+                                  const p = next?.[activePageIndex];
+                                  if (!p) return prev;
+                                  p.builder = insertWidgetIntoColumn(p.builder, colIdx, idx, type, defaultPropsForType(type), defaultStylesForType(type));
+                                  return next;
+                                });
+                                setHasUnsavedChanges(true);
+                              },
+                              onMove: (from, to) => {
+                                setPages((prev) => {
+                                  const next = deepClone(prev ?? []);
+                                  const p = next?.[activePageIndex];
+                                  if (!p) return prev;
+                                  p.builder = reorderWidgetsInColumn(p.builder, colIdx, from, to);
+                                  return next;
+                                });
+                                setHasUnsavedChanges(true);
+                              },
+                              onSelect: (idx) => {
+                                const widgetId = widgets?.[idx]?.id ?? null;
+                                selectWidget({ widgetId, columnIndex: colIdx, componentIndex: idx });
+                              },
+                              onUpdateProps: (componentIndex, patch) => {
+                                setPages((prev) => {
+                                  const next = deepClone(prev ?? []);
+                                  const p = next?.[activePageIndex];
+                                  if (!p) return prev;
+                                  const { widgets } = collectWidgetNodesForColumn(p.builder, colIdx);
+                                  const widget = widgets?.[Number(componentIndex)];
+                                  if (!widget) return prev;
+                                  p.builder = updateWidgetNodeById(p.builder, widget.id, (node) => {
+                                    node.props = { ...(node.props ?? {}), ...(patch ?? {}) };
+                                  });
+                                  return next;
+                                });
+                                setHasUnsavedChanges(true);
+                              },
+                            }}
+                            linkBasePath={page?.path === '/' ? '' : page?.path}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <SiteRenderer
+                    pages={derivedPages}
+                    activePageIndex={activePageIndex}
+                    theme={website?.settings?.theme}
+                    designSystem={website?.settings?.designSystem}
+                    editor={{
+                      columnId: null,
+                      selectedIndex: selectedNodeType === 'WIDGET' ? activeComponentIndex : null,
+                      dragIndex,
+                      dragNewType,
+                      onSetDragIndex: setDragIndex,
+                      onSetDragNewType: setDragNewType,
+                      onContextMenu: ({ componentIndex, columnIndex, nodeType, nodeId, x, y }) => {
+                        if (nodeType && nodeId) {
+                          setSelectedNodeType(nodeType);
+                          setSelectedNodeId(nodeId);
+                          if (nodeType === 'COLUMN') setSelectedColumnIndex(0);
+                          if (nodeType === 'SECTION' || nodeType === 'CONTAINER' || nodeType === 'COLUMN') setInspectorTab('style');
+                          setContextMenu({ x, y });
+                          return;
+                        }
+
+                        const widgets = collectWidgetNodesInRenderOrder(ensureBuilderHasColumn(page?.builder));
+                        const w = widgets?.[Number(componentIndex)] ?? null;
+                        if (w?.id) {
+                          selectWidget({ widgetId: w.id, columnIndex: 0, componentIndex: Number(componentIndex) || 0 });
+                        }
+                        setContextMenu({ x, y });
+                      },
+                      onInsert: insertComponentAt,
+                      onMove: reorderComponents,
+                      onSelect: setActiveComponentIndex,
+                      onUpdateProps: (componentIndex, patch) => {
+                        setPages((prev) => {
+                          const next = deepClone(prev ?? []);
+                          const page2 = next?.[activePageIndex];
+                          if (!page2) return prev;
+                          page2.builder = updateWidgetPropsAtIndex(page2.builder, componentIndex, patch);
+                          return next;
+                        });
+                        setHasUnsavedChanges(true);
+                      },
+                    }}
+                  />
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
         <div
           className={
@@ -1623,9 +4768,284 @@ export function BuilderPage() {
           }
         >
           <div className="space-y-3">
-            <div className="text-sm font-semibold">Selected component</div>
-            {!activeComponent ? (
-              <div className="text-sm text-white/60">Select a component from the canvas or layers panel.</div>
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold">Inspector</div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-white/40 uppercase">Breakpoint</span>
+                <ResponsiveTabs value={responsiveBreakpoint} onChange={setResponsiveBreakpoint} />
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-white/60 text-[10px] uppercase">Selected</div>
+                  <div className="font-medium">{selectedLabel}</div>
+                </div>
+                <div className="h-8 w-8 rounded-lg bg-indigo-500/20 grid place-items-center text-indigo-300 text-sm">
+                  {selectedNodeType === 'SECTION' ? '▭' : selectedNodeType === 'CONTAINER' ? '▢' : selectedNodeType === 'COLUMN' ? '▥' : '◇'}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-black/20 p-2">
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-white/50 mb-2">Breadcrumbs</div>
+              <div className="flex flex-wrap gap-1">
+                <button
+                  type="button"
+                  onClick={selectSection}
+                  className={`rounded-md px-2 py-1 text-[11px] transition ${selectedNodeType === 'SECTION' ? 'bg-indigo-500/30 text-indigo-200' : 'bg-white/10 hover:bg-white/15'}`}
+                >
+                  ▭ Section
+                </button>
+                <button
+                  type="button"
+                  onClick={selectContainer}
+                  className={`rounded-md px-2 py-1 text-[11px] transition ${selectedNodeType === 'CONTAINER' ? 'bg-indigo-500/30 text-indigo-200' : 'bg-white/10 hover:bg-white/15'}`}
+                >
+                  ▢ Container
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectColumn({ columnIndex: selectedColumnIndex })}
+                  className={`rounded-md px-2 py-1 text-[11px] transition ${selectedNodeType === 'COLUMN' ? 'bg-indigo-500/30 text-indigo-200' : 'bg-white/10 hover:bg-white/15'}`}
+                >
+                  ▥ Col {selectedColumnIndex + 1}
+                </button>
+                {breadcrumbIds.widgetId ? (
+                  <button
+                    type="button"
+                    onClick={() => selectWidget({ widgetId: breadcrumbIds.widgetId, columnIndex: selectedColumnIndex, componentIndex: activeComponentIndex })}
+                    className={`rounded-md px-2 py-1 text-[11px] transition ${selectedNodeType === 'WIDGET' ? 'bg-indigo-500/30 text-indigo-200' : 'bg-white/10 hover:bg-white/15'}`}
+                  >
+                    ◇ Widget
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-black/20 p-1">
+              <button
+                type="button"
+                onClick={() => setInspectorTab('content')}
+                className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                  inspectorTab === 'content'
+                    ? 'bg-indigo-500/30 text-white'
+                    : 'text-white/60 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                📝 Content
+              </button>
+              <button
+                type="button"
+                onClick={() => setInspectorTab('style')}
+                className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                  inspectorTab === 'style'
+                    ? 'bg-indigo-500/30 text-white'
+                    : 'text-white/60 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                🎨 Style
+              </button>
+              <button
+                type="button"
+                onClick={() => setInspectorTab('advanced')}
+                className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                  inspectorTab === 'advanced'
+                    ? 'bg-indigo-500/30 text-white'
+                    : 'text-white/60 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                ⚙️ Advanced
+              </button>
+            </div>
+
+            {selectedNodeType === 'SECTION' || selectedNodeType === 'CONTAINER' ? (
+              <div className="space-y-3">
+                {inspectorTab === 'style' ? (
+                  <>
+                    <CollapsibleSection title="Background" icon="🎨" defaultOpen={true}>
+                      <BackgroundControl
+                        styles={selectedNodeStyle}
+                        onChange={(patch) => updateSelectedNodeStyle(patch)}
+                      />
+                    </CollapsibleSection>
+
+                    <CollapsibleSection title="Spacing" icon="↔" defaultOpen={true}>
+                      <LinkedBoxControl
+                        label="Padding"
+                        top={selectedNodeStyle?.paddingTop}
+                        right={selectedNodeStyle?.paddingRight}
+                        bottom={selectedNodeStyle?.paddingBottom}
+                        left={selectedNodeStyle?.paddingLeft}
+                        onChangeTop={(v) => updateSelectedNodeStyle({ paddingTop: v })}
+                        onChangeRight={(v) => updateSelectedNodeStyle({ paddingRight: v })}
+                        onChangeBottom={(v) => updateSelectedNodeStyle({ paddingBottom: v })}
+                        onChangeLeft={(v) => updateSelectedNodeStyle({ paddingLeft: v })}
+                      />
+                      <LinkedBoxControl
+                        label="Margin"
+                        top={selectedNodeStyle?.marginTop}
+                        right={selectedNodeStyle?.marginRight}
+                        bottom={selectedNodeStyle?.marginBottom}
+                        left={selectedNodeStyle?.marginLeft}
+                        onChangeTop={(v) => updateSelectedNodeStyle({ marginTop: v })}
+                        onChangeRight={(v) => updateSelectedNodeStyle({ marginRight: v })}
+                        onChangeBottom={(v) => updateSelectedNodeStyle({ marginBottom: v })}
+                        onChangeLeft={(v) => updateSelectedNodeStyle({ marginLeft: v })}
+                      />
+                    </CollapsibleSection>
+
+                    <CollapsibleSection title="Border" icon="▢" defaultOpen={false}>
+                      <BorderControl
+                        border={{
+                          style: selectedNodeStyle?.borderStyle,
+                          width: selectedNodeStyle?.borderWidth,
+                          color: selectedNodeStyle?.borderColor,
+                          radius: selectedNodeStyle?.borderRadius,
+                        }}
+                        onChange={(b) => updateSelectedNodeStyle({
+                          borderStyle: b.style,
+                          borderWidth: b.width,
+                          borderColor: b.color,
+                          borderRadius: b.radius,
+                        })}
+                      />
+                    </CollapsibleSection>
+
+                    <CollapsibleSection title="Layout" icon="⊞" defaultOpen={false}>
+                      <LayoutControl
+                        styles={selectedNodeStyle}
+                        onChange={(patch) => updateSelectedNodeStyle(patch)}
+                      />
+                    </CollapsibleSection>
+
+                    <CollapsibleSection title="Size" icon="↕" defaultOpen={false}>
+                      <SizeControl
+                        styles={selectedNodeStyle}
+                        onChange={(patch) => updateSelectedNodeStyle(patch)}
+                      />
+                    </CollapsibleSection>
+
+                    <CollapsibleSection title="Position" icon="📍" defaultOpen={false}>
+                      <PositionControl
+                        styles={selectedNodeStyle}
+                        onChange={(patch) => updateSelectedNodeStyle(patch)}
+                      />
+                    </CollapsibleSection>
+
+                    <CollapsibleSection title="Shadow" icon="◐" defaultOpen={false}>
+                      <ShadowControl
+                        shadow={{
+                          x: selectedNodeStyle?.shadowX,
+                          y: selectedNodeStyle?.shadowY,
+                          blur: selectedNodeStyle?.shadowBlur,
+                          spread: selectedNodeStyle?.shadowSpread,
+                          color: selectedNodeStyle?.shadowColor,
+                        }}
+                        onChange={(s) => updateSelectedNodeStyle({
+                          shadowX: s.x,
+                          shadowY: s.y,
+                          shadowBlur: s.blur,
+                          shadowSpread: s.spread,
+                          shadowColor: s.color,
+                        })}
+                      />
+                    </CollapsibleSection>
+
+                    <CollapsibleSection title="Transform & Effects" icon="✨" defaultOpen={false}>
+                      <TransformControl
+                        styles={selectedNodeStyle}
+                        onChange={(patch) => updateSelectedNodeStyle(patch)}
+                      />
+                    </CollapsibleSection>
+                  </>
+                ) : (
+                  <div className="text-sm text-white/60">Select the Style tab to edit {selectedNodeType.toLowerCase()}.</div>
+                )}
+              </div>
+            ) : selectedNodeType === 'COLUMN' ? (
+              <div className="space-y-3">
+                {inspectorTab === 'style' ? (
+                  <>
+                    <CollapsibleSection title="Column Width" icon="↔" defaultOpen={true}>
+                      <SelectField
+                        label="Grid Columns"
+                        value={String(getColumns(pages?.[activePageIndex]?.builder).columns?.[selectedColumnIndex]?.props?.width ?? 6)}
+                        onChange={(v) =>
+                          updateSelectedColumn((col) => {
+                            col.props = { ...(col.props ?? {}), width: Number(v) };
+                          })
+                        }
+                        options={[
+                          { value: '12', label: '12/12 (Full)' },
+                          { value: '9', label: '9/12 (75%)' },
+                          { value: '8', label: '8/12 (66%)' },
+                          { value: '6', label: '6/12 (50%)' },
+                          { value: '4', label: '4/12 (33%)' },
+                          { value: '3', label: '3/12 (25%)' },
+                        ]}
+                      />
+                    </CollapsibleSection>
+
+                    <CollapsibleSection title="Background" icon="🎨" defaultOpen={true}>
+                      <BackgroundControl
+                        styles={getColumns(pages?.[activePageIndex]?.builder).columns?.[selectedColumnIndex]?.style ?? {}}
+                        onChange={(patch) =>
+                          updateSelectedColumn((col) => {
+                            col.style = { ...(col.style ?? {}), ...patch };
+                          })
+                        }
+                      />
+                    </CollapsibleSection>
+
+                    <CollapsibleSection title="Layout" icon="⊞" defaultOpen={false}>
+                      <LayoutControl
+                        styles={getColumns(pages?.[activePageIndex]?.builder).columns?.[selectedColumnIndex]?.style ?? {}}
+                        onChange={(patch) =>
+                          updateSelectedColumn((col) => {
+                            col.style = { ...(col.style ?? {}), ...patch };
+                          })
+                        }
+                      />
+                    </CollapsibleSection>
+
+                    <CollapsibleSection title="Spacing" icon="↔" defaultOpen={false}>
+                      <LinkedBoxControl
+                        label="Padding"
+                        top={getColumns(pages?.[activePageIndex]?.builder).columns?.[selectedColumnIndex]?.style?.paddingTop}
+                        right={getColumns(pages?.[activePageIndex]?.builder).columns?.[selectedColumnIndex]?.style?.paddingRight}
+                        bottom={getColumns(pages?.[activePageIndex]?.builder).columns?.[selectedColumnIndex]?.style?.paddingBottom}
+                        left={getColumns(pages?.[activePageIndex]?.builder).columns?.[selectedColumnIndex]?.style?.paddingLeft}
+                        onChangeTop={(v) => updateSelectedColumn((col) => { col.style = { ...(col.style ?? {}), paddingTop: v }; })}
+                        onChangeRight={(v) => updateSelectedColumn((col) => { col.style = { ...(col.style ?? {}), paddingRight: v }; })}
+                        onChangeBottom={(v) => updateSelectedColumn((col) => { col.style = { ...(col.style ?? {}), paddingBottom: v }; })}
+                        onChangeLeft={(v) => updateSelectedColumn((col) => { col.style = { ...(col.style ?? {}), paddingLeft: v }; })}
+                      />
+                    </CollapsibleSection>
+
+                    <CollapsibleSection title="Border" icon="▢" defaultOpen={false}>
+                      <BorderControl
+                        border={{
+                          style: getColumns(pages?.[activePageIndex]?.builder).columns?.[selectedColumnIndex]?.style?.borderStyle,
+                          width: getColumns(pages?.[activePageIndex]?.builder).columns?.[selectedColumnIndex]?.style?.borderWidth,
+                          color: getColumns(pages?.[activePageIndex]?.builder).columns?.[selectedColumnIndex]?.style?.borderColor,
+                          radius: getColumns(pages?.[activePageIndex]?.builder).columns?.[selectedColumnIndex]?.style?.borderRadius,
+                        }}
+                        onChange={(b) =>
+                          updateSelectedColumn((col) => {
+                            col.style = { ...(col.style ?? {}), borderStyle: b.style, borderWidth: b.width, borderColor: b.color, borderRadius: b.radius };
+                          })
+                        }
+                      />
+                    </CollapsibleSection>
+                  </>
+                ) : (
+                  <div className="text-sm text-white/60">Select the Style tab to edit column.</div>
+                )}
+              </div>
+            ) : !activeComponent ? (
+              <div className="text-sm text-white/60">Select something on the canvas.</div>
             ) : (
               <>
                 <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm">
@@ -1648,129 +5068,323 @@ export function BuilderPage() {
                   </SmallButton>
                 </div>
 
-                <div className="flex items-center gap-1 rounded-md border border-white/10 bg-black/20 p-1">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewMode('desktop')}
-                    className={
-                      previewMode === 'desktop'
-                        ? 'rounded-md bg-white/15 px-2 py-1 text-xs font-medium'
-                        : 'rounded-md px-2 py-1 text-xs text-white/70 hover:bg-white/10 hover:text-white'
-                    }
-                  >
-                    Desktop
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewMode('tablet')}
-                    className={
-                      previewMode === 'tablet'
-                        ? 'rounded-md bg-white/15 px-2 py-1 text-xs font-medium'
-                        : 'rounded-md px-2 py-1 text-xs text-white/70 hover:bg-white/10 hover:text-white'
-                    }
-                  >
-                    Tablet
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewMode('mobile')}
-                    className={
-                      previewMode === 'mobile'
-                        ? 'rounded-md bg-white/15 px-2 py-1 text-xs font-medium'
-                        : 'rounded-md px-2 py-1 text-xs text-white/70 hover:bg-white/10 hover:text-white'
-                    }
-                  >
-                    Mobile
-                  </button>
-                </div>
+                {inspectorTab === 'style' ? (
+                  <div className="space-y-3">
+                    {(activeComponent.type === 'HEADING' || activeComponent.type === 'TEXT') && (
+                      <CollapsibleSection title="Typography" icon="T" defaultOpen={true}>
+                        <TypographyControl
+                          styles={activeComponent.styles ?? {}}
+                          onChange={(patch) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), ...patch }))}
+                        />
+                      </CollapsibleSection>
+                    )}
 
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-3 space-y-3">
-                  <div className="text-sm font-semibold">Style</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <label className="block">
-                      <div className="text-xs text-white/60">Padding top</div>
-                      <input
-                        value={String(activeComponent.styles?.paddingTop ?? '')}
-                        onChange={(e) =>
-                          updateActiveComponent((c) =>
-                            (c.styles = {
-                              ...(c.styles ?? {}),
-                              paddingTop: e.target.value === '' ? null : Number(e.target.value),
-                            })
-                          )
-                        }
-                        className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-2 py-1 text-sm"
-                        placeholder=""
+                    {activeComponent.type === 'BUTTON' && (
+                      <CollapsibleSection title="Button Style" icon="⏺" defaultOpen={true}>
+                        <ColorPickerField
+                          label="Text Color"
+                          value={String(activeComponent.styles?.color ?? '')}
+                          onChange={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), color: v || null }))}
+                          placeholder="#ffffff"
+                        />
+                        <ColorPickerField
+                          label="Background"
+                          value={String(activeComponent.styles?.backgroundColor ?? '')}
+                          onChange={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), backgroundColor: v || null }))}
+                          placeholder="#6366f1"
+                        />
+                        <ColorPickerField
+                          label="Hover Background"
+                          value={String(activeComponent.styles?.hoverBackgroundColor ?? '')}
+                          onChange={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), hoverBackgroundColor: v || null }))}
+                          placeholder="#4f46e5"
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <NumberSliderField
+                            label="Font Size"
+                            value={activeComponent.styles?.fontSize}
+                            onChange={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), fontSize: v }))}
+                            min={10}
+                            max={32}
+                          />
+                          <NumberSliderField
+                            label="Font Weight"
+                            value={activeComponent.styles?.fontWeight}
+                            onChange={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), fontWeight: v }))}
+                            min={100}
+                            max={900}
+                            step={100}
+                            unit=""
+                          />
+                        </div>
+                        <NumberSliderField
+                          label="Border Radius"
+                          value={activeComponent.styles?.borderRadius}
+                          onChange={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), borderRadius: v }))}
+                          min={0}
+                          max={50}
+                        />
+                        <LinkedBoxControl
+                          label="Padding"
+                          top={activeComponent.styles?.paddingTop}
+                          right={activeComponent.styles?.paddingRight}
+                          bottom={activeComponent.styles?.paddingBottom}
+                          left={activeComponent.styles?.paddingLeft}
+                          onChangeTop={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), paddingTop: v }))}
+                          onChangeRight={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), paddingRight: v }))}
+                          onChangeBottom={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), paddingBottom: v }))}
+                          onChangeLeft={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), paddingLeft: v }))}
+                        />
+                      </CollapsibleSection>
+                    )}
+
+                    {activeComponent.type === 'DIVIDER' && (
+                      <CollapsibleSection title="Divider Style" icon="—" defaultOpen={true}>
+                        <ColorPickerField
+                          label="Color"
+                          value={String(activeComponent.styles?.borderColor ?? activeComponent.styles?.color ?? '')}
+                          onChange={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), borderColor: v || null, color: v || null }))}
+                          placeholder="rgba(255,255,255,0.12)"
+                        />
+                        <NumberSliderField
+                          label="Thickness"
+                          value={activeComponent.props?.thickness}
+                          onChange={(v) => updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), thickness: v }))}
+                          min={1}
+                          max={20}
+                        />
+                        <SelectField
+                          label="Style"
+                          value={activeComponent.styles?.borderStyle ?? 'solid'}
+                          onChange={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), borderStyle: v }))}
+                          options={[
+                            { value: 'solid', label: 'Solid' },
+                            { value: 'dashed', label: 'Dashed' },
+                            { value: 'dotted', label: 'Dotted' },
+                            { value: 'double', label: 'Double' },
+                          ]}
+                        />
+                        <NumberSliderField
+                          label="Width %"
+                          value={activeComponent.styles?.width}
+                          onChange={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), width: v }))}
+                          min={10}
+                          max={100}
+                          unit="%"
+                        />
+                      </CollapsibleSection>
+                    )}
+
+                    {activeComponent.type === 'IMAGE' && (
+                      <CollapsibleSection title="Image Style" icon="▣" defaultOpen={true}>
+                        <NumberSliderField
+                          label="Border Radius"
+                          value={activeComponent.styles?.borderRadius}
+                          onChange={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), borderRadius: v }))}
+                          min={0}
+                          max={100}
+                        />
+                        <NumberSliderField
+                          label="Max Width"
+                          value={activeComponent.styles?.maxWidth}
+                          onChange={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), maxWidth: v }))}
+                          min={50}
+                          max={1200}
+                        />
+                        <SelectField
+                          label="Object Fit"
+                          value={activeComponent.styles?.objectFit ?? 'cover'}
+                          onChange={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), objectFit: v }))}
+                          options={[
+                            { value: 'cover', label: 'Cover' },
+                            { value: 'contain', label: 'Contain' },
+                            { value: 'fill', label: 'Fill' },
+                            { value: 'none', label: 'None' },
+                          ]}
+                        />
+                        <BorderControl
+                          border={{
+                            style: activeComponent.styles?.borderStyle,
+                            width: activeComponent.styles?.borderWidth,
+                            color: activeComponent.styles?.borderColor,
+                            radius: activeComponent.styles?.borderRadius,
+                          }}
+                          onChange={(b) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), borderStyle: b.style, borderWidth: b.width, borderColor: b.color, borderRadius: b.radius }))}
+                        />
+                      </CollapsibleSection>
+                    )}
+
+                    {activeComponent.type === 'SPACER' && (
+                      <CollapsibleSection title="Spacer" icon="↕" defaultOpen={true}>
+                        <NumberSliderField
+                          label="Height"
+                          value={activeComponent.props?.height}
+                          onChange={(v) => updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), height: v }))}
+                          min={0}
+                          max={600}
+                        />
+                      </CollapsibleSection>
+                    )}
+
+                    <CollapsibleSection title="Background" icon="🎨" defaultOpen={activeComponent.type !== 'HEADING' && activeComponent.type !== 'TEXT'}>
+                      <BackgroundControl
+                        styles={activeComponent.styles ?? {}}
+                        onChange={(patch) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), ...patch }))}
                       />
-                    </label>
-                    <label className="block">
-                      <div className="text-xs text-white/60">Padding bottom</div>
-                      <input
-                        value={String(activeComponent.styles?.paddingBottom ?? '')}
-                        onChange={(e) =>
-                          updateActiveComponent((c) =>
-                            (c.styles = {
-                              ...(c.styles ?? {}),
-                              paddingBottom: e.target.value === '' ? null : Number(e.target.value),
-                            })
-                          )
-                        }
-                        className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-2 py-1 text-sm"
-                        placeholder=""
+                    </CollapsibleSection>
+
+                    <CollapsibleSection title="Spacing" icon="↔" defaultOpen={false}>
+                      <LinkedBoxControl
+                        label="Padding"
+                        top={activeComponent.styles?.paddingTop}
+                        right={activeComponent.styles?.paddingRight}
+                        bottom={activeComponent.styles?.paddingBottom}
+                        left={activeComponent.styles?.paddingLeft}
+                        onChangeTop={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), paddingTop: v }))}
+                        onChangeRight={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), paddingRight: v }))}
+                        onChangeBottom={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), paddingBottom: v }))}
+                        onChangeLeft={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), paddingLeft: v }))}
                       />
-                    </label>
-                    <label className="block">
-                      <div className="text-xs text-white/60">Margin top</div>
-                      <input
-                        value={String(activeComponent.styles?.marginTop ?? '')}
-                        onChange={(e) =>
-                          updateActiveComponent((c) =>
-                            (c.styles = {
-                              ...(c.styles ?? {}),
-                              marginTop: e.target.value === '' ? null : Number(e.target.value),
-                            })
-                          )
-                        }
-                        className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-2 py-1 text-sm"
-                        placeholder=""
+                      <LinkedBoxControl
+                        label="Margin"
+                        top={activeComponent.styles?.marginTop}
+                        right={activeComponent.styles?.marginRight}
+                        bottom={activeComponent.styles?.marginBottom}
+                        left={activeComponent.styles?.marginLeft}
+                        onChangeTop={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), marginTop: v }))}
+                        onChangeRight={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), marginRight: v }))}
+                        onChangeBottom={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), marginBottom: v }))}
+                        onChangeLeft={(v) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), marginLeft: v }))}
                       />
-                    </label>
-                    <label className="block">
-                      <div className="text-xs text-white/60">Margin bottom</div>
-                      <input
-                        value={String(activeComponent.styles?.marginBottom ?? '')}
-                        onChange={(e) =>
-                          updateActiveComponent((c) =>
-                            (c.styles = {
-                              ...(c.styles ?? {}),
-                              marginBottom: e.target.value === '' ? null : Number(e.target.value),
-                            })
-                          )
-                        }
-                        className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-2 py-1 text-sm"
-                        placeholder=""
+                    </CollapsibleSection>
+
+                    <CollapsibleSection title="Border" icon="▢" defaultOpen={false}>
+                      <BorderControl
+                        border={{
+                          style: activeComponent.styles?.borderStyle,
+                          width: activeComponent.styles?.borderWidth,
+                          color: activeComponent.styles?.borderColor,
+                          radius: activeComponent.styles?.borderRadius,
+                        }}
+                        onChange={(b) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), borderStyle: b.style, borderWidth: b.width, borderColor: b.color, borderRadius: b.radius }))}
                       />
+                    </CollapsibleSection>
+
+                    <CollapsibleSection title="Shadow" icon="◐" defaultOpen={false}>
+                      <ShadowControl
+                        shadow={{
+                          x: activeComponent.styles?.shadowX,
+                          y: activeComponent.styles?.shadowY,
+                          blur: activeComponent.styles?.shadowBlur,
+                          spread: activeComponent.styles?.shadowSpread,
+                          color: activeComponent.styles?.shadowColor,
+                        }}
+                        onChange={(s) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), shadowX: s.x, shadowY: s.y, shadowBlur: s.blur, shadowSpread: s.spread, shadowColor: s.color }))}
+                      />
+                    </CollapsibleSection>
+
+                    <CollapsibleSection title="Size" icon="↕" defaultOpen={false}>
+                      <SizeControl
+                        styles={activeComponent.styles ?? {}}
+                        onChange={(patch) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), ...patch }))}
+                      />
+                    </CollapsibleSection>
+
+                    <CollapsibleSection title="Position" icon="📍" defaultOpen={false}>
+                      <PositionControl
+                        styles={activeComponent.styles ?? {}}
+                        onChange={(patch) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), ...patch }))}
+                      />
+                    </CollapsibleSection>
+
+                    <CollapsibleSection title="Transform & Effects" icon="✨" defaultOpen={false}>
+                      <TransformControl
+                        styles={activeComponent.styles ?? {}}
+                        onChange={(patch) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), ...patch }))}
+                      />
+                      <EffectsControl
+                        styles={activeComponent.styles ?? {}}
+                        onChange={(patch) => updateActiveComponent((c) => (c.styles = { ...(c.styles ?? {}), ...patch }))}
+                      />
+                    </CollapsibleSection>
+                  </div>
+                ) : null}
+
+                {inspectorTab === 'content' && activeComponent.type === 'HEADING' ? (
+                  <div className="space-y-3">
+                    <TextInput
+                      label="Text"
+                      value={activeComponent.props?.text}
+                      onChange={(v) => updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), text: v }))}
+                    />
+                    <label className="block">
+                      <div className="text-sm text-white/70">Level</div>
+                      <select
+                        value={String(activeComponent.props?.level ?? 2)}
+                        onChange={(e) => updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), level: Number(e.target.value) }))}
+                        className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
+                      >
+                        {[1, 2, 3, 4, 5, 6].map((n) => (
+                          <option key={n} value={String(n)}>
+                            H{n}
+                          </option>
+                        ))}
+                      </select>
                     </label>
                   </div>
-                  <label className="block">
-                    <div className="text-xs text-white/60">Background override</div>
-                    <input
-                      value={String(activeComponent.styles?.backgroundColor ?? '')}
-                      onChange={(e) =>
-                        updateActiveComponent((c) =>
-                          (c.styles = {
-                            ...(c.styles ?? {}),
-                            backgroundColor: e.target.value || null,
-                          })
-                        )
-                      }
-                      className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-2 py-1 text-sm"
-                      placeholder="#000000 / rgba(...)"
-                    />
-                  </label>
-                </div>
+                ) : null}
 
-                {activeComponent.type === 'NAVBAR' ? (
+                {inspectorTab === 'content' && activeComponent.type === 'TEXT' ? (
+                  <TextInput
+                    label="Text"
+                    value={activeComponent.props?.text}
+                    onChange={(v) => updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), text: v }))}
+                  />
+                ) : null}
+
+                {inspectorTab === 'content' && activeComponent.type === 'BUTTON' ? (
+                  <div className="space-y-3">
+                    <TextInput
+                      label="Label"
+                      value={activeComponent.props?.label}
+                      onChange={(v) => updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), label: v }))}
+                    />
+                    <TextInput
+                      label="Href"
+                      value={activeComponent.props?.href}
+                      onChange={(v) => updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), href: v }))}
+                      placeholder="# / /contact"
+                    />
+                  </div>
+                ) : null}
+
+                {inspectorTab === 'content' && activeComponent.type === 'SPACER' ? (
+                  <NumberSliderField
+                    label="Height (px)"
+                    value={activeComponent.props?.height}
+                    onChange={(v) => updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), height: v }))}
+                    min={0}
+                    max={600}
+                  />
+                ) : null}
+
+                {inspectorTab === 'content' && activeComponent.type === 'IMAGE' ? (
+                  <div className="space-y-3">
+                    <TextInput
+                      label="Image URL"
+                      value={activeComponent.props?.src}
+                      onChange={(v) => updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), src: v }))}
+                      placeholder="https://..."
+                    />
+                    <TextInput
+                      label="Alt"
+                      value={activeComponent.props?.alt}
+                      onChange={(v) => updateActiveComponent((c) => (c.props = { ...(c.props ?? {}), alt: v }))}
+                    />
+                  </div>
+                ) : null}
+
+                {inspectorTab === 'content' && activeComponent.type === 'NAVBAR' ? (
                   <div className="space-y-3">
                     <TextInput
                       label="Logo text"
@@ -3591,19 +7205,7 @@ export function BuilderPage() {
                 <SmallButton
                   variant="danger"
                   onClick={() => {
-                    setPages((prev) => {
-                      const next = (prev ?? []).map((p) => ({
-                        ...p,
-                        components: (p.components ?? []).map((c) => ({ ...c, props: { ...(c.props ?? {}) }, styles: { ...(c.styles ?? {}) } })),
-                      }));
-                      const page2 = next?.[activePageIndex];
-                      if (!page2) return prev;
-                      const comps2 = [...(page2.components ?? [])];
-                      comps2.splice(activeComponentIndex, 1);
-                      page2.components = comps2;
-                      return next;
-                    });
-                    setActiveComponentIndex(0);
+                    deleteSelectedWidget();
                   }}
                 >
                   Delete component
@@ -3612,6 +7214,7 @@ export function BuilderPage() {
             )}
           </div>
         </div>
+        </DndContext>
       </div>
     </div>
   );

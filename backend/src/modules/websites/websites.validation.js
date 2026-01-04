@@ -59,3 +59,20 @@ export const updateWebsiteStructureSchema = z.object({
   query: z.any().optional(),
   params: z.any().optional(),
 });
+
+export const updateWebsiteBuilderSchema = z.object({
+  body: z.object({
+    pages: z.array(
+      z.object({
+        id: z.number().int().positive().optional(),
+        name: z.string().min(1).max(120),
+        path: z.string().min(1).max(200),
+        sortOrder: z.number().int().min(0).default(0),
+        meta: z.record(z.any()).default({}),
+        builder: z.record(z.any()),
+      })
+    ),
+  }),
+  query: z.any().optional(),
+  params: z.any().optional(),
+});

@@ -15,8 +15,7 @@ import { RegisterPage } from './pages/public/RegisterPage.jsx';
 import { PreviewPage } from './pages/public/PreviewPage.jsx';
 
 import { UserDashboard } from './pages/user/UserDashboard.jsx';
-import { WebsiteEditor } from './pages/user/WebsiteEditor.jsx';
-import { BuilderPage } from './pages/user/BuilderPage.jsx';
+import { Builder } from './builder/Builder.jsx';
 import { AssetsPage } from './pages/user/AssetsPage.jsx';
 import { DraftPreviewPage } from './pages/user/DraftPreviewPage.jsx';
 import { ProfilePage } from './pages/user/ProfilePage.jsx';
@@ -27,6 +26,24 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
+        {/* Draft Preview - Full screen without AppShell */}
+        <Route
+          path="/draft-preview/:id"
+          element={
+            <ProtectedRoute>
+              <DraftPreviewPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/draft-preview/:id/*"
+          element={
+            <ProtectedRoute>
+              <DraftPreviewPage />
+            </ProtectedRoute>
+          }
+        />
+
         <Route element={<AppShell />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/about" element={<AboutPage />} />
@@ -45,20 +62,12 @@ export default function App() {
             }
           />
 
-          <Route
-            path="/editor/:id"
-            element={
-              <ProtectedRoute>
-                <WebsiteEditor />
-              </ProtectedRoute>
-            }
-          />
-
+          {/* Main Builder - Elementor-style visual editor */}
           <Route
             path="/builder/:id"
             element={
               <ProtectedRoute>
-                <BuilderPage />
+                <Builder />
               </ProtectedRoute>
             }
           />
@@ -72,23 +81,6 @@ export default function App() {
             }
           />
 
-          <Route
-            path="/draft-preview/:id"
-            element={
-              <ProtectedRoute>
-                <DraftPreviewPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/draft-preview/:id/*"
-            element={
-              <ProtectedRoute>
-                <DraftPreviewPage />
-              </ProtectedRoute>
-            }
-          />
 
           <Route
             path="/profile"

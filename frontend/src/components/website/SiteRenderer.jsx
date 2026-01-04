@@ -657,6 +657,141 @@ function FooterBlock({ props }) {
   );
 }
 
+function HeadingBlock({ props, styles, editorCtx }) {
+  const level = Number(props?.level) || 2;
+  const Tag = level === 1 ? 'h1' : level === 3 ? 'h3' : level === 4 ? 'h4' : level === 5 ? 'h5' : level === 6 ? 'h6' : 'h2';
+  const text = props?.text ?? 'Heading';
+  const align = styles?.textAlign ?? props?.align;
+  const color = styles?.color;
+  const fontSize = styles?.fontSize;
+  const fontWeight = styles?.fontWeight;
+
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-6">
+      <Tag
+        className="font-semibold tracking-tight"
+        style={{
+          ...(align ? { textAlign: align } : null),
+          ...(color ? { color } : null),
+          ...(fontSize ? { fontSize: typeof fontSize === 'number' ? `${fontSize}px` : String(fontSize) } : null),
+          ...(fontWeight ? { fontWeight } : null),
+        }}
+        contentEditable={!!(editorCtx?.enabled && editorCtx.isSelected)}
+        suppressContentEditableWarning
+        onBlur={(e) => {
+          if (!editorCtx?.enabled || !editorCtx.isSelected) return;
+          editorCtx.onUpdateProps?.({ text: e.currentTarget.textContent ?? '' });
+        }}
+      >
+        {text}
+      </Tag>
+    </div>
+  );
+}
+
+function TextBlock({ props, styles, editorCtx }) {
+  const text = props?.text ?? 'Text';
+  const align = styles?.textAlign ?? props?.align;
+  const color = styles?.color;
+  const fontSize = styles?.fontSize;
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-4">
+      <div
+        className="text-white/75"
+        style={{
+          ...(align ? { textAlign: align } : null),
+          ...(color ? { color } : null),
+          ...(fontSize ? { fontSize: typeof fontSize === 'number' ? `${fontSize}px` : String(fontSize) } : null),
+        }}
+        contentEditable={!!(editorCtx?.enabled && editorCtx.isSelected)}
+        suppressContentEditableWarning
+        onBlur={(e) => {
+          if (!editorCtx?.enabled || !editorCtx.isSelected) return;
+          editorCtx.onUpdateProps?.({ text: e.currentTarget.textContent ?? '' });
+        }}
+      >
+        {text}
+      </div>
+    </div>
+  );
+}
+
+function ButtonBlock({ props, styles, theme, linkBasePath, editorCtx }) {
+  const label = props?.label ?? 'Button';
+  const href = props?.href ?? '#';
+  const align = props?.align;
+  const bg = styles?.backgroundColor ?? theme?.primary ?? '#6366f1';
+  const color = styles?.color ?? '#ffffff';
+  const radius = styles?.borderRadius;
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-6" style={align ? { textAlign: align } : undefined}>
+      <a
+        href={mapHref({ href, linkBasePath })}
+        className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium"
+        style={{
+          backgroundColor: bg,
+          color,
+          ...(radius ? { borderRadius: typeof radius === 'number' ? `${radius}px` : String(radius) } : { borderRadius: '10px' }),
+        }}
+      >
+        <span
+          contentEditable={!!(editorCtx?.enabled && editorCtx.isSelected)}
+          suppressContentEditableWarning
+          onBlur={(e) => {
+            if (!editorCtx?.enabled || !editorCtx.isSelected) return;
+            editorCtx.onUpdateProps?.({ label: e.currentTarget.textContent ?? '' });
+          }}
+        >
+          {label}
+        </span>
+      </a>
+    </div>
+  );
+}
+
+function DividerBlock({ props, styles }) {
+  const color = styles?.color ?? 'rgba(255,255,255,0.12)';
+  const thickness = Number(props?.thickness) || 1;
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-6">
+      <div style={{ height: `${thickness}px`, backgroundColor: color, width: '100%' }} />
+    </div>
+  );
+}
+
+function SpacerBlock({ props }) {
+  const h = Number(props?.height);
+  const height = Number.isFinite(h) && h > 0 ? h : 24;
+  return <div style={{ height: `${height}px` }} />;
+}
+
+function ImageBlock({ props, styles }) {
+  const src = props?.src ?? '';
+  const alt = props?.alt ?? 'Image';
+  const width = props?.width;
+  const height = props?.height;
+  const radius = styles?.borderRadius;
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-6">
+      {src ? (
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          style={{
+            width: width ? (typeof width === 'number' ? `${width}px` : String(width)) : '100%',
+            height: height ? (typeof height === 'number' ? `${height}px` : String(height)) : 'auto',
+            objectFit: props?.fit ?? 'cover',
+            ...(radius ? { borderRadius: typeof radius === 'number' ? `${radius}px` : String(radius) } : null),
+          }}
+        />
+      ) : (
+        <div className="rounded-xl border border-dashed border-white/15 bg-white/5 p-6 text-sm text-white/60">No image selected</div>
+      )}
+    </div>
+  );
+}
+
 function CardsBlock({ props, linkBasePath }) {
   const cards = props?.cards ?? [];
   return (
@@ -734,6 +869,442 @@ function PricingBlock({ props }) {
   );
 }
 
+function IconBlock({ props, styles }) {
+  const icon = props?.icon ?? '★';
+  const size = props?.size ?? 48;
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-6 text-center">
+      <span style={{ fontSize: `${size}px`, ...(styles?.color ? { color: styles.color } : {}) }}>{icon}</span>
+    </div>
+  );
+}
+
+function IconBoxBlock({ props, styles }) {
+  const icon = props?.icon ?? '★';
+  const title = props?.title ?? 'Icon Box';
+  const text = props?.text ?? '';
+  const align = props?.align ?? 'center';
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-6" style={{ textAlign: align }}>
+      <div className="inline-flex flex-col items-center rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="text-4xl mb-3" style={styles?.color ? { color: styles.color } : {}}>{icon}</div>
+        <div className="text-lg font-semibold">{title}</div>
+        <div className="mt-2 text-sm text-white/70">{text}</div>
+      </div>
+    </div>
+  );
+}
+
+function StarRatingBlock({ props, styles }) {
+  const rating = props?.rating ?? 4;
+  const maxRating = props?.maxRating ?? 5;
+  const size = props?.size ?? 24;
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-4 flex gap-1 justify-center">
+      {Array.from({ length: maxRating }).map((_, i) => (
+        <span key={i} style={{ fontSize: `${size}px`, color: i < rating ? '#fbbf24' : 'rgba(255,255,255,0.2)' }}>★</span>
+      ))}
+    </div>
+  );
+}
+
+function VideoBlock({ props, styles }) {
+  const url = props?.url ?? '';
+  const aspectRatio = props?.aspectRatio ?? '16:9';
+  const [w, h] = aspectRatio.split(':').map(Number);
+  const paddingTop = h && w ? `${(h / w) * 100}%` : '56.25%';
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-6">
+      <div className="relative w-full rounded-xl overflow-hidden border border-white/10" style={{ paddingTop }}>
+        {url ? (
+          <iframe
+            src={url}
+            className="absolute inset-0 w-full h-full"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30 text-white/50">No video URL</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function IconListBlock({ props, styles }) {
+  const items = props?.items ?? [];
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-6">
+      <div className="space-y-3">
+        {items.map((item, idx) => (
+          <div key={idx} className="flex items-center gap-3">
+            <span className="text-lg" style={styles?.color ? { color: styles.color } : { color: '#22c55e' }}>{item.icon ?? '✓'}</span>
+            <span className="text-white/80">{item.text ?? ''}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ImageBoxBlock({ props, styles }) {
+  const src = props?.src ?? '';
+  const title = props?.title ?? '';
+  const text = props?.text ?? '';
+  const overlay = props?.overlay !== false;
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-6">
+      <div className="relative rounded-2xl overflow-hidden border border-white/10">
+        <div className="aspect-video w-full bg-black/30">
+          {src ? <img src={src} alt={title} className="w-full h-full object-cover" /> : null}
+        </div>
+        {overlay && (title || text) ? (
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-6">
+            {title ? <div className="text-xl font-semibold">{title}</div> : null}
+            {text ? <div className="mt-1 text-sm text-white/70">{text}</div> : null}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function MenuBlock({ props, linkBasePath }) {
+  const items = props?.items ?? [];
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-4">
+      <nav className="flex flex-wrap gap-4">
+        {items.map((item, idx) => (
+          <a key={idx} href={mapHref({ href: item.href ?? '#', linkBasePath })} className="text-sm text-white/70 hover:text-white">
+            {item.label ?? 'Link'}
+          </a>
+        ))}
+      </nav>
+    </div>
+  );
+}
+
+function BreadcrumbsBlock({ props, linkBasePath }) {
+  const items = props?.items ?? [];
+  const separator = props?.separator ?? '/';
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-4">
+      <nav className="flex items-center gap-2 text-sm">
+        {items.map((item, idx) => (
+          <span key={idx} className="flex items-center gap-2">
+            {idx > 0 ? <span className="text-white/40">{separator}</span> : null}
+            <a href={mapHref({ href: item.href ?? '#', linkBasePath })} className="text-white/70 hover:text-white">
+              {item.label ?? 'Page'}
+            </a>
+          </span>
+        ))}
+      </nav>
+    </div>
+  );
+}
+
+function PageHeaderBlock({ props, styles }) {
+  const title = props?.title ?? 'Page Title';
+  const subtitle = props?.subtitle ?? '';
+  const bgImage = props?.backgroundImage;
+  return (
+    <div 
+      className="relative py-20 px-4"
+      style={{
+        backgroundImage: bgImage ? `url(${bgImage})` : undefined,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        ...(styles?.backgroundColor ? { backgroundColor: styles.backgroundColor } : { backgroundColor: 'rgba(0,0,0,0.3)' }),
+      }}
+    >
+      <div className="mx-auto max-w-6xl text-center">
+        <h1 className="text-4xl font-bold">{title}</h1>
+        {subtitle ? <p className="mt-3 text-lg text-white/70">{subtitle}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+function CallToActionBlock({ props, theme, linkBasePath }) {
+  const headline = props?.headline ?? 'Ready to get started?';
+  const text = props?.text ?? '';
+  const primaryCta = props?.primaryCta;
+  const secondaryCta = props?.secondaryCta;
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-16">
+      <div className="rounded-2xl border border-white/10 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 p-10 text-center">
+        <h2 className="text-3xl font-bold">{headline}</h2>
+        {text ? <p className="mt-3 text-white/70">{text}</p> : null}
+        <div className="mt-6 flex justify-center gap-4">
+          {primaryCta?.label ? (
+            <a href={mapHref({ href: primaryCta.href ?? '#', linkBasePath })} className="rounded-lg px-6 py-3 font-medium" style={{ backgroundColor: theme?.primary ?? '#6366f1' }}>
+              {primaryCta.label}
+            </a>
+          ) : null}
+          {secondaryCta?.label ? (
+            <a href={mapHref({ href: secondaryCta.href ?? '#', linkBasePath })} className="rounded-lg border border-white/20 px-6 py-3 font-medium hover:bg-white/10">
+              {secondaryCta.label}
+            </a>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function IconCardsBlock({ props, styles }) {
+  const cards = props?.cards ?? [];
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-16">
+      <div className="grid gap-6 md:grid-cols-3">
+        {cards.map((card, idx) => (
+          <div key={idx} className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
+            <div className="text-4xl mb-4">{card.icon ?? '★'}</div>
+            <div className="text-lg font-semibold">{card.title ?? 'Card'}</div>
+            <div className="mt-2 text-sm text-white/70">{card.text ?? ''}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TeamBlock({ props }) {
+  const headline = props?.headline ?? 'Our Team';
+  const members = props?.members ?? [];
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-16">
+      <h2 className="text-3xl font-bold text-center mb-10">{headline}</h2>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {members.map((m, idx) => (
+          <div key={idx} className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
+            <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-indigo-500/30 to-purple-500/30 mb-4 overflow-hidden">
+              {m.image ? <img src={m.image} alt={m.name} className="w-full h-full object-cover" /> : null}
+            </div>
+            <div className="font-semibold">{m.name ?? 'Name'}</div>
+            <div className="text-sm text-white/60">{m.role ?? 'Role'}</div>
+            {m.bio ? <div className="mt-2 text-xs text-white/50">{m.bio}</div> : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AboutBlock({ props, styles }) {
+  const headline = props?.headline ?? 'About Us';
+  const text = props?.text ?? '';
+  const image = props?.image;
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-16">
+      <div className="grid gap-10 md:grid-cols-2 items-center">
+        <div>
+          <h2 className="text-3xl font-bold">{headline}</h2>
+          <p className="mt-4 text-white/70">{text}</p>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-black/20 aspect-video overflow-hidden">
+          {image ? <img src={image} alt={headline} className="w-full h-full object-cover" /> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReviewsBlock({ props }) {
+  const headline = props?.headline ?? 'Reviews';
+  const items = props?.items ?? [];
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-16">
+      <h2 className="text-3xl font-bold text-center mb-10">{headline}</h2>
+      <div className="grid gap-4 md:grid-cols-3">
+        {items.map((r, idx) => (
+          <div key={idx} className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <div className="flex gap-1 mb-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <span key={i} style={{ color: i < (r.rating ?? 5) ? '#fbbf24' : 'rgba(255,255,255,0.2)' }}>★</span>
+              ))}
+            </div>
+            <p className="text-sm text-white/70">"{r.text ?? ''}"</p>
+            <div className="mt-4 text-sm font-semibold">{r.name ?? 'Customer'}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CounterBlock({ props, styles }) {
+  const value = props?.value ?? 0;
+  const suffix = props?.suffix ?? '';
+  const label = props?.label ?? '';
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-10 text-center">
+      <div className="text-5xl font-bold" style={styles?.color ? { color: styles.color } : { color: '#6366f1' }}>
+        {value}{suffix}
+      </div>
+      <div className="mt-2 text-white/60">{label}</div>
+    </div>
+  );
+}
+
+function AccordionBlock({ props }) {
+  const items = props?.items ?? [];
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-6">
+      <div className="space-y-2">
+        {items.map((item, idx) => (
+          <details key={idx} className="group rounded-xl border border-white/10 bg-white/5">
+            <summary className="cursor-pointer p-4 font-medium">{item.title ?? 'Section'}</summary>
+            <div className="px-4 pb-4 text-sm text-white/70">{item.content ?? ''}</div>
+          </details>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TabsBlock({ props }) {
+  const tabs = props?.tabs ?? [];
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-6">
+      <div className="flex gap-2 border-b border-white/10 pb-2">
+        {tabs.map((tab, idx) => (
+          <button key={idx} className={`px-4 py-2 text-sm rounded-t-lg ${idx === 0 ? 'bg-white/10' : 'hover:bg-white/5'}`}>
+            {tab.label ?? 'Tab'}
+          </button>
+        ))}
+      </div>
+      <div className="p-4 text-white/70">{tabs[0]?.content ?? ''}</div>
+    </div>
+  );
+}
+
+function ToggleBlock({ props }) {
+  const label = props?.label ?? 'Toggle';
+  const checked = props?.defaultChecked ?? false;
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-4">
+      <label className="flex items-center gap-3 cursor-pointer">
+        <div className={`w-12 h-6 rounded-full ${checked ? 'bg-indigo-500' : 'bg-white/20'} relative`}>
+          <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${checked ? 'left-7' : 'left-1'}`} />
+        </div>
+        <span className="text-white/80">{label}</span>
+      </label>
+    </div>
+  );
+}
+
+function TestimonialSliderBlock({ props }) {
+  const items = props?.items ?? [];
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-16">
+      <div className="flex gap-4 overflow-x-auto pb-4">
+        {items.map((t, idx) => (
+          <div key={idx} className="min-w-[300px] rounded-2xl border border-white/10 bg-white/5 p-6">
+            <p className="text-white/70">"{t.quote ?? ''}"</p>
+            <div className="mt-4 font-semibold">{t.name ?? 'Customer'}</div>
+            <div className="text-sm text-white/50">{t.role ?? ''}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ImageCarouselBlock({ props }) {
+  const images = props?.images ?? [];
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-6">
+      <div className="flex gap-4 overflow-x-auto pb-4">
+        {images.map((img, idx) => (
+          <div key={idx} className="min-w-[300px] rounded-xl border border-white/10 overflow-hidden">
+            {img.src ? <img src={img.src} alt={img.alt ?? `Image ${idx + 1}`} className="w-full h-48 object-cover" /> : (
+              <div className="w-full h-48 bg-black/30 flex items-center justify-center text-white/40">No image</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function NewsletterBlock({ props, theme }) {
+  const headline = props?.headline ?? 'Subscribe';
+  const placeholder = props?.placeholder ?? 'Enter your email';
+  const buttonLabel = props?.buttonLabel ?? 'Subscribe';
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-16">
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
+        <h3 className="text-2xl font-bold">{headline}</h3>
+        <div className="mt-6 flex max-w-md mx-auto gap-2">
+          <input type="email" placeholder={placeholder} className="flex-1 rounded-lg border border-white/10 bg-black/30 px-4 py-3" />
+          <button className="rounded-lg px-6 py-3 font-medium" style={{ backgroundColor: theme?.primary ?? '#6366f1' }}>{buttonLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SearchBoxBlock({ props }) {
+  const placeholder = props?.placeholder ?? 'Search...';
+  const buttonLabel = props?.buttonLabel ?? 'Search';
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-4">
+      <div className="flex gap-2 max-w-md">
+        <input type="text" placeholder={placeholder} className="flex-1 rounded-lg border border-white/10 bg-black/30 px-4 py-2" />
+        <button className="rounded-lg bg-white/10 px-4 py-2 hover:bg-white/20">{buttonLabel}</button>
+      </div>
+    </div>
+  );
+}
+
+function SocialIconsBlock({ props }) {
+  const icons = props?.icons ?? [];
+  const platformIcons = { twitter: '𝕏', facebook: 'f', instagram: '📷', linkedin: 'in', youtube: '▶', tiktok: '♪' };
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-4">
+      <div className="flex gap-3 justify-center">
+        {icons.map((icon, idx) => (
+          <a key={idx} href={icon.url ?? '#'} className="w-10 h-10 rounded-full border border-white/10 bg-white/5 flex items-center justify-center hover:bg-white/10">
+            {platformIcons[icon.platform] ?? '●'}
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CopyrightBlock({ props }) {
+  const text = props?.text ?? `© ${new Date().getFullYear()} All rights reserved.`;
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-4 text-center text-sm text-white/50">{text}</div>
+  );
+}
+
+function PriceTableBlock({ props }) {
+  const plans = props?.plans ?? [];
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-16">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {plans.map((plan, idx) => (
+          <div key={idx} className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <div className="text-lg font-semibold">{plan.name ?? 'Plan'}</div>
+            <div className="mt-2 text-3xl font-bold">{plan.price ?? '$0'}</div>
+            <div className="mt-4 space-y-2">
+              {(plan.features ?? []).map((f, fidx) => (
+                <div key={fidx} className="flex items-center gap-2 text-sm text-white/70">
+                  <span className="text-green-400">✓</span> {f}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function RenderComponent({ component, theme, editorCtx, linkBasePath }) {
   const type = component.type;
   const props = component.props;
@@ -778,6 +1349,68 @@ function RenderComponent({ component, theme, editorCtx, linkBasePath }) {
       return <MultiRowCarouselBlock props={props} theme={theme} linkBasePath={linkBasePath} />;
     case 'FOOTER_LINKS':
       return <FooterLinksBlock props={props} linkBasePath={linkBasePath} />;
+    case 'HEADING':
+      return <HeadingBlock props={props} styles={styles} editorCtx={editorCtx} />;
+    case 'TEXT':
+      return <TextBlock props={props} styles={styles} editorCtx={editorCtx} />;
+    case 'BUTTON':
+      return <ButtonBlock props={props} styles={styles} theme={theme} linkBasePath={linkBasePath} editorCtx={editorCtx} />;
+    case 'DIVIDER':
+      return <DividerBlock props={props} styles={styles} />;
+    case 'SPACER':
+      return <SpacerBlock props={props} />;
+    case 'IMAGE':
+      return <ImageBlock props={props} styles={styles} />;
+    case 'ICON':
+      return <IconBlock props={props} styles={styles} />;
+    case 'ICON_BOX':
+      return <IconBoxBlock props={props} styles={styles} />;
+    case 'STAR_RATING':
+      return <StarRatingBlock props={props} styles={styles} />;
+    case 'VIDEO':
+      return <VideoBlock props={props} styles={styles} />;
+    case 'ICON_LIST':
+      return <IconListBlock props={props} styles={styles} />;
+    case 'IMAGE_BOX':
+      return <ImageBoxBlock props={props} styles={styles} />;
+    case 'MENU':
+      return <MenuBlock props={props} linkBasePath={linkBasePath} />;
+    case 'BREADCRUMBS':
+      return <BreadcrumbsBlock props={props} linkBasePath={linkBasePath} />;
+    case 'PAGE_HEADER':
+      return <PageHeaderBlock props={props} styles={styles} />;
+    case 'CALL_TO_ACTION':
+      return <CallToActionBlock props={props} theme={theme} linkBasePath={linkBasePath} />;
+    case 'ICON_CARDS':
+      return <IconCardsBlock props={props} styles={styles} />;
+    case 'TEAM':
+      return <TeamBlock props={props} />;
+    case 'ABOUT':
+      return <AboutBlock props={props} styles={styles} />;
+    case 'REVIEWS':
+      return <ReviewsBlock props={props} />;
+    case 'COUNTER':
+      return <CounterBlock props={props} styles={styles} />;
+    case 'ACCORDION':
+      return <AccordionBlock props={props} />;
+    case 'TABS':
+      return <TabsBlock props={props} />;
+    case 'TOGGLE':
+      return <ToggleBlock props={props} />;
+    case 'TESTIMONIAL_SLIDER':
+      return <TestimonialSliderBlock props={props} />;
+    case 'IMAGE_CAROUSEL':
+      return <ImageCarouselBlock props={props} />;
+    case 'NEWSLETTER':
+      return <NewsletterBlock props={props} theme={theme} />;
+    case 'SEARCH_BOX':
+      return <SearchBoxBlock props={props} />;
+    case 'SOCIAL_ICONS':
+      return <SocialIconsBlock props={props} />;
+    case 'COPYRIGHT':
+      return <CopyrightBlock props={props} />;
+    case 'PRICE_TABLE':
+      return <PriceTableBlock props={props} />;
     default:
       return (
         <div className="mx-auto max-w-6xl px-4 py-8">
@@ -797,6 +1430,44 @@ export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, 
   }
 
   const comps = page.components ?? [];
+
+  function findFirstNodeByType(builder, type) {
+    const root = builder?.root;
+    if (!root) return null;
+
+    let found = null;
+    function walk(node) {
+      if (!node || found) return;
+      if (node.type === type) {
+        found = node;
+        return;
+      }
+      const children = Array.isArray(node.children) ? node.children : [];
+      for (const ch of children) walk(ch);
+    }
+    walk(root);
+    return found;
+  }
+
+  function getColumns(builder) {
+    const root = builder?.root;
+    if (!root) return [];
+
+    let container = null;
+    function walk(node) {
+      if (!node || container) return;
+      if (node.type === 'CONTAINER') {
+        container = node;
+        return;
+      }
+      const children = Array.isArray(node.children) ? node.children : [];
+      for (const ch of children) walk(ch);
+    }
+    walk(root);
+
+    if (!container) return [];
+    return (container.children ?? []).filter((c) => c?.type === 'COLUMN');
+  }
 
   function DropZone({ index }) {
     const active = editor?.hoverIndex === index;
@@ -841,6 +1512,80 @@ export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, 
       : null),
   };
 
+  const builder = page?.builder ?? null;
+
+  function computeBuilderWrapperStyle(node, { defaultPaddingX, defaultPaddingY } = {}) {
+    const s = node?.style ?? {};
+
+    const wrapperStyle = {
+      ...(s?.backgroundColor ? { backgroundColor: s.backgroundColor } : null),
+    };
+
+    if (s?.marginTop !== null && s?.marginTop !== undefined && s?.marginTop !== '') {
+      wrapperStyle.marginTop = `${Number(s.marginTop)}px`;
+    }
+    if (s?.marginBottom !== null && s?.marginBottom !== undefined && s?.marginBottom !== '') {
+      wrapperStyle.marginBottom = `${Number(s.marginBottom)}px`;
+    }
+
+    const paddingTop =
+      s?.paddingTop !== null && s?.paddingTop !== undefined && s?.paddingTop !== ''
+        ? Number(s.paddingTop)
+        : Number.isFinite(Number(defaultPaddingY))
+          ? Number(defaultPaddingY)
+          : null;
+    const paddingBottom =
+      s?.paddingBottom !== null && s?.paddingBottom !== undefined && s?.paddingBottom !== ''
+        ? Number(s.paddingBottom)
+        : Number.isFinite(Number(defaultPaddingY))
+          ? Number(defaultPaddingY)
+          : null;
+    const paddingLeft =
+      s?.paddingLeft !== null && s?.paddingLeft !== undefined && s?.paddingLeft !== ''
+        ? Number(s.paddingLeft)
+        : Number.isFinite(Number(defaultPaddingX))
+          ? Number(defaultPaddingX)
+          : null;
+    const paddingRight =
+      s?.paddingRight !== null && s?.paddingRight !== undefined && s?.paddingRight !== ''
+        ? Number(s.paddingRight)
+        : Number.isFinite(Number(defaultPaddingX))
+          ? Number(defaultPaddingX)
+          : null;
+
+    if (Number.isFinite(paddingTop)) wrapperStyle.paddingTop = `${paddingTop}px`;
+    if (Number.isFinite(paddingBottom)) wrapperStyle.paddingBottom = `${paddingBottom}px`;
+    if (Number.isFinite(paddingLeft)) wrapperStyle.paddingLeft = `${paddingLeft}px`;
+    if (Number.isFinite(paddingRight)) wrapperStyle.paddingRight = `${paddingRight}px`;
+
+    return wrapperStyle;
+  }
+
+  const sectionY = Number(designSystem?.spacing?.sectionY);
+  const containerX = Number(designSystem?.spacing?.containerX);
+
+  function computeSectionStyle(node) {
+    return node ? computeBuilderWrapperStyle(node, { defaultPaddingY: sectionY }) : null;
+  }
+
+  function computeContainerStyle(node) {
+    if (!node) return null;
+    const containerBoxed = node?.props?.width !== 'full';
+    return {
+      ...(containerBoxed ? { maxWidth: '72rem', marginLeft: 'auto', marginRight: 'auto' } : null),
+      ...computeBuilderWrapperStyle(node, { defaultPaddingX: containerX }),
+    };
+  }
+
+  function nodeToComponent(node) {
+    return {
+      id: node?.id,
+      type: node?.widgetType,
+      props: node?.props ?? {},
+      styles: node?.style ?? {},
+    };
+  }
+
   function computeComponentWrapperStyle(component) {
     const s = component?.styles ?? {};
     const sectionY = Number(designSystem?.spacing?.sectionY);
@@ -881,75 +1626,332 @@ export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, 
     return wrapperStyle;
   }
 
-  return (
-    <div style={rootStyle}>
-      {comps.map((c, idx) => {
-        const selected = editor?.selectedIndex === idx;
 
-        const onDrop = () => {
-          if (!editor) return;
-          if (editor.dragNewType) {
-            editor.onInsert?.(idx, editor.dragNewType);
-            editor.onSetDragNewType?.(null);
-            return;
-          }
-          if (editor.dragIndex !== null && editor.dragIndex !== undefined) {
-            editor.onMove?.(editor.dragIndex, idx);
-            editor.onSetDragIndex?.(null);
-          }
-        };
+  const forceColumnIndex = editor?.columnId !== null && editor?.columnId !== undefined ? Number(editor.columnId) : null;
 
-        return (
-          <div key={c.id ?? `${c.type}-${c.orderIndex}`}>
-            <DropZone index={idx} />
+  // Preserve existing 2-column preview behavior when the caller provides a forced column index.
+  if (Number.isFinite(forceColumnIndex)) {
+    const sectionNode = builder ? findFirstNodeByType(builder, 'SECTION') : null;
+    const containerNode = builder ? findFirstNodeByType(builder, 'CONTAINER') : null;
+    const columns = builder ? getColumns(builder) : [];
+    const columnNode = columns?.[forceColumnIndex] ?? null;
+
+    const sectionStyle = computeSectionStyle(sectionNode);
+    const containerStyle = computeContainerStyle(containerNode);
+    const columnStyle = columnNode ? computeBuilderWrapperStyle(columnNode) : null;
+
+    return (
+      <div style={rootStyle}>
+        <div
+          style={sectionStyle ?? undefined}
+          onContextMenu={(e) => {
+            if (!editor?.onContextMenu || !sectionNode?.id) return;
+            e.preventDefault();
+            e.stopPropagation();
+            editor.onContextMenu({ nodeType: 'SECTION', nodeId: sectionNode.id, columnIndex: forceColumnIndex, x: e.clientX, y: e.clientY });
+          }}
+        >
+          <div
+            style={containerStyle ?? undefined}
+            onContextMenu={(e) => {
+              if (!editor?.onContextMenu || !containerNode?.id) return;
+              e.preventDefault();
+              e.stopPropagation();
+              editor.onContextMenu({ nodeType: 'CONTAINER', nodeId: containerNode.id, columnIndex: forceColumnIndex, x: e.clientX, y: e.clientY });
+            }}
+          >
             <div
-              draggable={!!editor}
-              onDragStart={() => editor?.onSetDragIndex?.(idx)}
-              onDragOver={(e) => (editor ? e.preventDefault() : null)}
-              onDrop={onDrop}
-              onClick={() => editor?.onSelect?.(idx)}
-              className={editor ? (selected ? 'outline outline-2 outline-indigo-400/60' : 'outline outline-1 outline-transparent') : ''}
+              style={columnStyle ?? undefined}
+              onContextMenu={(e) => {
+                if (!editor?.onContextMenu || !columnNode?.id) return;
+                e.preventDefault();
+                e.stopPropagation();
+                editor.onContextMenu({ nodeType: 'COLUMN', nodeId: columnNode.id, columnIndex: forceColumnIndex, x: e.clientX, y: e.clientY });
+              }}
             >
-              <div style={computeComponentWrapperStyle(c)}>
-                <RenderComponent
-                  component={c}
-                  theme={theme}
-                  linkBasePath={linkBasePath}
-                  editorCtx={{
-                    enabled: !!editor,
-                    isSelected: !!selected,
-                    onUpdateProps: (patch) => editor?.onUpdateProps?.(idx, patch),
+              {comps.map((c, idx) => {
+                const selected = editor?.selectedIndex === idx;
+
+                const onDrop = () => {
+                  if (!editor) return;
+                  if (editor.dragNewType) {
+                    editor.onInsert?.(idx, editor.dragNewType);
+                    editor.onSetDragNewType?.(null);
+                    return;
+                  }
+                  if (editor.dragIndex !== null && editor.dragIndex !== undefined) {
+                    editor.onMove?.(editor.dragIndex, idx);
+                    editor.onSetDragIndex?.(null);
+                  }
+                };
+
+                return (
+                  <div key={c.id ?? `${c.type}-${c.orderIndex}`}>
+                    <DropZone index={idx} />
+                    <div
+                      data-builder-comp-idx={editor ? idx : undefined}
+                      data-builder-col={forceColumnIndex}
+                      draggable={!!editor}
+                      onDragStart={() => editor?.onSetDragIndex?.(idx)}
+                      onDragOver={(e) => (editor ? e.preventDefault() : null)}
+                      onDrop={onDrop}
+                      onClick={() => editor?.onSelect?.(idx)}
+                      onContextMenu={(e) => {
+                        if (!editor?.onContextMenu) return;
+                        e.preventDefault();
+                        editor.onContextMenu({
+                          componentIndex: idx,
+                          columnIndex: forceColumnIndex,
+                          x: e.clientX,
+                          y: e.clientY,
+                        });
+                      }}
+                      className={
+                        editor ? (selected ? 'outline outline-2 outline-indigo-400/60' : 'outline outline-1 outline-transparent') : ''
+                      }
+                    >
+                      <div style={computeComponentWrapperStyle(c)}>
+                        <RenderComponent
+                          component={c}
+                          theme={theme}
+                          linkBasePath={linkBasePath}
+                          editorCtx={{
+                            enabled: !!editor,
+                            isSelected: !!selected,
+                            onUpdateProps: (patch) => editor?.onUpdateProps?.(idx, patch),
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {editor ? <DropZone index={comps.length} /> : null}
+
+              {editor ? (
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => {
+                    if (editor.dragNewType) {
+                      editor.onInsert?.(comps.length, editor.dragNewType);
+                      editor.onSetDragNewType?.(null);
+                      return;
+                    }
+                    if (editor.dragIndex !== null && editor.dragIndex !== undefined) {
+                      editor.onMove?.(editor.dragIndex, comps.length - 1);
+                      editor.onSetDragIndex?.(null);
+                    }
                   }}
-                />
-              </div>
+                  className="mx-auto max-w-6xl px-4 py-10"
+                >
+                  <div className="rounded-xl border border-dashed border-white/15 bg-white/5 p-4 text-sm text-white/60">
+                    Drop here to add at the end
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
-        );
-      })}
+        </div>
+      </div>
+    );
+  }
 
-      {editor ? <DropZone index={comps.length} /> : null}
+  // Multi-section rendering from builder tree.
+  const root = builder?.root ?? null;
+  const sections = (root?.children ?? []).filter((n) => n?.type === 'SECTION');
 
-      {editor ? (
-        <div
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={() => {
+  if (!sections.length) {
+    // Fall back to previous flat rendering when there's no builder hierarchy.
+    return (
+      <div style={rootStyle}>
+        {comps.map((c, idx) => {
+          const selected = editor?.selectedIndex === idx;
+
+          const onDrop = () => {
+            if (!editor) return;
             if (editor.dragNewType) {
-              editor.onInsert?.(comps.length, editor.dragNewType);
+              editor.onInsert?.(idx, editor.dragNewType);
               editor.onSetDragNewType?.(null);
               return;
             }
             if (editor.dragIndex !== null && editor.dragIndex !== undefined) {
-              editor.onMove?.(editor.dragIndex, comps.length - 1);
+              editor.onMove?.(editor.dragIndex, idx);
               editor.onSetDragIndex?.(null);
             }
+          };
+
+          return (
+            <div key={c.id ?? `${c.type}-${c.orderIndex}`}>
+              <DropZone index={idx} />
+              <div
+                data-builder-comp-idx={editor ? idx : undefined}
+                draggable={!!editor}
+                onDragStart={() => editor?.onSetDragIndex?.(idx)}
+                onDragOver={(e) => (editor ? e.preventDefault() : null)}
+                onDrop={onDrop}
+                onClick={() => editor?.onSelect?.(idx)}
+                onContextMenu={(e) => {
+                  if (!editor?.onContextMenu) return;
+                  e.preventDefault();
+                  editor.onContextMenu({ componentIndex: idx, columnIndex: 0, x: e.clientX, y: e.clientY });
+                }}
+                className={editor ? (selected ? 'outline outline-2 outline-indigo-400/60' : 'outline outline-1 outline-transparent') : ''}
+              >
+                <div style={computeComponentWrapperStyle(c)}>
+                  <RenderComponent
+                    component={c}
+                    theme={theme}
+                    linkBasePath={linkBasePath}
+                    editorCtx={{
+                      enabled: !!editor,
+                      isSelected: !!selected,
+                      onUpdateProps: (patch) => editor?.onUpdateProps?.(idx, patch),
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {editor ? <DropZone index={comps.length} /> : null}
+      </div>
+    );
+  }
+
+  let globalWidgetIndex = 0;
+
+  function renderWidgetNode(widgetNode, keyPrefix) {
+    const idx = globalWidgetIndex;
+    globalWidgetIndex += 1;
+    const c = nodeToComponent(widgetNode);
+    const selected = editor?.selectedIndex === idx;
+
+    const onDrop = () => {
+      if (!editor) return;
+      if (editor.dragNewType) {
+        editor.onInsert?.(idx, editor.dragNewType);
+        editor.onSetDragNewType?.(null);
+        return;
+      }
+      if (editor.dragIndex !== null && editor.dragIndex !== undefined) {
+        editor.onMove?.(editor.dragIndex, idx);
+        editor.onSetDragIndex?.(null);
+      }
+    };
+
+    return (
+      <div key={`${keyPrefix}-w-${c.id ?? idx}`}>
+        <DropZone index={idx} />
+        <div
+          data-builder-comp-idx={editor ? idx : undefined}
+          draggable={!!editor}
+          onDragStart={() => editor?.onSetDragIndex?.(idx)}
+          onDragOver={(e) => (editor ? e.preventDefault() : null)}
+          onDrop={onDrop}
+          onClick={() => editor?.onSelect?.(idx)}
+          onContextMenu={(e) => {
+            if (!editor?.onContextMenu) return;
+            e.preventDefault();
+            editor.onContextMenu({ componentIndex: idx, columnIndex: 0, x: e.clientX, y: e.clientY });
           }}
-          className="mx-auto max-w-6xl px-4 py-10"
+          className={editor ? (selected ? 'outline outline-2 outline-indigo-400/60' : 'outline outline-1 outline-transparent') : ''}
         >
-          <div className="rounded-xl border border-dashed border-white/15 bg-white/5 p-4 text-sm text-white/60">
-            Drop here to add at the end
+          <div style={computeComponentWrapperStyle(c)}>
+            <RenderComponent
+              component={c}
+              theme={theme}
+              linkBasePath={linkBasePath}
+              editorCtx={{
+                enabled: !!editor,
+                isSelected: !!selected,
+                onUpdateProps: (patch) => editor?.onUpdateProps?.(idx, patch),
+              }}
+            />
           </div>
         </div>
-      ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div style={rootStyle}>
+      {sections.map((sectionNode, sidx) => {
+        const sectionStyle = computeSectionStyle(sectionNode);
+        const containers = (sectionNode?.children ?? []).filter((n) => n?.type === 'CONTAINER');
+        const effectiveContainers = containers.length ? containers : [null];
+
+        return (
+          <div
+            key={sectionNode?.id ?? `section-${sidx}`}
+            style={sectionStyle ?? undefined}
+            onContextMenu={(e) => {
+              if (!editor?.onContextMenu || !sectionNode?.id) return;
+              e.preventDefault();
+              e.stopPropagation();
+              editor.onContextMenu({ nodeType: 'SECTION', nodeId: sectionNode.id, columnIndex: 0, x: e.clientX, y: e.clientY });
+            }}
+          >
+            {effectiveContainers.map((containerNode, cidx) => {
+              const containerStyle = computeContainerStyle(containerNode);
+              const containerChildren = containerNode ? containerNode.children ?? [] : sectionNode?.children ?? [];
+              const columns = (containerChildren ?? []).filter((n) => n?.type === 'COLUMN');
+              const effectiveColumns = columns.length
+                ? columns
+                : [
+                    {
+                      id: containerNode?.id ? `${containerNode.id}:__singlecol` : `section-${sidx}:__singlecol`,
+                      type: 'COLUMN',
+                      props: { width: 12 },
+                      style: {},
+                      children: (containerChildren ?? []).filter((n) => n?.type === 'WIDGET'),
+                    },
+                  ];
+
+              const shouldGrid = effectiveColumns.length > 1;
+
+              return (
+                <div
+                  key={containerNode?.id ?? `container-${sidx}-${cidx}`}
+                  style={containerStyle ?? undefined}
+                  onContextMenu={(e) => {
+                    if (!editor?.onContextMenu || !containerNode?.id) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    editor.onContextMenu({ nodeType: 'CONTAINER', nodeId: containerNode.id, columnIndex: 0, x: e.clientX, y: e.clientY });
+                  }}
+                >
+                  <div className={shouldGrid ? 'grid grid-cols-12 gap-6' : ''}>
+                    {effectiveColumns.map((colNode, colIdx) => {
+                      const colWidth = Number(colNode?.props?.width);
+                      const gridColStyle = shouldGrid && Number.isFinite(colWidth) ? { gridColumn: `span ${colWidth} / span ${colWidth}` } : null;
+                      const colStyle = colNode ? computeBuilderWrapperStyle(colNode) : null;
+                      const widgets = (colNode?.children ?? []).filter((n) => n?.type === 'WIDGET');
+                      return (
+                        <div
+                          key={colNode?.id ?? `col-${sidx}-${cidx}-${colIdx}`}
+                          style={{ ...(gridColStyle ?? null), ...(colStyle ?? null) }}
+                          onContextMenu={(e) => {
+                            if (!editor?.onContextMenu || !colNode?.id) return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                            editor.onContextMenu({ nodeType: 'COLUMN', nodeId: colNode.id, columnIndex: colIdx, x: e.clientX, y: e.clientY });
+                          }}
+                        >
+                          {widgets.map((w) => renderWidgetNode(w, `${sectionNode?.id ?? sidx}-${containerNode?.id ?? cidx}-${colNode?.id ?? colIdx}`))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+
+      {editor ? <DropZone index={globalWidgetIndex} /> : null}
     </div>
   );
 }

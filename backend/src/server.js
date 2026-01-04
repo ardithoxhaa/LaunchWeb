@@ -5,5 +5,5 @@ import { env } from './config/env.js';
 const server = createServer(app);
 
 server.listen(env.PORT, () => {
-  console.log(`LaunchWeb API listening on http://localhost:${env.PORT}`);
+  console.log(`LaunchWeb API listening on http://localhost:${env.PORT} - Ready`);
 });

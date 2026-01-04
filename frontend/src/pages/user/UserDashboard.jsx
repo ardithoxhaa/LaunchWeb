@@ -305,16 +305,10 @@ export function UserDashboard() {
 
                         <div className="flex flex-wrap gap-2">
                           <Link
-                            className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/15"
-                            to={`/editor/${w.id}`}
-                          >
-                            Editor
-                          </Link>
-                          <Link
-                            className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/15"
+                            className="rounded-md bg-indigo-500 px-3 py-1.5 text-xs font-medium hover:bg-indigo-400"
                             to={`/builder/${w.id}`}
                           >
-                            Builder
+                            Edit Website
                           </Link>
                           <Link
                             className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/15"

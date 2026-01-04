@@ -44,6 +44,12 @@ export async function getWebsiteStructure(req, res) {
   res.json(structure);
 }
 
+export async function getWebsiteBuilder(req, res) {
+  const id = Number(req.params.id);
+  const builder = await websitesService.getWebsiteBuilder({ userId: req.auth.userId, websiteId: id });
+  res.json(builder);
+}
+
 export async function updateWebsiteStructure(req, res) {
   const id = Number(req.params.id);
   const { pages } = req.validated.body;
@@ -53,6 +59,17 @@ export async function updateWebsiteStructure(req, res) {
     pages,
   });
   res.json(structure);
+}
+
+export async function updateWebsiteBuilder(req, res) {
+  const id = Number(req.params.id);
+  const { pages } = req.validated.body;
+  const builder = await websitesService.replaceWebsiteBuilder({
+    userId: req.auth.userId,
+    websiteId: id,
+    pages,
+  });
+  res.json(builder);
 }
 
 export async function updateWebsiteSeo(req, res) {

@@ -10,6 +10,7 @@ import {
   updateWebsiteSeoSchema,
   updateWebsiteSettingsSchema,
   updateWebsiteStructureSchema,
+  updateWebsiteBuilderSchema,
 } from './websites.validation.js';
 
 import {
@@ -17,12 +18,14 @@ import {
   createWebsiteFromTemplate,
   getWebsite,
   getWebsiteStructure,
+  getWebsiteBuilder,
   listWebsitesForBusiness,
   publishWebsite,
   unpublishWebsite,
   updateWebsiteSeo,
   updateWebsiteSettings,
   updateWebsiteStructure,
+  updateWebsiteBuilder,
   listWebsiteVersions,
   restoreWebsiteVersion,
 } from './websites.controller.js';
@@ -37,6 +40,8 @@ router.post('/blank', validate(createBlankWebsiteSchema), asyncHandler(createBla
 router.get('/:id', asyncHandler(getWebsite));
 router.get('/:id/structure', asyncHandler(getWebsiteStructure));
 router.put('/:id/structure', validate(updateWebsiteStructureSchema), asyncHandler(updateWebsiteStructure));
+router.get('/:id/builder', asyncHandler(getWebsiteBuilder));
+router.put('/:id/builder', validate(updateWebsiteBuilderSchema), asyncHandler(updateWebsiteBuilder));
 router.put('/:id/seo', validate(updateWebsiteSeoSchema), asyncHandler(updateWebsiteSeo));
 router.put('/:id/settings', validate(updateWebsiteSettingsSchema), asyncHandler(updateWebsiteSettings));
 router.post('/:id/publish', asyncHandler(publishWebsite));

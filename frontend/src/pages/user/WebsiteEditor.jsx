@@ -456,6 +456,12 @@ export function WebsiteEditor() {
             Advanced builder
           </Link>
           <Link
+            className="rounded-md bg-indigo-500 px-3 py-2 text-sm font-medium hover:bg-indigo-400"
+            to={`/builder-v2/${websiteId}`}
+          >
+            Builder V2 ✨
+          </Link>
+          <Link
             className="rounded-md bg-white/10 px-3 py-2 text-sm font-medium hover:bg-white/15"
             to={`/draft-preview/${websiteId}`}
           >
