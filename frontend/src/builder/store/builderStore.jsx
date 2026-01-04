@@ -17,6 +17,15 @@ const initialState = {
     sections: [],
   },
   
+  // Theme from website settings
+  theme: {
+    primary: '#6366f1',
+    secondary: '#8b5cf6',
+    background: '#0a0a12',
+    text: '#ffffff',
+    mutedText: 'rgba(255,255,255,0.7)',
+  },
+  
   // Selection state
   selection: {
     type: null, // 'section' | 'column' | 'widget'
@@ -62,6 +71,9 @@ const initialState = {
 
 // Action types
 const ActionTypes = {
+  // Theme actions
+  SET_THEME: 'SET_THEME',
+  
   // Document actions
   SET_DOCUMENT: 'SET_DOCUMENT',
   ADD_SECTION: 'ADD_SECTION',
@@ -132,6 +144,13 @@ function findWidget(column, widgetId) {
 // Reducer
 function builderReducer(state, action) {
   switch (action.type) {
+    case ActionTypes.SET_THEME: {
+      return {
+        ...state,
+        theme: { ...state.theme, ...action.payload },
+      };
+    }
+    
     case ActionTypes.SET_DOCUMENT: {
       return {
         ...state,
@@ -593,6 +612,9 @@ export function BuilderProvider({ children, initialDocument }) {
   
   // Action creators
   const actions = useMemo(() => ({
+    // Theme actions
+    setTheme: (theme) => dispatch({ type: ActionTypes.SET_THEME, payload: theme }),
+    
     // Document actions
     setDocument: (document) => dispatch({ type: ActionTypes.SET_DOCUMENT, payload: document }),
     

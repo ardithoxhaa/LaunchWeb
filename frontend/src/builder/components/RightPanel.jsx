@@ -560,6 +560,13 @@ function WidgetContentPanel({ widget, onUpdate }) {
               rows={3}
             />
           </InspectorSection>
+          <InspectorSection title="Hero Image">
+            <ImageUploadField
+              label="Image"
+              value={content.image || ''}
+              onChange={(v) => handleContentUpdate('image', v)}
+            />
+          </InspectorSection>
           <InspectorSection title="Primary Button">
             <TextField
               label="Label"
@@ -918,18 +925,30 @@ function WidgetContentPanel({ widget, onUpdate }) {
       );
 
     case 'NAVBAR':
+      // Support both logo.image/logo.text and logoImageUrl/logoText formats
+      const navLogoImage = content.logo?.image || content.logoImageUrl || '';
+      const navLogoText = content.logo?.text || content.logoText || '';
       return (
         <div className="p-4 space-y-4">
           <InspectorSection title="Logo">
             <ImageUploadField
               label="Logo Image"
-              value={content.logo?.image || ''}
+              value={navLogoImage}
               onChange={(v) => handleContentUpdate('logo', { ...content.logo, image: v })}
             />
             <TextField
               label="Logo Text (fallback)"
-              value={content.logo?.text || ''}
-              onChange={(v) => handleContentUpdate('logo', { ...content.logo, text: v })}
+              value={navLogoText}
+              onChange={(v) => {
+                // Update both formats for compatibility
+                onUpdate({ 
+                  content: { 
+                    ...content, 
+                    logo: { ...content.logo, text: v },
+                    logoText: v 
+                  } 
+                });
+              }}
               placeholder="Your Brand"
             />
           </InspectorSection>
@@ -1095,15 +1114,14 @@ function WidgetContentPanel({ widget, onUpdate }) {
                   placeholder="Card description"
                   rows={2}
                 />
-                <TextField
-                  label="Image URL"
+                <ImageUploadField
+                  label="Image"
                   value={card.image || ''}
                   onChange={(v) => {
                     const newCards = [...(content.cards || [])];
                     newCards[idx] = { ...newCards[idx], image: v };
                     handleContentUpdate('cards', newCards);
                   }}
-                  placeholder="https://..."
                 />
               </div>
             ))}
@@ -1217,29 +1235,30 @@ function WidgetContentPanel({ widget, onUpdate }) {
           </InspectorSection>
           <InspectorSection title="Images">
             {(content.images || []).map((img, idx) => (
-              <div key={idx} className="flex gap-2 mb-2">
-                <input
-                  type="text"
+              <div key={idx} className="p-3 rounded-lg bg-white/5 border border-white/10 mb-2">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium">Image {idx + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newImages = [...(content.images || [])];
+                      newImages.splice(idx, 1);
+                      handleContentUpdate('images', newImages);
+                    }}
+                    className="text-xs text-red-400 hover:text-red-300"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <ImageUploadField
+                  label=""
                   value={typeof img === 'string' ? img : img.src || ''}
-                  onChange={(e) => {
+                  onChange={(v) => {
                     const newImages = [...(content.images || [])];
-                    newImages[idx] = e.target.value;
+                    newImages[idx] = v;
                     handleContentUpdate('images', newImages);
                   }}
-                  placeholder="Image URL"
-                  className="flex-1 px-2 py-1.5 rounded bg-white/5 border border-white/10 text-xs"
                 />
-                <button
-                  type="button"
-                  onClick={() => {
-                    const newImages = [...(content.images || [])];
-                    newImages.splice(idx, 1);
-                    handleContentUpdate('images', newImages);
-                  }}
-                  className="px-2 text-red-400 hover:text-red-300"
-                >
-                  ×
-                </button>
               </div>
             ))}
             <button

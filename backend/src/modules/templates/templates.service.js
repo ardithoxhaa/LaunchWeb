@@ -183,6 +183,7 @@ export const templatesService = {
         name: tpl.name,
         category: tpl.category,
         preview_image_url: tpl.preview_image_url,
+        designSystem: structure?.designSystem ?? null,
       },
       pages: enhanced?.pages ?? [],
     };

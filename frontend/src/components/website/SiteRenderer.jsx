@@ -35,26 +35,41 @@ function mapHref({ href, linkBasePath }) {
 
 function NavbarBlock({ props, theme, linkBasePath }) {
   const links = props?.links ?? [];
+  // Support both logoImageUrl and logo.image formats
+  const logoImage = props?.logoImageUrl || props?.logo?.image;
+  const logoText = props?.logoText || props?.logo?.text || 'Website';
+  const cta = props?.cta;
+  const bgColor = props?.styles?.backgroundColor || theme?.background || 'transparent';
+  
   return (
-    <div className="border-b border-white/10 bg-black/20">
+    <div style={{ backgroundColor: bgColor, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
         <div className="flex items-center gap-3">
-          {props?.logoImageUrl ? (
+          {logoImage ? (
             <img
-              src={props.logoImageUrl}
-              alt={props?.logoText ?? 'Logo'}
-              className="h-8 w-8 rounded object-cover"
+              src={logoImage}
+              alt={logoText}
+              className="h-10 w-auto object-contain"
               loading="lazy"
             />
           ) : null}
-          <div className="text-sm font-semibold tracking-tight">{props?.logoText ?? 'Website'}</div>
+          <div className="text-lg font-semibold tracking-tight" style={{ color: theme?.text }}>{logoText}</div>
         </div>
-        <div className="flex items-center gap-4 text-sm text-white/75">
-          {links.map((l) => (
-            <a key={l.href} href={mapHref({ href: l.href, linkBasePath })} className="hover:text-white">
+        <div className="flex items-center gap-6 text-sm" style={{ color: theme?.mutedText || 'rgba(255,255,255,0.75)' }}>
+          {links.map((l, idx) => (
+            <a key={l.href || idx} href={mapHref({ href: l.href, linkBasePath })} className="hover:opacity-100 opacity-80 transition-opacity">
               {l.label}
             </a>
           ))}
+          {cta?.label ? (
+            <a
+              href={mapHref({ href: cta.href ?? '#', linkBasePath })}
+              className="rounded-lg px-4 py-2 text-sm font-medium"
+              style={{ backgroundColor: theme?.primary ?? '#6366f1', color: '#fff' }}
+            >
+              {cta.label}
+            </a>
+          ) : null}
         </div>
       </div>
     </div>
@@ -485,6 +500,22 @@ function FaqBlock({ props }) {
   );
 }
 
+function StatsBlock({ props }) {
+  const items = props?.items ?? [];
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-16">
+      <div className="grid gap-6 md:grid-cols-4 text-center">
+        {items.map((item, idx) => (
+          <div key={idx} className="p-6">
+            <div className="text-4xl font-bold text-indigo-400 mb-2">{item.value ?? ''}</div>
+            <div className="text-white/60">{item.label ?? ''}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function StatsCtaBlock({ props, theme, linkBasePath }) {
   const items = props?.items ?? [];
   return (
@@ -520,74 +551,95 @@ function StatsCtaBlock({ props, theme, linkBasePath }) {
 }
 
 function HeroBlock({ props, styles, theme, editorCtx, linkBasePath }) {
-  const cta = props?.primaryCta;
+  const primaryCta = props?.primaryCta;
+  const secondaryCta = props?.secondaryCta;
   const buttonBg = styles?.buttonColor ?? theme?.primary ?? '#6366f1';
-  const background = styles?.backgroundColor;
+  const background = styles?.backgroundColor ?? theme?.background;
+  const textColor = theme?.text || '#ffffff';
+  const mutedColor = theme?.mutedText || 'rgba(255,255,255,0.75)';
+  const heroImage = props?.image || props?.heroImage;
+  
   return (
-    <div className="mx-auto max-w-6xl px-4 py-16" style={background ? { backgroundColor: background } : undefined}>
-      <div className="grid gap-10 md:grid-cols-2 md:items-center">
-        <div>
-          <h1
-            className="text-4xl font-semibold tracking-tight md:text-5xl"
-            contentEditable={!!(editorCtx?.enabled && editorCtx.isSelected)}
-            suppressContentEditableWarning
-            onBlur={(e) => {
-              if (!editorCtx?.enabled || !editorCtx.isSelected) return;
-              editorCtx.onUpdateProps?.({ headline: e.currentTarget.textContent ?? '' });
-            }}
-          >
-            {props?.headline}
-          </h1>
-          <p
-            className="mt-4 text-white/75"
-            contentEditable={!!(editorCtx?.enabled && editorCtx.isSelected)}
-            suppressContentEditableWarning
-            onBlur={(e) => {
-              if (!editorCtx?.enabled || !editorCtx.isSelected) return;
-              editorCtx.onUpdateProps?.({ subheadline: e.currentTarget.textContent ?? '' });
-            }}
-          >
-            {props?.subheadline}
-          </p>
-          {cta ? (
-            <a
-              className="mt-8 inline-flex rounded-md px-4 py-2 text-sm font-medium"
-              href={mapHref({ href: cta.href, linkBasePath })}
-              style={{ backgroundColor: buttonBg }}
+    <div style={{ backgroundColor: background, paddingTop: styles?.paddingTop || '80px', paddingBottom: styles?.paddingBottom || '80px' }}>
+      <div className="mx-auto max-w-6xl px-4">
+        <div className="grid gap-10 md:grid-cols-2 md:items-center">
+          <div>
+            <h1
+              className="text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl"
+              style={{ color: textColor }}
+              contentEditable={!!(editorCtx?.enabled && editorCtx.isSelected)}
+              suppressContentEditableWarning
+              onBlur={(e) => {
+                if (!editorCtx?.enabled || !editorCtx.isSelected) return;
+                editorCtx.onUpdateProps?.({ headline: e.currentTarget.textContent ?? '' });
+              }}
             >
-              <span
-                contentEditable={!!(editorCtx?.enabled && editorCtx.isSelected)}
-                suppressContentEditableWarning
-                onBlur={(e) => {
-                  if (!editorCtx?.enabled || !editorCtx.isSelected) return;
-                  editorCtx.onUpdateProps?.({
-                    primaryCta: {
-                      ...(props?.primaryCta ?? {}),
-                      label: e.currentTarget.textContent ?? '',
-                    },
-                  });
-                }}
-              >
-                {cta.label}
-              </span>
-            </a>
-          ) : null}
+              {props?.headline || 'Welcome'}
+            </h1>
+            <p
+              className="mt-6 text-lg"
+              style={{ color: mutedColor }}
+              contentEditable={!!(editorCtx?.enabled && editorCtx.isSelected)}
+              suppressContentEditableWarning
+              onBlur={(e) => {
+                if (!editorCtx?.enabled || !editorCtx.isSelected) return;
+                editorCtx.onUpdateProps?.({ subheadline: e.currentTarget.textContent ?? '' });
+              }}
+            >
+              {props?.subheadline}
+            </p>
+            <div className="mt-8 flex flex-wrap gap-4">
+              {primaryCta?.label ? (
+                <a
+                  className="inline-flex rounded-lg px-6 py-3 text-sm font-medium transition-opacity hover:opacity-90"
+                  href={mapHref({ href: primaryCta.href, linkBasePath })}
+                  style={{ backgroundColor: buttonBg, color: '#fff' }}
+                >
+                  {primaryCta.label}
+                </a>
+              ) : null}
+              {secondaryCta?.label ? (
+                <a
+                  className="inline-flex rounded-lg px-6 py-3 text-sm font-medium border transition-opacity hover:opacity-80"
+                  href={mapHref({ href: secondaryCta.href, linkBasePath })}
+                  style={{ borderColor: 'rgba(255,255,255,0.2)', color: textColor }}
+                >
+                  {secondaryCta.label}
+                </a>
+              ) : null}
+            </div>
+          </div>
+          <div className="h-72 rounded-2xl overflow-hidden" style={{ background: heroImage ? 'transparent' : `linear-gradient(135deg, ${theme?.primary || '#6366f1'}33, transparent)` }}>
+            {heroImage ? (
+              <img src={heroImage} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full border border-white/10 rounded-2xl" />
+            )}
+          </div>
         </div>
-        <div className="h-64 rounded-2xl border border-white/10 bg-gradient-to-br from-indigo-500/20 via-white/5 to-transparent" />
       </div>
     </div>
   );
 }
 
-function FeaturesBlock({ props }) {
+function FeaturesBlock({ props, theme }) {
   const items = props?.items ?? [];
+  const headline = props?.headline;
+  const textColor = theme?.text || '#ffffff';
+  const mutedColor = theme?.mutedText || 'rgba(255,255,255,0.7)';
+  const primaryColor = theme?.primary || '#6366f1';
+  
   return (
     <div className="mx-auto max-w-6xl px-4 py-16">
-      <div className="grid gap-4 md:grid-cols-3">
+      {headline ? (
+        <h2 className="text-3xl font-bold text-center mb-12" style={{ color: textColor }}>{headline}</h2>
+      ) : null}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {items.map((it, idx) => (
-          <div key={idx} className="rounded-xl border border-white/10 bg-white/5 p-5">
-            <div className="text-lg font-semibold">{it.title}</div>
-            <div className="mt-2 text-sm text-white/70">{it.text}</div>
+          <div key={idx} className="rounded-xl border border-white/10 bg-white/5 p-6 text-center">
+            {it.icon ? <div className="text-4xl mb-4">{it.icon}</div> : null}
+            <div className="text-lg font-semibold mb-2" style={{ color: textColor }}>{it.title}</div>
+            <div className="text-sm" style={{ color: mutedColor }}>{it.text}</div>
           </div>
         ))}
       </div>
@@ -1026,24 +1078,35 @@ function PageHeaderBlock({ props, styles }) {
   );
 }
 
-function CallToActionBlock({ props, theme, linkBasePath }) {
+function CallToActionBlock({ props, styles, theme, linkBasePath }) {
   const headline = props?.headline ?? 'Ready to get started?';
-  const text = props?.text ?? '';
+  const description = props?.description || props?.text || '';
   const primaryCta = props?.primaryCta;
   const secondaryCta = props?.secondaryCta;
+  const bgColor = styles?.backgroundColor || theme?.primary || '#6366f1';
+  const textColor = theme?.text || '#ffffff';
+  
   return (
-    <div className="mx-auto max-w-6xl px-4 py-16">
-      <div className="rounded-2xl border border-white/10 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 p-10 text-center">
-        <h2 className="text-3xl font-bold">{headline}</h2>
-        {text ? <p className="mt-3 text-white/70">{text}</p> : null}
-        <div className="mt-6 flex justify-center gap-4">
+    <div style={{ backgroundColor: bgColor, padding: '80px 0' }}>
+      <div className="mx-auto max-w-4xl px-4 text-center">
+        <h2 className="text-3xl md:text-4xl font-bold" style={{ color: textColor }}>{headline}</h2>
+        {description ? <p className="mt-4 text-lg opacity-90" style={{ color: textColor }}>{description}</p> : null}
+        <div className="mt-8 flex flex-wrap justify-center gap-4">
           {primaryCta?.label ? (
-            <a href={mapHref({ href: primaryCta.href ?? '#', linkBasePath })} className="rounded-lg px-6 py-3 font-medium" style={{ backgroundColor: theme?.primary ?? '#6366f1' }}>
+            <a 
+              href={mapHref({ href: primaryCta.href ?? '#', linkBasePath })} 
+              className="rounded-lg px-8 py-4 font-medium text-lg transition-transform hover:scale-105"
+              style={{ backgroundColor: '#ffffff', color: bgColor }}
+            >
               {primaryCta.label}
             </a>
           ) : null}
           {secondaryCta?.label ? (
-            <a href={mapHref({ href: secondaryCta.href ?? '#', linkBasePath })} className="rounded-lg border border-white/20 px-6 py-3 font-medium hover:bg-white/10">
+            <a 
+              href={mapHref({ href: secondaryCta.href ?? '#', linkBasePath })} 
+              className="rounded-lg border-2 px-8 py-4 font-medium text-lg transition-opacity hover:opacity-80"
+              style={{ borderColor: 'rgba(255,255,255,0.5)', color: textColor }}
+            >
               {secondaryCta.label}
             </a>
           ) : null}
@@ -1318,7 +1381,7 @@ function RenderComponent({ component, theme, editorCtx, linkBasePath }) {
     case 'HERO':
       return <HeroBlock props={props} styles={styles} theme={theme} editorCtx={editorCtx} linkBasePath={linkBasePath} />;
     case 'FEATURES':
-      return <FeaturesBlock props={props} />;
+      return <FeaturesBlock props={props} theme={theme} />;
     case 'CONTENT':
       return <ContentBlock props={props} editorCtx={editorCtx} />;
     case 'CONTACT_FORM':
@@ -1380,7 +1443,10 @@ function RenderComponent({ component, theme, editorCtx, linkBasePath }) {
     case 'PAGE_HEADER':
       return <PageHeaderBlock props={props} styles={styles} />;
     case 'CALL_TO_ACTION':
-      return <CallToActionBlock props={props} theme={theme} linkBasePath={linkBasePath} />;
+    case 'CTA':
+      return <CallToActionBlock props={props} styles={styles} theme={theme} linkBasePath={linkBasePath} />;
+    case 'STATS':
+      return <StatsBlock props={props} />;
     case 'ICON_CARDS':
       return <IconCardsBlock props={props} styles={styles} />;
     case 'TEAM':

@@ -67,6 +67,10 @@ export function TemplatesPage() {
       const { data } = await api.get(`/templates/${templateId}/preview`);
       setPreviewTemplate(data.template);
       setPreviewPages(data.pages ?? []);
+      // Store design system from template for proper theming
+      if (data.template?.designSystem) {
+        setPreviewTemplate(prev => ({ ...prev, designSystem: data.template.designSystem }));
+      }
     } catch (err) {
       setPreviewError(err?.response?.data?.error?.message ?? 'Failed to load template preview');
     } finally {
@@ -158,7 +162,14 @@ export function TemplatesPage() {
                   <SiteRenderer
                     pages={previewPages}
                     activePageIndex={previewPageIndex}
-                    theme={{ background: '#070a12', primary: '#6366f1' }}
+                    theme={{
+                      background: previewTemplate?.designSystem?.colors?.background || '#070a12',
+                      primary: previewTemplate?.designSystem?.colors?.primary || '#6366f1',
+                      secondary: previewTemplate?.designSystem?.colors?.secondary,
+                      text: previewTemplate?.designSystem?.colors?.text || '#ffffff',
+                      mutedText: previewTemplate?.designSystem?.colors?.mutedText || 'rgba(255,255,255,0.7)',
+                    }}
+                    designSystem={previewTemplate?.designSystem}
                   />
                 </div>
               ) : null}

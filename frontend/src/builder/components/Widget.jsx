@@ -177,6 +177,7 @@ export function Widget({ widget, section, column, index, isSelected }) {
           isEditing={isEditing}
           onContentUpdate={handleContentUpdate}
           onEditEnd={() => setIsEditing(false)}
+          theme={state.theme}
         />
       </div>
 

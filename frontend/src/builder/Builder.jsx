@@ -102,6 +102,25 @@ function BuilderContent({ websiteId, website, setWebsite }) {
   const { state, actions } = useBuilder();
   const navigate = useNavigate();
 
+  // Set theme from website settings when website loads
+  useEffect(() => {
+    if (website?.settings?.designSystem?.colors) {
+      const colors = website.settings.designSystem.colors;
+      actions.setTheme({
+        primary: colors.primary || '#6366f1',
+        secondary: colors.secondary || '#8b5cf6',
+        background: colors.background || '#0a0a12',
+        text: colors.text || '#ffffff',
+        mutedText: colors.mutedText || 'rgba(255,255,255,0.7)',
+      });
+    } else if (website?.settings?.theme) {
+      actions.setTheme({
+        primary: website.settings.theme.primary || '#6366f1',
+        background: website.settings.theme.background || '#0a0a12',
+      });
+    }
+  }, [website?.settings, actions]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {

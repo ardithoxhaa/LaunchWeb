@@ -310,51 +310,50 @@ async function listPagesWithComponents({ conn, websiteId }) {
 }
 
 function buildDefaultBuilderFromFlatComponents(components) {
-  const sectionId = makeNodeId();
-  const containerId = makeNodeId();
-  const columnId = makeNodeId();
+  // Create a separate section for each component for proper layout
+  const sections = (components ?? []).map((c) => ({
+    id: makeNodeId(),
+    type: 'SECTION',
+    props: {},
+    style: c.styles ?? {},
+    responsive: {},
+    children: [
+      {
+        id: makeNodeId(),
+        type: 'CONTAINER',
+        props: { width: 'boxed' },
+        style: {},
+        responsive: {},
+        children: [
+          {
+            id: makeNodeId(),
+            type: 'COLUMN',
+            props: { width: 100 },
+            style: {},
+            responsive: {},
+            children: [
+              {
+                id: makeNodeId(),
+                type: 'WIDGET',
+                widgetType: c.type,
+                props: c.props ?? {},
+                style: c.styles ?? {},
+                responsive: {},
+                children: [],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  }));
 
   return {
     version: 1,
     root: {
       id: makeNodeId(),
       type: 'ROOT',
-      children: [
-        {
-          id: sectionId,
-          type: 'SECTION',
-          props: {},
-          style: {},
-          responsive: {},
-          children: [
-            {
-              id: containerId,
-              type: 'CONTAINER',
-              props: { width: 'boxed' },
-              style: {},
-              responsive: {},
-              children: [
-                {
-                  id: columnId,
-                  type: 'COLUMN',
-                  props: { width: 12 },
-                  style: {},
-                  responsive: {},
-                  children: (components ?? []).map((c) => ({
-                    id: makeNodeId(),
-                    type: 'WIDGET',
-                    widgetType: c.type,
-                    props: c.props ?? {},
-                    style: c.styles ?? {},
-                    responsive: {},
-                    children: [],
-                  })),
-                },
-              ],
-            },
-          ],
-        },
-      ],
+      children: sections,
     },
   };
 }
@@ -474,14 +473,18 @@ async function replacePagesAndComponents({ conn, websiteId, pages }) {
   await conn.query('DELETE FROM pages WHERE website_id = :websiteId', { websiteId });
 
   for (const p of pages) {
+    // Build builder_json structure from components
+    const builderJson = buildBuilderJsonFromComponents(p.components ?? []);
+    
     const [pageResult] = await conn.query(
-      'INSERT INTO pages (website_id, name, path, sort_order, meta_json) VALUES (:websiteId, :name, :path, :sortOrder, :metaJson)',
+      'INSERT INTO pages (website_id, name, path, sort_order, meta_json, builder_json) VALUES (:websiteId, :name, :path, :sortOrder, :metaJson, :builderJson)',
       {
         websiteId,
         name: p.name,
         path: p.path,
         sortOrder: p.sortOrder ?? 0,
         metaJson: JSON.stringify(p.meta ?? {}),
+        builderJson: JSON.stringify(builderJson),
       }
     );
 
@@ -500,6 +503,51 @@ async function replacePagesAndComponents({ conn, websiteId, pages }) {
       );
     }
   }
+}
+
+function buildBuilderJsonFromComponents(components) {
+  const generateId = () => Math.random().toString(36).substring(2, 10);
+  
+  // Create a section for each component (each component gets its own full-width section)
+  const sections = components.map((comp, idx) => ({
+    id: generateId(),
+    type: 'SECTION',
+    props: {},
+    style: comp.styles || {},
+    responsive: {},
+    children: [{
+      id: generateId(),
+      type: 'CONTAINER',
+      props: { width: 'boxed' },
+      style: {},
+      responsive: {},
+      children: [{
+        id: generateId(),
+        type: 'COLUMN',
+        props: { width: 100 },
+        style: {},
+        responsive: {},
+        children: [{
+          id: generateId(),
+          type: 'WIDGET',
+          widgetType: comp.type,
+          props: comp.props || {},
+          style: comp.styles || {},
+          responsive: {},
+          children: [],
+        }],
+      }],
+    }],
+  }));
+
+  return {
+    version: 1,
+    root: {
+      id: generateId(),
+      type: 'ROOT',
+      children: sections,
+    },
+  };
 }
 
 export const websitesService = {

@@ -131,6 +131,8 @@ function BuilderPreview({ builder, designSystem }) {
     );
   }
 
+  const theme = designSystem?.colors || {};
+
   return (
     <div className="min-h-screen" style={{ 
       fontFamily: designSystem?.typography?.fontFamily || 'system-ui, sans-serif',
@@ -138,13 +140,13 @@ function BuilderPreview({ builder, designSystem }) {
       backgroundColor: '#0a0a12',
     }}>
       {sections.map((section, idx) => (
-        <SectionPreview key={section.id || idx} section={section} />
+        <SectionPreview key={section.id || idx} section={section} theme={theme} />
       ))}
     </div>
   );
 }
 
-function SectionPreview({ section }) {
+function SectionPreview({ section, theme }) {
   const style = section.style || {};
   
   const sectionStyle = {
@@ -163,13 +165,13 @@ function SectionPreview({ section }) {
   return (
     <section style={sectionStyle}>
       {effectiveContainers.map((container, cidx) => (
-        <ContainerPreview key={container?.id || cidx} container={container} settings={section.settings} />
+        <ContainerPreview key={container?.id || cidx} container={container} settings={section.settings} theme={theme} />
       ))}
     </section>
   );
 }
 
-function ContainerPreview({ container, settings }) {
+function ContainerPreview({ container, settings, theme }) {
   const columns = (container?.children || []).filter(n => n?.type === 'COLUMN');
   const effectiveColumns = columns.length ? columns : [{ children: container?.children || [], width: 100 }];
   
@@ -186,27 +188,27 @@ function ContainerPreview({ container, settings }) {
     }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap }}>
         {effectiveColumns.map((column, idx) => (
-          <ColumnPreview key={column?.id || idx} column={column} totalColumns={effectiveColumns.length} />
+          <ColumnPreview key={column?.id || idx} column={column} totalColumns={effectiveColumns.length} theme={theme} />
         ))}
       </div>
     </div>
   );
 }
 
-function ColumnPreview({ column, totalColumns }) {
+function ColumnPreview({ column, totalColumns, theme }) {
   const widgets = (column?.children || []).filter(n => n?.type === 'WIDGET');
   const width = column?.width || Math.floor(100 / totalColumns);
 
   return (
     <div style={{ flex: `0 0 calc(${width}% - 24px)`, minWidth: 0 }}>
       {widgets.map((widget, idx) => (
-        <WidgetPreview key={widget?.id || idx} widget={widget} />
+        <WidgetPreview key={widget?.id || idx} widget={widget} theme={theme} />
       ))}
     </div>
   );
 }
 
-function WidgetPreview({ widget }) {
+function WidgetPreview({ widget, theme }) {
   const { widgetType, props, style } = widget;
   const content = props || {};
 
@@ -231,12 +233,13 @@ function WidgetPreview({ widget }) {
 
   return (
     <div style={wrapperStyle}>
-      <RenderWidgetContent type={widgetType} content={content} style={style} />
+      <RenderWidgetContent type={widgetType} content={content} style={style} theme={theme} />
     </div>
   );
 }
 
-function RenderWidgetContent({ type, content, style }) {
+function RenderWidgetContent({ type, content, style, theme }) {
+  const primaryColor = theme?.primary || '#6366f1';
   switch (type) {
     case 'HEADING':
       const Tag = content.tag || 'h2';
@@ -264,12 +267,23 @@ function RenderWidgetContent({ type, content, style }) {
 
     case 'HERO':
       return (
-        <div className="py-16 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">{content.headline || 'Welcome'}</h1>
-          <p className="text-xl text-white/70 mb-8 max-w-2xl mx-auto">{content.subheadline || ''}</p>
-          <div className="flex gap-4 justify-center flex-wrap">
-            {content.primaryCta && <a href={content.primaryCta.href || '#'} className="px-6 py-3 bg-indigo-500 rounded-lg font-medium">{content.primaryCta.label}</a>}
-            {content.secondaryCta && <a href={content.secondaryCta.href || '#'} className="px-6 py-3 border border-white/20 rounded-lg font-medium">{content.secondaryCta.label}</a>}
+        <div className="py-16">
+          <div className="grid md:grid-cols-2 gap-10 items-center">
+            <div>
+              <h1 className="text-4xl md:text-5xl font-bold mb-4">{content.headline || 'Welcome'}</h1>
+              <p className="text-lg text-white/70 mb-8">{content.subheadline || ''}</p>
+              <div className="flex gap-4 flex-wrap">
+                {content.primaryCta?.label && <a href={content.primaryCta.href || '#'} className="px-6 py-3 rounded-lg font-medium" style={{ backgroundColor: primaryColor }}>{content.primaryCta.label}</a>}
+                {content.secondaryCta?.label && <a href={content.secondaryCta.href || '#'} className="px-6 py-3 border border-white/20 rounded-lg font-medium">{content.secondaryCta.label}</a>}
+              </div>
+            </div>
+            <div className="h-64 rounded-2xl overflow-hidden">
+              {content.image ? (
+                <img src={content.image} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full border border-white/10 rounded-2xl" style={{ background: `linear-gradient(135deg, ${primaryColor}33, transparent)` }} />
+              )}
+            </div>
           </div>
         </div>
       );
@@ -363,18 +377,21 @@ function RenderWidgetContent({ type, content, style }) {
       );
 
     case 'NAVBAR':
+      // Support both logo.image/logo.text and logoImageUrl/logoText formats
+      const navLogoImage = content.logo?.image || content.logoImageUrl;
+      const navLogoText = content.logo?.text || content.logoText || 'Logo';
       return (
         <nav className="flex items-center justify-between py-4">
           <div className="font-bold text-lg">
-            {content.logo?.image ? (
-              <img src={content.logo.image} alt={content.logo?.text || 'Logo'} className="h-10 w-auto object-contain" />
+            {navLogoImage ? (
+              <img src={navLogoImage} alt={navLogoText} className="h-10 w-auto object-contain" />
             ) : (
-              content.logo?.text || 'Logo'
+              navLogoText
             )}
           </div>
           <div className="flex items-center gap-6">
             {(content.links || []).map((link, i) => <a key={i} href={link.href || '#'} className="text-white/70 hover:text-white">{link.label}</a>)}
-            {content.cta && <a href={content.cta.href || '#'} className="px-4 py-2 bg-indigo-500 rounded-lg text-sm font-medium">{content.cta.label}</a>}
+            {content.cta?.label && <a href={content.cta.href || '#'} className="px-4 py-2 rounded-lg text-sm font-medium" style={{ backgroundColor: primaryColor }}>{content.cta.label}</a>}
           </div>
         </nav>
       );
@@ -388,11 +405,11 @@ function RenderWidgetContent({ type, content, style }) {
 
     case 'CTA':
       return (
-        <div className="rounded-2xl text-center p-12 bg-indigo-500/10">
+        <div className="rounded-2xl text-center p-12" style={{ backgroundColor: `${primaryColor}1a` }}>
           <h2 className="text-3xl font-bold mb-4">{content.headline || 'Ready to Get Started?'}</h2>
           <p className="text-white/70 mb-6">{content.description}</p>
           <div className="flex gap-4 justify-center">
-            {content.primaryCta && <a href={content.primaryCta.href || '#'} className="px-6 py-3 bg-indigo-500 rounded-lg font-medium">{content.primaryCta.label}</a>}
+            {content.primaryCta && <a href={content.primaryCta.href || '#'} className="px-6 py-3 rounded-lg font-medium" style={{ backgroundColor: primaryColor }}>{content.primaryCta.label}</a>}
           </div>
         </div>
       );

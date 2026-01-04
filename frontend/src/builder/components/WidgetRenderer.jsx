@@ -5,8 +5,9 @@
 
 import { useCallback, useRef, useEffect, useState } from 'react';
 
-export function WidgetRenderer({ widget, isEditing, onContentUpdate, onEditEnd }) {
+export function WidgetRenderer({ widget, isEditing, onContentUpdate, onEditEnd, theme }) {
   const { widgetType, content, style } = widget;
+  const primaryColor = theme?.primary || '#6366f1';
 
   // Click outside handler for editing mode
   useEffect(() => {
@@ -50,19 +51,19 @@ export function WidgetRenderer({ widget, isEditing, onContentUpdate, onEditEnd }
     case 'ACCORDION':
       return <AccordionWidget content={content} style={style} />;
     case 'HERO':
-      return <HeroWidget content={content} style={style} isEditing={isEditing} onUpdate={onContentUpdate} />;
+      return <HeroWidget content={content} style={style} isEditing={isEditing} onUpdate={onContentUpdate} theme={theme} />;
     case 'FEATURES':
-      return <FeaturesWidget content={content} style={style} />;
+      return <FeaturesWidget content={content} style={style} theme={theme} />;
     case 'PRICING':
-      return <PricingWidget content={content} style={style} />;
+      return <PricingWidget content={content} style={style} theme={theme} />;
     case 'FAQ':
       return <FAQWidget content={content} style={style} />;
     case 'TESTIMONIALS':
       return <TestimonialsWidget content={content} style={style} />;
     case 'CONTACT_FORM':
-      return <ContactFormWidget content={content} style={style} />;
+      return <ContactFormWidget content={content} style={style} theme={theme} />;
     case 'NAVBAR':
-      return <NavbarWidget content={content} style={style} isEditing={isEditing} onUpdate={onContentUpdate} />;
+      return <NavbarWidget content={content} style={style} isEditing={isEditing} onUpdate={onContentUpdate} theme={theme} />;
     case 'FOOTER':
       return <FooterWidget content={content} style={style} />;
     case 'VIDEO':
@@ -72,9 +73,9 @@ export function WidgetRenderer({ widget, isEditing, onContentUpdate, onEditEnd }
     case 'CARDS':
       return <CardsWidget content={content} style={style} />;
     case 'STATS':
-      return <StatsWidget content={content} style={style} />;
+      return <StatsWidget content={content} style={style} theme={theme} />;
     case 'CTA':
-      return <CTAWidget content={content} style={style} isEditing={isEditing} onUpdate={onContentUpdate} />;
+      return <CTAWidget content={content} style={style} isEditing={isEditing} onUpdate={onContentUpdate} theme={theme} />;
     case 'LOGO_CLOUD':
       return <LogoCloudWidget content={content} style={style} />;
     case 'TEAM':
@@ -396,42 +397,60 @@ function AccordionWidget({ content }) {
   );
 }
 
-function HeroWidget({ content, style, isEditing, onUpdate }) {
+function HeroWidget({ content, style, isEditing, onUpdate, theme }) {
+  const primaryColor = theme?.primary || '#6366f1';
+  
   return (
-    <div className="py-16 text-center" style={{ padding: style.padding }}>
-      {isEditing ? (
-        <>
-          <EditableText
-            value={content.headline}
-            onChange={(headline) => onUpdate({ headline })}
-            tag="h1"
-            className="text-4xl md:text-5xl font-bold mb-4"
-            placeholder="Your Headline"
-          />
-          <EditableText
-            value={content.subheadline}
-            onChange={(subheadline) => onUpdate({ subheadline })}
-            className="text-xl text-white/70 mb-8 max-w-2xl mx-auto"
-            placeholder="Your subheadline"
-          />
-        </>
-      ) : (
-        <>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">{content.headline || 'Welcome'}</h1>
-          <p className="text-xl text-white/70 mb-8 max-w-2xl mx-auto">{content.subheadline || 'Subheadline'}</p>
-        </>
-      )}
-      <div className="flex gap-4 justify-center">
-        {content.primaryCta && (
-          <a href={content.primaryCta.href || '#'} className="px-6 py-3 bg-indigo-500 rounded-lg font-medium hover:bg-indigo-400 transition-colors" onClick={(e) => e.preventDefault()}>
-            {content.primaryCta.label || 'Get Started'}
-          </a>
-        )}
-        {content.secondaryCta && (
-          <a href={content.secondaryCta.href || '#'} className="px-6 py-3 border border-white/20 rounded-lg font-medium hover:bg-white/10 transition-colors" onClick={(e) => e.preventDefault()}>
-            {content.secondaryCta.label || 'Learn More'}
-          </a>
-        )}
+    <div className="py-16" style={{ padding: style.padding }}>
+      <div className="grid md:grid-cols-2 gap-10 items-center">
+        <div>
+          {isEditing ? (
+            <>
+              <EditableText
+                value={content.headline}
+                onChange={(headline) => onUpdate({ headline })}
+                tag="h1"
+                className="text-4xl md:text-5xl font-bold mb-4"
+                placeholder="Your Headline"
+              />
+              <EditableText
+                value={content.subheadline}
+                onChange={(subheadline) => onUpdate({ subheadline })}
+                className="text-lg text-white/70 mb-8"
+                placeholder="Your subheadline"
+              />
+            </>
+          ) : (
+            <>
+              <h1 className="text-4xl md:text-5xl font-bold mb-4">{content.headline || 'Welcome'}</h1>
+              <p className="text-lg text-white/70 mb-8">{content.subheadline || 'Subheadline'}</p>
+            </>
+          )}
+          <div className="flex gap-4 flex-wrap">
+            {content.primaryCta?.label && (
+              <a 
+                href={content.primaryCta.href || '#'} 
+                className="px-6 py-3 rounded-lg font-medium transition-opacity hover:opacity-90" 
+                style={{ backgroundColor: primaryColor }}
+                onClick={(e) => e.preventDefault()}
+              >
+                {content.primaryCta.label}
+              </a>
+            )}
+            {content.secondaryCta?.label && (
+              <a href={content.secondaryCta.href || '#'} className="px-6 py-3 border border-white/20 rounded-lg font-medium hover:bg-white/10 transition-colors" onClick={(e) => e.preventDefault()}>
+                {content.secondaryCta.label}
+              </a>
+            )}
+          </div>
+        </div>
+        <div className="h-64 rounded-2xl overflow-hidden">
+          {content.image ? (
+            <img src={content.image} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full border border-white/10 rounded-2xl" style={{ background: `linear-gradient(135deg, ${primaryColor}33, transparent)` }} />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -520,7 +539,8 @@ function TestimonialsWidget({ content }) {
   );
 }
 
-function ContactFormWidget({ content }) {
+function ContactFormWidget({ content, theme }) {
+  const primaryColor = theme?.primary || '#6366f1';
   return (
     <div className="py-12 max-w-xl mx-auto">
       {content.headline && <h2 className="text-2xl font-bold text-center mb-8">{content.headline}</h2>}
@@ -535,7 +555,7 @@ function ContactFormWidget({ content }) {
             )}
           </div>
         ))}
-        <button type="submit" className="w-full py-3 bg-indigo-500 hover:bg-indigo-400 rounded-lg font-medium transition-colors">
+        <button type="submit" className="w-full py-3 rounded-lg font-medium transition-opacity hover:opacity-90" style={{ backgroundColor: primaryColor }}>
           {content.submitText || 'Submit'}
         </button>
       </form>
@@ -543,14 +563,19 @@ function ContactFormWidget({ content }) {
   );
 }
 
-function NavbarWidget({ content, style }) {
+function NavbarWidget({ content, style, theme }) {
+  // Support both logo.image/logo.text and logoImageUrl/logoText formats
+  const logoImage = content.logo?.image || content.logoImageUrl;
+  const logoText = content.logo?.text || content.logoText || 'Logo';
+  const primaryColor = theme?.primary || '#6366f1';
+  
   return (
     <nav className="flex items-center justify-between py-4" style={{ backgroundColor: style.backgroundColor, padding: style.padding }}>
       <div className="font-bold text-lg">
-        {content.logo?.image ? (
-          <img src={content.logo.image} alt={content.logo?.text || 'Logo'} className="h-10 w-auto object-contain" />
+        {logoImage ? (
+          <img src={logoImage} alt={logoText} className="h-10 w-auto object-contain" />
         ) : (
-          content.logo?.text || 'Logo'
+          logoText
         )}
       </div>
       <div className="flex items-center gap-6">
@@ -559,8 +584,13 @@ function NavbarWidget({ content, style }) {
             {link.label}
           </a>
         ))}
-        {content.cta && (
-          <a href={content.cta.href || '#'} className="px-4 py-2 bg-indigo-500 rounded-lg text-sm font-medium hover:bg-indigo-400 transition-colors" onClick={(e) => e.preventDefault()}>
+        {content.cta?.label && (
+          <a 
+            href={content.cta.href || '#'} 
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-90" 
+            style={{ backgroundColor: primaryColor }}
+            onClick={(e) => e.preventDefault()}
+          >
             {content.cta.label}
           </a>
         )}
@@ -689,10 +719,11 @@ function StatsWidget({ content }) {
   );
 }
 
-function CTAWidget({ content, style, isEditing, onUpdate }) {
+function CTAWidget({ content, style, isEditing, onUpdate, theme }) {
+  const primaryColor = theme?.primary || '#6366f1';
   return (
     <div className="rounded-2xl text-center" style={{
-      backgroundColor: style.backgroundColor || 'rgba(99, 102, 241, 0.1)',
+      backgroundColor: style.backgroundColor || `${primaryColor}1a`,
       padding: style.padding || '48px',
       borderRadius: style.borderRadius || '16px',
     }}>
@@ -720,7 +751,7 @@ function CTAWidget({ content, style, isEditing, onUpdate }) {
       )}
       <div className="flex gap-4 justify-center">
         {content.primaryCta && (
-          <a href={content.primaryCta.href || '#'} className="px-6 py-3 bg-indigo-500 rounded-lg font-medium hover:bg-indigo-400 transition-colors" onClick={(e) => e.preventDefault()}>
+          <a href={content.primaryCta.href || '#'} className="px-6 py-3 rounded-lg font-medium transition-opacity hover:opacity-90" style={{ backgroundColor: primaryColor }} onClick={(e) => e.preventDefault()}>
             {content.primaryCta.label}
           </a>
         )}
