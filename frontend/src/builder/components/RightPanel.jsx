@@ -6,6 +6,7 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { useBuilder, useSelectedElement } from '../store/builderStore.jsx';
 import { getWidget } from '../widgets/widgetRegistry';
+import { api } from '../../lib/api.js';
 
 export function RightPanel() {
   const { state, actions } = useBuilder();
@@ -1035,6 +1036,107 @@ function WidgetContentPanel({ widget, onUpdate }) {
               placeholder="© 2024 Company"
             />
           </InspectorSection>
+          
+          <InspectorSection title="Columns">
+            {(content.columns || []).map((col, colIdx) => (
+              <div key={colIdx} className="p-3 rounded-lg bg-white/5 border border-white/10 space-y-2 mb-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium">Column {colIdx + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newColumns = [...(content.columns || [])];
+                      newColumns.splice(colIdx, 1);
+                      handleContentUpdate('columns', newColumns);
+                    }}
+                    className="text-xs text-red-400 hover:text-red-300"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <TextField
+                  label="Title"
+                  value={col.title || ''}
+                  onChange={(v) => {
+                    const newColumns = [...(content.columns || [])];
+                    newColumns[colIdx] = { ...newColumns[colIdx], title: v };
+                    handleContentUpdate('columns', newColumns);
+                  }}
+                  placeholder="Company"
+                />
+                
+                {/* Links in column */}
+                <div className="mt-2">
+                  <div className="text-xs text-white/50 mb-1">Links</div>
+                  {(col.links || []).map((link, linkIdx) => (
+                    <div key={linkIdx} className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={link.label || ''}
+                        onChange={(e) => {
+                          const newColumns = [...(content.columns || [])];
+                          const newLinks = [...(newColumns[colIdx].links || [])];
+                          newLinks[linkIdx] = { ...newLinks[linkIdx], label: e.target.value };
+                          newColumns[colIdx] = { ...newColumns[colIdx], links: newLinks };
+                          handleContentUpdate('columns', newColumns);
+                        }}
+                        placeholder="Label"
+                        className="flex-1 px-2 py-1 text-xs rounded bg-white/5 border border-white/10 focus:border-indigo-500 focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        value={link.href || ''}
+                        onChange={(e) => {
+                          const newColumns = [...(content.columns || [])];
+                          const newLinks = [...(newColumns[colIdx].links || [])];
+                          newLinks[linkIdx] = { ...newLinks[linkIdx], href: e.target.value };
+                          newColumns[colIdx] = { ...newColumns[colIdx], links: newLinks };
+                          handleContentUpdate('columns', newColumns);
+                        }}
+                        placeholder="URL"
+                        className="flex-1 px-2 py-1 text-xs rounded bg-white/5 border border-white/10 focus:border-indigo-500 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newColumns = [...(content.columns || [])];
+                          const newLinks = [...(newColumns[colIdx].links || [])];
+                          newLinks.splice(linkIdx, 1);
+                          newColumns[colIdx] = { ...newColumns[colIdx], links: newLinks };
+                          handleContentUpdate('columns', newColumns);
+                        }}
+                        className="text-red-400 hover:text-red-300 text-xs"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newColumns = [...(content.columns || [])];
+                      const newLinks = [...(newColumns[colIdx].links || []), { label: '', href: '#' }];
+                      newColumns[colIdx] = { ...newColumns[colIdx], links: newLinks };
+                      handleContentUpdate('columns', newColumns);
+                    }}
+                    className="text-xs text-indigo-400 hover:text-indigo-300"
+                  >
+                    + Add Link
+                  </button>
+                </div>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                const newColumns = [...(content.columns || []), { title: 'New Column', links: [] }];
+                handleContentUpdate('columns', newColumns);
+              }}
+              className="w-full py-2 rounded-lg border border-dashed border-white/20 text-sm text-white/60 hover:border-white/40 hover:text-white/80 transition-colors"
+            >
+              + Add Column
+            </button>
+          </InspectorSection>
         </div>
       );
 
@@ -1463,29 +1565,100 @@ function WidgetContentPanel({ widget, onUpdate }) {
           </InspectorSection>
           <InspectorSection title="Logos">
             {(content.logos || []).map((logo, idx) => (
-              <div key={idx} className="flex gap-2 mb-2">
-                <input
-                  type="text"
+              <div key={idx} className="p-3 rounded-lg bg-white/5 border border-white/10 space-y-2 mb-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium">Logo {idx + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newLogos = [...(content.logos || [])];
+                      newLogos.splice(idx, 1);
+                      handleContentUpdate('logos', newLogos);
+                    }}
+                    className="text-xs text-red-400 hover:text-red-300"
+                  >
+                    Remove
+                  </button>
+                </div>
+                
+                {/* Logo Image Preview & Upload */}
+                <div className="space-y-2">
+                  {logo.src ? (
+                    <div className="relative group">
+                      <img 
+                        src={logo.src} 
+                        alt={logo.alt || 'Logo'} 
+                        className="w-full h-16 object-contain bg-white/10 rounded-lg p-2"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newLogos = [...(content.logos || [])];
+                          newLogos[idx] = { ...newLogos[idx], src: '' };
+                          handleContentUpdate('logos', newLogos);
+                        }}
+                        className="absolute top-1 right-1 w-5 h-5 rounded bg-red-500/80 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-full h-16 bg-white/5 border border-dashed border-white/20 rounded-lg flex items-center justify-center">
+                      <span className="text-xs text-white/40">No image</span>
+                    </div>
+                  )}
+                  
+                  {/* Image URL Input */}
+                  <TextField
+                    label="Image URL"
+                    value={logo.src || ''}
+                    onChange={(v) => {
+                      const newLogos = [...(content.logos || [])];
+                      newLogos[idx] = { ...newLogos[idx], src: v };
+                      handleContentUpdate('logos', newLogos);
+                    }}
+                    placeholder="https://... or upload below"
+                  />
+                  
+                  {/* File Upload */}
+                  <div>
+                    <label className="block">
+                      <span className="text-xs text-white/50 mb-1 block">Upload Image</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const newLogos = [...(content.logos || [])];
+                            newLogos[idx] = { ...newLogos[idx], src: event.target.result };
+                            handleContentUpdate('logos', newLogos);
+                          };
+                          reader.onerror = () => {
+                            alert('Failed to read file');
+                          };
+                          reader.readAsDataURL(file);
+                        }}
+                        className="w-full text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-indigo-500/20 file:text-indigo-400 hover:file:bg-indigo-500/30 cursor-pointer"
+                      />
+                    </label>
+                  </div>
+                </div>
+                
+                {/* Company Name */}
+                <TextField
+                  label="Company Name"
                   value={logo.alt || ''}
-                  onChange={(e) => {
+                  onChange={(v) => {
                     const newLogos = [...(content.logos || [])];
-                    newLogos[idx] = { ...newLogos[idx], alt: e.target.value };
+                    newLogos[idx] = { ...newLogos[idx], alt: v };
                     handleContentUpdate('logos', newLogos);
                   }}
                   placeholder="Company name"
-                  className="flex-1 px-2 py-1.5 rounded bg-white/5 border border-white/10 text-xs"
                 />
-                <button
-                  type="button"
-                  onClick={() => {
-                    const newLogos = [...(content.logos || [])];
-                    newLogos.splice(idx, 1);
-                    handleContentUpdate('logos', newLogos);
-                  }}
-                  className="px-2 text-red-400 hover:text-red-300"
-                >
-                  ×
-                </button>
               </div>
             ))}
             <button
@@ -1494,7 +1667,7 @@ function WidgetContentPanel({ widget, onUpdate }) {
                 const newLogos = [...(content.logos || []), { src: '', alt: 'Company' }];
                 handleContentUpdate('logos', newLogos);
               }}
-              className="w-full py-2 rounded-lg bg-indigo-500/20 text-indigo-400 text-xs font-medium hover:bg-indigo-500/30"
+              className="w-full py-2 rounded-lg border border-dashed border-white/20 text-sm text-white/60 hover:border-white/40 hover:text-white/80 transition-colors"
             >
               + Add Logo
             </button>

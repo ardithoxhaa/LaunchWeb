@@ -708,10 +708,53 @@ function ContactFormBlock({ props }) {
 }
 
 function FooterBlock({ props }) {
+  const logoText = props?.logo?.text ?? props?.logoText ?? 'Logo';
+  const logoImage = props?.logo?.image ?? props?.logoImage ?? '';
+  const copyright = props?.copyright ?? '© 2024 Company. All rights reserved.';
+  const columns = props?.columns ?? [];
+  
   return (
-    <div className="border-t border-white/10 bg-black/20">
-      <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-white/60">{props?.text ?? ''}</div>
-    </div>
+    <footer className="border-t border-white/10 bg-black/30">
+      <div className="mx-auto max-w-6xl px-4 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          {/* Logo Column */}
+          <div>
+            {logoImage ? (
+              <img src={logoImage} alt={logoText} className="h-8 w-auto mb-4" />
+            ) : (
+              <div className="text-xl font-bold mb-4">{logoText}</div>
+            )}
+          </div>
+          
+          {/* Link Columns */}
+          {columns.map((col, idx) => (
+            <div key={idx}>
+              <h4 className="font-semibold mb-4 text-white">{col.title ?? `Column ${idx + 1}`}</h4>
+              <ul className="space-y-2">
+                {(col.links ?? []).map((link, linkIdx) => (
+                  <li key={linkIdx}>
+                    <a 
+                      href={link.href ?? '#'} 
+                      className="text-white/60 hover:text-white transition-colors text-sm"
+                    >
+                      {link.label ?? link.text ?? 'Link'}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        
+        {/* Copyright */}
+        <div className="mt-8 pt-8 border-t border-white/10 flex items-center justify-between">
+          <div className="text-sm text-white/60">{copyright}</div>
+          <div className="flex gap-4">
+            {/* Social icons placeholder */}
+          </div>
+        </div>
+      </div>
+    </footer>
   );
 }
 
