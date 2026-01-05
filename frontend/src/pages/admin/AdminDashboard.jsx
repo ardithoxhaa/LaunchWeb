@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api.js';
 import { useAuth } from '../../auth/AuthContext.jsx';
+import { AdminDashboardSkeleton } from '../../components/Skeleton.jsx';
 
 function Table({
   columns,
@@ -113,6 +114,7 @@ function TabButton({ active, children, onClick }) {
 
 export function AdminDashboard() {
   const { user: currentUser } = useAuth();
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [businesses, setBusinesses] = useState([]);
@@ -132,38 +134,10 @@ export function AdminDashboard() {
   const [editModal, setEditModal] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
   const [editDraft, setEditDraft] = useState(null);
-  const [selectedTemplateId, setSelectedTemplateId] = useState(null);
-  const [tplName, setTplName] = useState('');
-  const [tplCategory, setTplCategory] = useState('');
-  const [tplPreviewUrl, setTplPreviewUrl] = useState('');
-  const [tplStructure, setTplStructure] = useState(
-    JSON.stringify(
-      {
-        pages: [
-          {
-            name: 'Home',
-            path: '/',
-            meta: { title: 'New Template', description: '' },
-            components: [
-              {
-                type: 'NAVBAR',
-                props: { logoText: 'New Template', links: [{ label: 'Home', href: '/' }] },
-                styles: {},
-              },
-              {
-                type: 'HERO',
-                props: { headline: 'Headline', subheadline: 'Subheadline', primaryCta: { label: 'Get started', href: '/' } },
-                styles: {},
-              },
-              { type: 'FOOTER', props: { text: '© New Template' }, styles: {} },
-            ],
-          },
-        ],
-      },
-      null,
-      2
-    )
-  );
+
+  const [showCreateTemplate, setShowCreateTemplate] = useState(false);
+  const [newTplName, setNewTplName] = useState('');
+  const [newTplCategory, setNewTplCategory] = useState('');
 
   useEffect(() => {
     let canceled = false;
@@ -187,6 +161,8 @@ export function AdminDashboard() {
         setTemplates(t.data.templates ?? []);
       } catch (err) {
         if (!canceled) setError(err?.response?.data?.error?.message ?? 'Failed to load admin data');
+      } finally {
+        if (!canceled) setLoading(false);
       }
     }
 
@@ -196,12 +172,6 @@ export function AdminDashboard() {
       canceled = true;
     };
   }, []);
-
-  async function reloadTemplatesAndStats() {
-    const [o, t] = await Promise.all([api.get('/admin/overview'), api.get('/admin/templates')]);
-    setStats(o.data.stats);
-    setTemplates(t.data.templates ?? []);
-  }
 
   async function reloadAll() {
     const [o, u, b, w, t] = await Promise.all([
@@ -216,16 +186,6 @@ export function AdminDashboard() {
     setBusinesses(b.data.businesses ?? []);
     setWebsites(w.data.websites ?? []);
     setTemplates(t.data.templates ?? []);
-  }
-
-  async function loadTemplateIntoEditor(id) {
-    const { data } = await api.get(`/admin/templates/${id}`);
-    const t = data.template;
-    setSelectedTemplateId(t.id);
-    setTplName(t.name ?? '');
-    setTplCategory(t.category ?? '');
-    setTplPreviewUrl(t.preview_image_url ?? '');
-    setTplStructure(JSON.stringify(t.structure_json ?? {}, null, 2));
   }
 
   const q = query.trim().toLowerCase();
@@ -243,6 +203,10 @@ export function AdminDashboard() {
     : templates;
 
   const tableMaxHeight = '60vh';
+
+  if (loading) {
+    return <AdminDashboardSkeleton />;
+  }
 
   return (
     <div className="space-y-6">
@@ -274,11 +238,15 @@ export function AdminDashboard() {
 
       {error ? <div className="rounded-md bg-red-500/10 p-3 text-sm text-red-200">{error}</div> : null}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-8">
         <StatCard label="Users" value={stats?.users} />
         <StatCard label="Businesses" value={stats?.businesses} />
         <StatCard label="Websites" value={stats?.websites} />
         <StatCard label="Templates" value={stats?.templates} />
+        <StatCard label="Published" value={stats?.publishedWebsites} />
+        <StatCard label="Drafts" value={stats?.draftWebsites} />
+        <StatCard label="New Users (7d)" value={stats?.newUsersThisWeek} />
+        <StatCard label="New Sites (7d)" value={stats?.newWebsitesThisWeek} />
       </div>
 
       {activeTab !== 'overview' ? (
@@ -663,50 +631,46 @@ export function AdminDashboard() {
       ) : null}
 
       {activeTab === 'templates' ? (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-          <div className="space-y-2 lg:col-span-3">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold">Templates</div>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedTemplateId(null);
-                  setTplName('');
-                  setTplCategory('');
-                  setTplPreviewUrl('');
-                }}
-                className="rounded-xl bg-white/10 px-3 py-2 text-sm text-white/80 hover:bg-white/15"
-              >
-                New
-              </button>
-            </div>
-            <Table
-              rowKey={(r) => r.id}
-              columns={[
-                { key: 'id', label: 'ID' },
-                {
-                  key: 'name',
-                  label: 'Name',
-                  render: (r) => (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-semibold">Templates</div>
+            <button
+              type="button"
+              onClick={() => setShowCreateTemplate(true)}
+              className="rounded-xl bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400"
+            >
+              + New Template
+            </button>
+          </div>
+          <Table
+            rowKey={(r) => r.id}
+            columns={[
+              { key: 'id', label: 'ID' },
+              { key: 'name', label: 'Name' },
+              { key: 'category', label: 'Category' },
+              { key: 'created_at', label: 'Created', render: (r) => (r.created_at ? new Date(r.created_at).toLocaleDateString() : '—') },
+              {
+                key: 'actions',
+                label: 'Actions',
+                render: (r) => (
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => loadTemplateIntoEditor(r.id)}
-                      className={
-                        selectedTemplateId === r.id
-                          ? 'text-left font-medium text-white'
-                          : 'text-left text-white/90 hover:text-white'
-                      }
+                      onClick={() => {
+                        setEditDraft({ name: r.name ?? '', category: r.category ?? '' });
+                        setEditModal({
+                          title: `Template #${r.id}`,
+                          fields: [
+                            { key: 'name', label: 'Name' },
+                            { key: 'category', label: 'Category' },
+                          ],
+                          onSave: (draft) => api.put(`/admin/templates/${r.id}`, { name: draft.name, category: draft.category }),
+                        });
+                      }}
+                      className="rounded-md bg-white/10 px-2 py-1 text-xs hover:bg-white/15"
                     >
-                      {r.name}
+                      Edit
                     </button>
-                  ),
-                },
-                { key: 'category', label: 'Category' },
-                { key: 'created_at', label: 'Created', render: (r) => (r.created_at ? new Date(r.created_at).toLocaleDateString() : '—') },
-                {
-                  key: 'actions',
-                  label: 'Actions',
-                  render: (r) => (
                     <button
                       type="button"
                       onClick={async () => {
@@ -714,7 +678,6 @@ export function AdminDashboard() {
                         try {
                           setError(null);
                           await api.del(`/admin/templates/${r.id}`);
-                          setSelectedTemplateId((cur) => (cur === r.id ? null : cur));
                           await reloadAll();
                         } catch (err) {
                           setError(err?.response?.data?.error?.message ?? 'Failed to delete template');
@@ -724,111 +687,101 @@ export function AdminDashboard() {
                     >
                       Delete
                     </button>
-                  ),
-                },
-              ]}
-              rows={filteredTemplates}
-              page={pageTemplates}
-              pageSize={pageSize}
-              onPageChange={setPageTemplates}
-              maxHeight={tableMaxHeight}
-              emptyText="No templates found."
-            />
-          </div>
+                  </div>
+                ),
+              },
+            ]}
+            rows={filteredTemplates}
+            page={pageTemplates}
+            pageSize={pageSize}
+            onPageChange={setPageTemplates}
+            maxHeight={tableMaxHeight}
+            emptyText="No templates found."
+          />
+        </div>
+      ) : null}
 
-          <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4 lg:col-span-2">
-            <div>
-              <div className="text-sm font-semibold">{selectedTemplateId ? `Edit template #${selectedTemplateId}` : 'Create template'}</div>
-              <div className="mt-1 text-xs text-white/60">
-                {selectedTemplateId
-                  ? 'Update the existing template in the catalog.'
-                  : 'Creates a new template in the templates catalog.'}
+      {showCreateTemplate ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setShowCreateTemplate(false)} />
+          <div className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-black/90">
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-black/60 px-4 py-3">
+              <div className="text-lg font-semibold">Create New Template</div>
+              <button
+                type="button"
+                onClick={() => setShowCreateTemplate(false)}
+                className="rounded-md bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
+              >
+                Close
+              </button>
+            </div>
+            <div className="space-y-4 p-4">
+              <div>
+                <label className="block text-xs font-medium text-white/70 mb-1">Template Name</label>
+                <input
+                  value={newTplName}
+                  onChange={(e) => setNewTplName(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/90 placeholder:text-white/40 focus:outline-none"
+                  placeholder="e.g. Modern Portfolio"
+                />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-xs font-medium text-white/70">Name</label>
-              <input
-                value={tplName}
-                onChange={(e) => setTplName(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/90 placeholder:text-white/40 focus:outline-none"
-                placeholder="e.g. Neon Barbershop"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-xs font-medium text-white/70">Category</label>
-              <input
-                value={tplCategory}
-                onChange={(e) => setTplCategory(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/90 placeholder:text-white/40 focus:outline-none"
-                placeholder="e.g. Barber / Restaurant / SaaS"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-xs font-medium text-white/70">Preview image URL (optional)</label>
-              <input
-                value={tplPreviewUrl}
-                onChange={(e) => setTplPreviewUrl(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/90 placeholder:text-white/40 focus:outline-none"
-                placeholder="https://…"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-xs font-medium text-white/70">Structure JSON</label>
-              <textarea
-                value={tplStructure}
-                onChange={(e) => setTplStructure(e.target.value)}
-                rows={10}
-                className="w-full resize-y rounded-xl border border-white/10 bg-black/30 px-3 py-2 font-mono text-xs text-white/90 placeholder:text-white/40 focus:outline-none"
-              />
-            </div>
-
-            <button
-              type="button"
-              disabled={creating}
-              onClick={async () => {
-                try {
-                  setCreating(true);
-                  setError(null);
-                  const structure = JSON.parse(tplStructure);
-                  if (selectedTemplateId) {
-                    await api.put(`/admin/templates/${selectedTemplateId}`, {
-                      name: tplName,
-                      category: tplCategory,
-                      previewImageUrl: tplPreviewUrl ? tplPreviewUrl : null,
-                      structure,
-                    });
-                    await reloadTemplatesAndStats();
-                    await loadTemplateIntoEditor(selectedTemplateId);
-                  } else {
+              <div>
+                <label className="block text-xs font-medium text-white/70 mb-1">Category</label>
+                <input
+                  value={newTplCategory}
+                  onChange={(e) => setNewTplCategory(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/90 placeholder:text-white/40 focus:outline-none"
+                  placeholder="e.g. Portfolio / E-commerce / Restaurant"
+                />
+              </div>
+              <button
+                type="button"
+                disabled={creating || !newTplName.trim()}
+                onClick={async () => {
+                  try {
+                    setCreating(true);
+                    setError(null);
+                    const defaultStructure = {
+                      designSystem: {
+                        colors: { primary: '#6366f1', background: '#0a0a12', text: '#ffffff' },
+                        typography: { fontFamily: 'system-ui, sans-serif' }
+                      },
+                      pages: [{
+                        name: 'Home',
+                        path: '/',
+                        meta: { title: newTplName, description: '' },
+                        components: [
+                          { type: 'NAVBAR', props: { logoText: newTplName, links: [{ label: 'Home', href: '/' }, { label: 'About', href: '/about' }, { label: 'Contact', href: '/contact' }] }, styles: {} },
+                          { type: 'HERO', props: { headline: 'Welcome to ' + newTplName, subheadline: 'Edit this template to create your perfect website.', primaryCta: { label: 'Get Started', href: '/contact' } }, styles: {} },
+                          { type: 'FEATURES', props: { headline: 'Our Features', items: [{ icon: '✨', title: 'Feature 1', text: 'Description here' }, { icon: '🚀', title: 'Feature 2', text: 'Description here' }, { icon: '💡', title: 'Feature 3', text: 'Description here' }] }, styles: {} },
+                          { type: 'FOOTER', props: { text: '© ' + newTplName }, styles: {} }
+                        ]
+                      }]
+                    };
                     await api.post('/admin/templates', {
-                      name: tplName,
-                      category: tplCategory,
-                      previewImageUrl: tplPreviewUrl ? tplPreviewUrl : null,
-                      structure,
+                      name: newTplName,
+                      category: newTplCategory || 'General',
+                      structure: defaultStructure,
                     });
-                    await reloadTemplatesAndStats();
-                    setTplName('');
-                    setTplCategory('');
-                    setTplPreviewUrl('');
+                    await reloadAll();
+                    setNewTplName('');
+                    setNewTplCategory('');
+                    setShowCreateTemplate(false);
+                  } catch (err) {
+                    setError(err?.response?.data?.error?.message ?? 'Failed to create template');
+                  } finally {
+                    setCreating(false);
                   }
-                } catch (err) {
-                  setError(err?.response?.data?.error?.message ?? err?.message ?? 'Failed to create template');
-                } finally {
-                  setCreating(false);
+                }}
+                className={
+                  creating || !newTplName.trim()
+                    ? 'w-full rounded-xl bg-white/10 px-3 py-2 text-sm text-white/60'
+                    : 'w-full rounded-xl bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400'
                 }
-              }}
-              className={
-                creating
-                  ? 'w-full rounded-xl bg-white/10 px-3 py-2 text-sm text-white/60'
-                  : 'w-full rounded-xl bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400'
-              }
-            >
-              {creating ? (selectedTemplateId ? 'Saving…' : 'Creating…') : selectedTemplateId ? 'Save changes' : 'Create template'}
-            </button>
+              >
+                {creating ? 'Creating...' : 'Create Template'}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

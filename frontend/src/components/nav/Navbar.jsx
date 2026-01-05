@@ -2,11 +2,36 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext.jsx';
 
+function useThemeToggle() {
+  const [theme, setTheme] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('launchweb-theme');
+      if (stored === 'light' || stored === 'dark') return stored;
+    }
+    return 'dark';
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'light') {
+      root.classList.add('light-theme');
+    } else {
+      root.classList.remove('light-theme');
+    }
+    localStorage.setItem('launchweb-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+
+  return { theme, toggleTheme, isDark: theme === 'dark' };
+}
+
 export function Navbar() {
   const { accessToken, user, logout } = useAuth();
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
+  const { theme, toggleTheme, isDark } = useThemeToggle();
 
   const websiteIdMatch = location.pathname.match(/^\/(editor|builder|draft-preview)\/(\d+)/);
   const websiteId = websiteIdMatch ? Number(websiteIdMatch[2]) : null;
@@ -86,6 +111,17 @@ export function Navbar() {
                     >
                       Settings
                     </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        toggleTheme();
+                      }}
+                      className="flex w-full items-center justify-between px-3 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white"
+                    >
+                      <span>{isDark ? '🌙 Dark Mode' : '☀️ Light Mode'}</span>
+                      <span className="text-xs text-white/40">{isDark ? 'ON' : 'OFF'}</span>
+                    </button>
+                    <div className="my-1 border-t border-white/10" />
                     <button
                       type="button"
                       onClick={async () => {

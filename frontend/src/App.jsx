@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 
 import { AuthProvider } from './auth/AuthContext.jsx';
+import { ToastProvider } from './components/Toast.jsx';
+import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 import { ProtectedRoute } from './auth/ProtectedRoute.jsx';
 import { AdminRoute } from './auth/AdminRoute.jsx';
 
@@ -25,8 +27,10 @@ import { AdminDashboard } from './pages/admin/AdminDashboard.jsx';
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Routes>
+    <ErrorBoundary>
+      <ToastProvider>
+        <AuthProvider>
+          <Routes>
         {/* Draft Preview - Full screen without AppShell */}
         <Route
           path="/draft-preview/:id"
@@ -114,9 +118,11 @@ export default function App() {
             }
           />
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
-    </AuthProvider>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </Routes>
+      </AuthProvider>
+    </ToastProvider>
+  </ErrorBoundary>
   );
 }

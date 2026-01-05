@@ -2523,11 +2523,7 @@ export function BuilderPage() {
         builder: p.builder ?? {},
       }));
 
-      console.log('Saving builder data:', { websiteId, pages: payloadPages });
-      
       const { data: resp } = await api.put(`/websites/${websiteId}/builder`, { pages: payloadPages });
-      
-      console.log('Save response:', resp);
       
       if (resp?.website) setWebsite(resp.website);
       if (resp?.pages) setPages(resp.pages);

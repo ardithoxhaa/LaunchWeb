@@ -3,7 +3,7 @@
  * Inspector panel with Content, Style, and Advanced tabs for editing selected elements
  */
 
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useBuilder, useSelectedElement } from '../store/builderStore.jsx';
 import { getWidget } from '../widgets/widgetRegistry';
 import { api } from '../../lib/api.js';
@@ -1408,10 +1408,10 @@ function WidgetContentPanel({ widget, onUpdate }) {
       return (
         <div className="p-4 space-y-4">
           <InspectorSection title="Content">
-            <TextField
+            <NumberField
               label="End Value"
-              value={String(content.endValue || 100)}
-              onChange={(v) => handleContentUpdate('endValue', parseInt(v) || 0)}
+              value={content.endValue ?? 100}
+              onChange={(v) => handleContentUpdate('endValue', v)}
               placeholder="100"
             />
             <TextField
@@ -2384,6 +2384,51 @@ function ColorField({ label, value, onChange }) {
           className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm focus:border-indigo-500 focus:outline-none"
         />
       </div>
+    </div>
+  );
+}
+
+function NumberField({ label, value, onChange, placeholder, min, max }) {
+  const [localValue, setLocalValue] = useState(String(value ?? ''));
+  
+  // Sync local value when prop changes from outside
+  useEffect(() => {
+    setLocalValue(String(value ?? ''));
+  }, [value]);
+  
+  return (
+    <div>
+      <label className="block text-xs text-white/60 mb-1">{label}</label>
+      <input
+        type="text"
+        inputMode="numeric"
+        value={localValue}
+        onChange={(e) => {
+          const v = e.target.value;
+          setLocalValue(v);
+          // Only update parent if it's a valid number or empty
+          if (v === '' || v === '-') {
+            // Allow empty or just minus sign while typing
+          } else {
+            const num = parseInt(v, 10);
+            if (!isNaN(num)) {
+              onChange(num);
+            }
+          }
+        }}
+        onBlur={() => {
+          // On blur, ensure we have a valid number
+          const num = parseInt(localValue, 10);
+          if (isNaN(num)) {
+            setLocalValue(String(value ?? 0));
+          } else {
+            onChange(num);
+            setLocalValue(String(num));
+          }
+        }}
+        placeholder={placeholder}
+        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm focus:border-indigo-500 focus:outline-none"
+      />
     </div>
   );
 }

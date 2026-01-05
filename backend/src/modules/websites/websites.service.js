@@ -1214,4 +1214,669 @@ export const websitesService = {
       return this.getWebsiteStructure({ userId, websiteId });
     });
   },
+
+  async getWebsiteAnalytics({ userId, websiteId }) {
+    return withTransaction(async (conn) => {
+      await assertWebsiteOwned({ conn, userId, websiteId });
+
+      const [websiteRows] = await conn.query(
+        `SELECT 
+          w.id, w.name, w.slug, w.status, w.created_at, w.updated_at, w.published_at,
+          w.view_count, w.last_viewed_at,
+          (SELECT COUNT(*) FROM pages WHERE website_id = w.id) as page_count,
+          (SELECT COUNT(*) FROM website_versions WHERE website_id = w.id) as version_count
+        FROM websites w WHERE w.id = :websiteId`,
+        { websiteId }
+      );
+
+      const website = websiteRows[0];
+      if (!website) throw notFound('Website not found');
+
+      // Get page-level stats
+      const [pageRows] = await conn.query(
+        `SELECT p.id, p.name, p.path, p.updated_at,
+          (SELECT COUNT(*) FROM components WHERE page_id = p.id) as component_count
+        FROM pages p WHERE p.website_id = :websiteId ORDER BY p.sort_order`,
+        { websiteId }
+      );
+
+      // Get recent versions
+      const [versionRows] = await conn.query(
+        `SELECT id, created_at FROM website_versions 
+         WHERE website_id = :websiteId ORDER BY created_at DESC LIMIT 5`,
+        { websiteId }
+      );
+
+      return {
+        website: {
+          id: website.id,
+          name: website.name,
+          slug: website.slug,
+          status: website.status,
+          createdAt: website.created_at,
+          updatedAt: website.updated_at,
+          publishedAt: website.published_at,
+          viewCount: website.view_count ?? 0,
+          lastViewedAt: website.last_viewed_at,
+        },
+        stats: {
+          pageCount: website.page_count ?? 0,
+          versionCount: website.version_count ?? 0,
+          totalComponents: pageRows.reduce((sum, p) => sum + (p.component_count ?? 0), 0),
+        },
+        pages: pageRows.map(p => ({
+          id: p.id,
+          name: p.name,
+          path: p.path,
+          updatedAt: p.updated_at,
+          componentCount: p.component_count ?? 0,
+        })),
+        recentVersions: versionRows.map(v => ({
+          id: v.id,
+          createdAt: v.created_at,
+        })),
+      };
+    });
+  },
+
+  async exportWebsite({ userId, websiteId }) {
+    return withTransaction(async (conn) => {
+      await assertWebsiteOwned({ conn, userId, websiteId });
+
+      const [websiteRows] = await conn.query(
+        'SELECT id, name, slug, settings_json, seo_json FROM websites WHERE id = :websiteId',
+        { websiteId }
+      );
+      const website = websiteRows[0];
+      if (!website) throw notFound('Website not found');
+
+      // Step 1: Get page metadata without large builder_json (avoids MySQL sort memory issues)
+      const [pagesMeta] = await conn.query(
+        'SELECT id, name, path, sort_order FROM pages WHERE website_id = :websiteId ORDER BY sort_order ASC, id ASC',
+        { websiteId }
+      );
+
+      // Step 2: Get builder_json separately (no sorting needed)
+      let pagesHtml = [];
+      if (pagesMeta.length > 0) {
+        const pageIds = pagesMeta.map(p => p.id);
+        const [builderRows] = await conn.query(
+          `SELECT id, builder_json FROM pages WHERE id IN (${pageIds.map(() => '?').join(',')})`,
+          pageIds
+        );
+        
+        const builderMap = new Map();
+        for (const row of builderRows) {
+          builderMap.set(row.id, row.builder_json);
+        }
+
+        pagesHtml = pagesMeta.map(page => {
+          const builder = parseJsonMaybe(builderMap.get(page.id), {});
+          return { name: page.name, path: page.path, builder };
+        });
+      }
+
+      const settings = parseJsonMaybe(website.settings_json, {});
+      const seo = parseJsonMaybe(website.seo_json, {});
+      const designSystem = settings?.designSystem ?? {};
+
+      // Generate complete HTML document
+      const html = generateExportHtml({
+        websiteName: website.name,
+        seo,
+        designSystem,
+        pages: pagesHtml,
+      });
+
+      return html;
+    });
+  },
 };
+
+function generateExportHtml({ websiteName, seo, designSystem, pages }) {
+  const primaryColor = designSystem?.colors?.primary ?? '#6366f1';
+  const bgColor = designSystem?.colors?.background ?? '#0a0a12';
+  const textColor = designSystem?.colors?.text ?? '#ffffff';
+  const fontFamily = designSystem?.typography?.fontFamily ?? 'system-ui, -apple-system, sans-serif';
+
+  // Render all sections from all pages
+  const allSectionsHtml = pages.map(page => {
+    const sections = page.builder?.root?.children ?? [];
+    const sectionId = page.path === '/' ? 'home' : page.path.replace(/^\//, '');
+    
+    // Render each section with its containers and columns
+    const sectionsContent = sections.map(section => {
+      if (section.type !== 'SECTION') return '';
+      
+      const sectionStyle = section.style ?? {};
+      const sectionBg = sectionStyle.backgroundColor || 'transparent';
+      const sectionPadding = sectionStyle.padding || '48px 24px';
+      
+      const containers = section.children ?? [];
+      const containersHtml = containers.map(container => {
+        if (container.type !== 'CONTAINER') return '';
+        
+        const containerStyle = container.style ?? {};
+        const maxWidth = containerStyle.maxWidth || '1200px';
+        
+        const columns = container.children ?? [];
+        const columnCount = columns.length || 1;
+        
+        const columnsHtml = columns.map(column => {
+          if (column.type !== 'COLUMN') return '';
+          
+          const columnStyle = column.style ?? {};
+          const widgets = column.children ?? [];
+          const widgetsHtml = widgets.map(widget => {
+            if (widget.type !== 'WIDGET') return '';
+            return renderWidgetToHtml(widget, primaryColor);
+          }).join('');
+          
+          return `<div style="flex: 1; min-width: 0; padding: ${columnStyle.padding || '0'};">${widgetsHtml}</div>`;
+        }).join('');
+        
+        const gridStyle = columnCount > 1 
+          ? `display: grid; grid-template-columns: repeat(${columnCount}, 1fr); gap: 24px;`
+          : '';
+        
+        return `<div style="max-width: ${maxWidth}; margin: 0 auto; ${gridStyle}">${columnsHtml}</div>`;
+      }).join('');
+      
+      return `<section id="${sectionId}" style="background: ${sectionBg}; padding: ${sectionPadding};">${containersHtml}</section>`;
+    }).join('');
+    
+    return sectionsContent;
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${seo?.title ?? websiteName}</title>
+  <meta name="description" content="${seo?.description ?? ''}">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: ${fontFamily};
+      background-color: ${bgColor};
+      color: ${textColor};
+      line-height: 1.6;
+    }
+    a { color: inherit; }
+    img { max-width: 100%; height: auto; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+    @media (max-width: 768px) {
+      [style*="grid-template-columns"] {
+        grid-template-columns: 1fr !important;
+      }
+      [style*="display: grid"] {
+        display: block !important;
+      }
+      [style*="display: grid"] > div {
+        margin-bottom: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  ${allSectionsHtml}
+  
+  <footer style="padding: 32px 24px; text-align: center; border-top: 1px solid rgba(255,255,255,0.1);">
+    <p style="color: rgba(255,255,255,0.6);">© ${new Date().getFullYear()} ${websiteName}. All rights reserved.</p>
+    <p style="color: rgba(255,255,255,0.4); font-size: 12px; margin-top: 8px;">Exported from LaunchWeb</p>
+  </footer>
+</body>
+</html>`;
+}
+
+function renderWidgetToHtml(widget, primaryColor) {
+  const type = widget.widgetType;
+  const content = widget.content ?? widget.props ?? {};
+  const style = widget.style ?? {};
+
+  switch (type) {
+    case 'HEADING': {
+      const tag = content.tag ?? 'h2';
+      const text = content.text ?? '';
+      const fontSize = style.fontSize || (tag === 'h1' ? '48px' : tag === 'h2' ? '36px' : tag === 'h3' ? '28px' : '24px');
+      const fontWeight = style.fontWeight || '600';
+      const textAlign = style.textAlign || 'left';
+      const color = style.color || 'inherit';
+      return `<${tag} style="font-size: ${fontSize}; font-weight: ${fontWeight}; margin-bottom: 16px; text-align: ${textAlign}; color: ${color};">${text}</${tag}>`;
+    }
+    
+    case 'TEXT':
+      return `<p style="margin-bottom: 16px; color: ${style.color || 'rgba(255,255,255,0.8)'}; text-align: ${style.textAlign || 'left'}; font-size: ${style.fontSize || 'inherit'};">${content.text ?? ''}</p>`;
+    
+    case 'BUTTON': {
+      const bgColor = style.backgroundColor || primaryColor;
+      const textColor = style.color || '#ffffff';
+      const padding = style.padding || '12px 24px';
+      const borderRadius = style.borderRadius || '8px';
+      return `<a href="${content.link ?? '#'}" style="display: inline-block; padding: ${padding}; background: ${bgColor}; color: ${textColor}; text-decoration: none; border-radius: ${borderRadius}; font-weight: 500; margin: 8px 0;">${content.text ?? 'Button'}</a>`;
+    }
+    
+    case 'IMAGE':
+      if (content.src) {
+        const borderRadius = style.borderRadius || '12px';
+        const width = style.width || '100%';
+        return `<img src="${content.src}" alt="${content.alt ?? ''}" style="border-radius: ${borderRadius}; margin: 16px 0; width: ${width}; height: auto; object-fit: cover;">`;
+      }
+      return '';
+    
+    case 'DIVIDER':
+      return `<hr style="border: none; border-top: ${style.borderWidth || '1px'} solid ${style.borderColor || 'rgba(255,255,255,0.1)'}; margin: 16px 0; width: ${style.width || '100%'};">`;
+    
+    case 'SPACER':
+      return `<div style="height: ${style.height || '50px'};"></div>`;
+    
+    case 'ICON':
+      return `<div style="text-align: ${style.textAlign || 'center'}; font-size: ${style.fontSize || '48px'}; color: ${style.color || primaryColor};">${content.icon || '★'}</div>`;
+    
+    case 'ICON_BOX':
+      return `
+        <div style="text-align: ${style.textAlign || 'center'}; padding: 24px;">
+          <div style="font-size: ${style.iconSize || '48px'}; color: ${style.iconColor || primaryColor}; margin-bottom: 16px;">${content.icon || '★'}</div>
+          <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">${content.title || ''}</h3>
+          <p style="color: rgba(255,255,255,0.7);">${content.description || ''}</p>
+        </div>
+      `;
+    
+    case 'STAR_RATING': {
+      const rating = content.rating || 4;
+      const maxRating = content.maxRating || 5;
+      const starColor = style.color || '#fbbf24';
+      let stars = '';
+      for (let i = 0; i < maxRating; i++) {
+        stars += `<span style="color: ${i < rating ? starColor : 'rgba(255,255,255,0.2)'}; font-size: ${style.fontSize || '24px'};">★</span>`;
+      }
+      return `<div style="display: flex; gap: 4px; justify-content: center;">${stars}</div>`;
+    }
+    
+    case 'COUNTER':
+      return `
+        <div style="text-align: center; padding: 24px;">
+          <div style="font-size: ${style.numberSize || '48px'}; font-weight: 700; color: ${style.numberColor || primaryColor};">${content.prefix || ''}${content.endValue ?? 100}${content.suffix || ''}</div>
+          <div style="color: rgba(255,255,255,0.6); margin-top: 8px;">${content.title || ''}</div>
+        </div>
+      `;
+    
+    case 'PROGRESS_BAR': {
+      const percentage = content.percentage || 0;
+      return `
+        <div style="padding: 8px 0;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="font-size: 14px; font-weight: 500;">${content.title || 'Progress'}</span>
+            <span style="font-size: 14px; color: rgba(255,255,255,0.6);">${percentage}%</span>
+          </div>
+          <div style="width: 100%; background: ${style.backgroundColor || 'rgba(255,255,255,0.1)'}; border-radius: 9999px; height: ${style.height || '8px'}; overflow: hidden;">
+            <div style="width: ${percentage}%; height: 100%; background: ${style.barColor || primaryColor}; border-radius: 9999px;"></div>
+          </div>
+        </div>
+      `;
+    }
+    
+    case 'SOCIAL_ICONS': {
+      const platformIcons = { facebook: 'f', twitter: '𝕏', instagram: '📷', linkedin: 'in', youtube: '▶' };
+      const icons = (content.icons || []).map(icon => 
+        `<a href="${icon.url || '#'}" style="width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.1); display: inline-flex; align-items: center; justify-content: center; text-decoration: none; color: inherit; font-size: ${style.iconSize || '16px'};">${platformIcons[icon.platform] || '●'}</a>`
+      ).join('');
+      return `<div style="display: flex; gap: 12px; justify-content: center;">${icons}</div>`;
+    }
+    
+    case 'TESTIMONIAL':
+      return `
+        <div style="padding: 24px; border-radius: 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); text-align: ${style.textAlign || 'center'};">
+          ${content.image ? `<img src="${content.image}" alt="${content.name || ''}" style="width: 64px; height: 64px; border-radius: 50%; object-fit: cover; margin: 0 auto 16px;">` : ''}
+          <p style="color: rgba(255,255,255,0.8); font-style: italic; margin-bottom: 16px;">"${content.content || ''}"</p>
+          <div style="font-weight: 600;">${content.name || ''}</div>
+          <div style="font-size: 14px; color: rgba(255,255,255,0.6);">${content.title || ''}</div>
+        </div>
+      `;
+    
+    case 'ACCORDION': {
+      const items = (content.items || []).map(item => `
+        <details style="border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); margin-bottom: 8px;">
+          <summary style="cursor: pointer; padding: 16px; font-weight: 500; list-style: none;">${item.title || ''}</summary>
+          <div style="padding: 0 16px 16px; color: rgba(255,255,255,0.7);">${item.content || ''}</div>
+        </details>
+      `).join('');
+      return `<div style="margin: 16px 0;">${items}</div>`;
+    }
+    
+    case 'TABS': {
+      const tabs = content.tabs || [];
+      if (tabs.length === 0) return '';
+      const tabButtons = tabs.map((tab, i) => 
+        `<span style="padding: 8px 16px; font-size: 14px; font-weight: 500; ${i === 0 ? `color: ${primaryColor}; border-bottom: 2px solid ${primaryColor};` : 'color: rgba(255,255,255,0.6);'}">${tab.title}</span>`
+      ).join('');
+      return `
+        <div style="padding: 16px 0;">
+          <div style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px;">${tabButtons}</div>
+          <div style="padding: 16px; background: rgba(255,255,255,0.05); border-radius: 8px;">${tabs[0]?.content || ''}</div>
+        </div>
+      `;
+    }
+    
+    case 'NAVBAR': {
+      const logoImage = content.logo?.image || content.logoImageUrl;
+      const logoText = content.logo?.text || content.logoText || 'Logo';
+      const links = (content.links || []).map(link => 
+        `<a href="${link.href || '#'}" style="color: rgba(255,255,255,0.7); text-decoration: none; padding: 8px 16px;">${link.label}</a>`
+      ).join('');
+      const cta = content.cta?.label ? 
+        `<a href="${content.cta.href || '#'}" style="padding: 8px 16px; background: ${primaryColor}; color: white; text-decoration: none; border-radius: 8px; font-weight: 500;">${content.cta.label}</a>` : '';
+      return `
+        <nav style="display: flex; align-items: center; justify-content: space-between; padding: ${style.padding || '16px 0'}; background: ${style.backgroundColor || 'transparent'};">
+          <div style="font-weight: 700; font-size: 18px;">
+            ${logoImage ? `<img src="${logoImage}" alt="${logoText}" style="height: 40px; width: auto; object-fit: contain;">` : logoText}
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            ${links}
+            ${cta}
+          </div>
+        </nav>
+      `;
+    }
+    
+    case 'HERO': {
+      const headline = content.headline || content.title || 'Welcome';
+      const subheadline = content.subheadline || content.subtitle || '';
+      const primaryCta = content.primaryCta;
+      const secondaryCta = content.secondaryCta;
+      const image = content.image;
+      return `
+        <div style="padding: ${style.padding || '64px 0'};">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center;">
+            <div>
+              <h1 style="font-size: 48px; font-weight: 700; margin-bottom: 16px; line-height: 1.1;">${headline}</h1>
+              <p style="font-size: 18px; color: rgba(255,255,255,0.7); margin-bottom: 32px;">${subheadline}</p>
+              <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                ${primaryCta?.label ? `<a href="${primaryCta.href || '#'}" style="padding: 14px 28px; background: ${primaryColor}; color: white; text-decoration: none; border-radius: 8px; font-weight: 500;">${primaryCta.label}</a>` : ''}
+                ${secondaryCta?.label ? `<a href="${secondaryCta.href || '#'}" style="padding: 14px 28px; border: 1px solid rgba(255,255,255,0.2); color: white; text-decoration: none; border-radius: 8px; font-weight: 500;">${secondaryCta.label}</a>` : ''}
+              </div>
+            </div>
+            <div style="border-radius: 16px; overflow: hidden; min-height: 300px;">
+              ${image ? `<img src="${image}" alt="" style="width: 100%; height: 100%; object-fit: cover;">` : `<div style="width: 100%; height: 300px; background: linear-gradient(135deg, ${primaryColor}33, transparent); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px;"></div>`}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    case 'FEATURES': {
+      const headline = content.headline || '';
+      const items = content.items || [];
+      const itemsHtml = items.map(item => `
+        <div style="padding: 24px; background: rgba(255,255,255,0.05); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); text-align: center;">
+          <div style="font-size: 32px; margin-bottom: 16px;">${item.icon || '★'}</div>
+          <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">${item.title || ''}</h3>
+          <p style="color: rgba(255,255,255,0.7); font-size: 14px;">${item.text || item.description || ''}</p>
+        </div>
+      `).join('');
+      return `
+        <div style="padding: 48px 0;">
+          ${headline ? `<h2 style="font-size: 32px; font-weight: 700; text-align: center; margin-bottom: 40px;">${headline}</h2>` : ''}
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px;">${itemsHtml}</div>
+        </div>
+      `;
+    }
+    
+    case 'PRICING': {
+      const headline = content.headline || '';
+      const plans = content.plans || [];
+      const plansHtml = plans.map(plan => `
+        <div style="padding: 24px; border-radius: 16px; border: 1px solid ${plan.featured ? primaryColor : 'rgba(255,255,255,0.1)'}; background: ${plan.featured ? `${primaryColor}1a` : 'rgba(255,255,255,0.05)'};">
+          <h3 style="font-weight: 600; font-size: 18px;">${plan.name || ''}</h3>
+          <div style="font-size: 32px; font-weight: 700; margin: 16px 0;">${plan.price || ''}<span style="font-size: 14px; font-weight: 400; color: rgba(255,255,255,0.6);">${plan.period || ''}</span></div>
+          <ul style="list-style: none; margin-bottom: 24px;">
+            ${(plan.features || []).map(f => `<li style="padding: 8px 0; color: rgba(255,255,255,0.7); font-size: 14px;">✓ ${f}</li>`).join('')}
+          </ul>
+          ${plan.cta ? `<a href="${plan.cta.href || '#'}" style="display: block; text-align: center; padding: 12px; background: ${plan.featured ? primaryColor : 'rgba(255,255,255,0.1)'}; color: white; text-decoration: none; border-radius: 8px; font-weight: 500;">${plan.cta.label}</a>` : ''}
+        </div>
+      `).join('');
+      return `
+        <div style="padding: 48px 0;">
+          ${headline ? `<h2 style="font-size: 32px; font-weight: 700; text-align: center; margin-bottom: 40px;">${headline}</h2>` : ''}
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px;">${plansHtml}</div>
+        </div>
+      `;
+    }
+    
+    case 'FAQ': {
+      const headline = content.headline || '';
+      const items = content.items || [];
+      const faqsHtml = items.map(item => `
+        <details style="padding: 16px; background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.1);">
+          <summary style="cursor: pointer; font-weight: 500; list-style: none;">${item.q || item.question || item.title || ''}</summary>
+          <p style="margin-top: 12px; color: rgba(255,255,255,0.7);">${item.a || item.answer || item.content || ''}</p>
+        </details>
+      `).join('');
+      return `
+        <div style="padding: 48px 0; max-width: 800px; margin: 0 auto;">
+          ${headline ? `<h2 style="font-size: 32px; font-weight: 700; text-align: center; margin-bottom: 40px;">${headline}</h2>` : ''}
+          ${faqsHtml}
+        </div>
+      `;
+    }
+    
+    case 'TESTIMONIALS': {
+      const headline = content.headline || '';
+      const items = content.items || [];
+      const testimonialsHtml = items.map(item => `
+        <div style="padding: 24px; border-radius: 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+          <p style="color: rgba(255,255,255,0.8); font-style: italic; margin-bottom: 16px;">"${item.quote || ''}"</p>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            ${item.image ? `<img src="${item.image}" alt="${item.name || ''}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">` : ''}
+            <div>
+              <div style="font-weight: 600;">${item.name || ''}</div>
+              <div style="font-size: 14px; color: rgba(255,255,255,0.6);">${item.role || ''}</div>
+            </div>
+          </div>
+        </div>
+      `).join('');
+      return `
+        <div style="padding: 48px 0;">
+          ${headline ? `<h2 style="font-size: 32px; font-weight: 700; text-align: center; margin-bottom: 40px;">${headline}</h2>` : ''}
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">${testimonialsHtml}</div>
+        </div>
+      `;
+    }
+    
+    case 'CONTACT_FORM': {
+      const headline = content.headline || '';
+      const fields = content.fields || [];
+      const fieldsHtml = fields.map(field => `
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 14px; color: rgba(255,255,255,0.7); margin-bottom: 4px;">${field.label || ''}</label>
+          ${field.type === 'textarea' 
+            ? `<textarea placeholder="${field.placeholder || ''}" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; min-height: 100px;"></textarea>`
+            : `<input type="${field.type || 'text'}" placeholder="${field.placeholder || ''}" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white;">`
+          }
+        </div>
+      `).join('');
+      return `
+        <div style="padding: 48px 0; max-width: 600px; margin: 0 auto;">
+          ${headline ? `<h2 style="font-size: 24px; font-weight: 700; text-align: center; margin-bottom: 32px;">${headline}</h2>` : ''}
+          <form>
+            ${fieldsHtml}
+            <button type="submit" style="width: 100%; padding: 14px; background: ${primaryColor}; color: white; border: none; border-radius: 8px; font-weight: 500; cursor: pointer;">${content.submitText || 'Submit'}</button>
+          </form>
+        </div>
+      `;
+    }
+    
+    case 'FOOTER': {
+      const logoText = content.logo?.text || 'Logo';
+      const columns = content.columns || [];
+      const copyright = content.copyright || '';
+      const socialLinks = content.socialLinks || [];
+      const columnsHtml = columns.map(col => `
+        <div>
+          <h4 style="font-weight: 600; margin-bottom: 16px;">${col.title || ''}</h4>
+          <ul style="list-style: none;">
+            ${(col.links || []).map(link => `<li style="margin-bottom: 8px;"><a href="${link.href || '#'}" style="color: rgba(255,255,255,0.6); text-decoration: none;">${link.label}</a></li>`).join('')}
+          </ul>
+        </div>
+      `).join('');
+      const socialHtml = socialLinks.map(link => 
+        `<a href="${link.url || '#'}" style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.1); display: inline-flex; align-items: center; justify-content: center; text-decoration: none; color: inherit;">${link.platform?.[0]?.toUpperCase() || '●'}</a>`
+      ).join('');
+      return `
+        <footer style="padding: ${style.padding || '48px 0 24px'}; background: ${style.backgroundColor || 'rgba(0,0,0,0.3)'};">
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; margin-bottom: 32px;">
+            <div style="font-weight: 700; font-size: 18px;">${logoText}</div>
+            ${columnsHtml}
+          </div>
+          <div style="padding-top: 32px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-size: 14px; color: rgba(255,255,255,0.5);">${copyright}</div>
+            <div style="display: flex; gap: 12px;">${socialHtml}</div>
+          </div>
+        </footer>
+      `;
+    }
+    
+    case 'VIDEO':
+      if (!content.url) return '';
+      return `
+        <div style="aspect-ratio: ${style.aspectRatio || '16/9'}; border-radius: ${style.borderRadius || '12px'}; overflow: hidden;">
+          <iframe src="${content.url}" style="width: 100%; height: 100%; border: none;" allowfullscreen></iframe>
+        </div>
+      `;
+    
+    case 'GALLERY': {
+      const images = content.images || [];
+      if (images.length === 0) return '';
+      const columns = content.columns || 3;
+      const gap = content.gap || '16px';
+      const imagesHtml = images.map(img => `
+        <div style="aspect-ratio: 1; border-radius: 8px; overflow: hidden;">
+          <img src="${img.src || img}" alt="${img.alt || ''}" style="width: 100%; height: 100%; object-fit: cover;">
+        </div>
+      `).join('');
+      return `<div style="display: grid; grid-template-columns: repeat(${columns}, 1fr); gap: ${gap};">${imagesHtml}</div>`;
+    }
+    
+    case 'CAROUSEL': {
+      const slides = content.slides || [];
+      if (slides.length === 0) return '';
+      const slidesHtml = slides.map((slide, i) => `
+        <div style="flex: 0 0 100%; ${i > 0 ? 'display: none;' : ''}">
+          <div style="aspect-ratio: 16/9; position: relative; border-radius: 12px; overflow: hidden;">
+            ${slide.image ? `<img src="${slide.image}" alt="${slide.title || ''}" style="width: 100%; height: 100%; object-fit: cover;">` : `<div style="width: 100%; height: 100%; background: linear-gradient(135deg, ${primaryColor}33, transparent);"></div>`}
+            <div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);"></div>
+            <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 24px;">
+              <h3 style="font-size: 20px; font-weight: 700; margin-bottom: 8px;">${slide.title || ''}</h3>
+              ${slide.description ? `<p style="color: rgba(255,255,255,0.7);">${slide.description}</p>` : ''}
+            </div>
+          </div>
+        </div>
+      `).join('');
+      return `
+        <div style="position: relative; border-radius: 12px; overflow: hidden;">
+          <div style="display: flex;">${slidesHtml}</div>
+          ${content.dots !== false && slides.length > 1 ? `<div style="position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px;">${slides.map((_, i) => `<span style="width: 8px; height: 8px; border-radius: 50%; background: ${i === 0 ? 'white' : 'rgba(255,255,255,0.4)'};"></span>`).join('')}</div>` : ''}
+        </div>
+      `;
+    }
+    
+    case 'LOGO_CLOUD': {
+      const label = content.label || 'Trusted by';
+      const logos = content.logos || [];
+      const logosHtml = logos.map(logo => `
+        <div style="height: 32px; padding: 0 16px; background: rgba(255,255,255,0.05); border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;">
+          ${logo.src ? `<img src="${logo.src}" alt="${logo.alt || ''}" style="height: 24px; object-fit: contain; opacity: 0.6;">` : `<span style="color: rgba(255,255,255,0.4); font-size: 14px;">${logo.alt || 'Logo'}</span>`}
+        </div>
+      `).join('');
+      return `
+        <div style="padding: 32px 0; text-align: center;">
+          <div style="font-size: 14px; color: rgba(255,255,255,0.5); margin-bottom: 24px;">${label}</div>
+          <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 32px; align-items: center;">${logosHtml}</div>
+        </div>
+      `;
+    }
+    
+    case 'CARDS': {
+      const cards = content.cards || [];
+      const cardsHtml = cards.map(card => `
+        <div style="border-radius: 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); overflow: hidden;">
+          ${card.image ? `<div style="aspect-ratio: 16/9;"><img src="${card.image}" alt="${card.title || ''}" style="width: 100%; height: 100%; object-fit: cover;"></div>` : ''}
+          <div style="padding: 24px;">
+            <h3 style="font-weight: 600; margin-bottom: 8px;">${card.title || ''}</h3>
+            <p style="font-size: 14px; color: rgba(255,255,255,0.7); margin-bottom: 16px;">${card.text || ''}</p>
+            ${card.cta ? `<a href="${card.cta.href || '#'}" style="color: ${primaryColor}; font-size: 14px; font-weight: 500; text-decoration: none;">${card.cta.label} →</a>` : ''}
+          </div>
+        </div>
+      `).join('');
+      return `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px;">${cardsHtml}</div>`;
+    }
+    
+    case 'STATS': {
+      const items = content.items || [];
+      const statsHtml = items.map(item => `
+        <div style="text-align: center; padding: 24px;">
+          <div style="font-size: 40px; font-weight: 700; color: ${primaryColor}; margin-bottom: 8px;">${item.value || ''}</div>
+          <div style="color: rgba(255,255,255,0.6);">${item.label || ''}</div>
+        </div>
+      `).join('');
+      return `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 24px;">${statsHtml}</div>`;
+    }
+    
+    case 'CTA': {
+      const headline = content.headline || '';
+      const description = content.description || '';
+      const primaryCta = content.primaryCta;
+      const secondaryCta = content.secondaryCta;
+      return `
+        <div style="padding: ${style.padding || '48px'}; background: ${style.backgroundColor || `${primaryColor}1a`}; border-radius: ${style.borderRadius || '16px'}; text-align: center;">
+          <h2 style="font-size: 32px; font-weight: 700; margin-bottom: 16px;">${headline}</h2>
+          <p style="color: rgba(255,255,255,0.7); margin-bottom: 24px; max-width: 600px; margin-left: auto; margin-right: auto;">${description}</p>
+          <div style="display: flex; gap: 16px; justify-content: center;">
+            ${primaryCta?.label ? `<a href="${primaryCta.href || '#'}" style="padding: 14px 28px; background: ${primaryColor}; color: white; text-decoration: none; border-radius: 8px; font-weight: 500;">${primaryCta.label}</a>` : ''}
+            ${secondaryCta?.label ? `<a href="${secondaryCta.href || '#'}" style="padding: 14px 28px; border: 1px solid rgba(255,255,255,0.2); color: white; text-decoration: none; border-radius: 8px; font-weight: 500;">${secondaryCta.label}</a>` : ''}
+          </div>
+        </div>
+      `;
+    }
+    
+    case 'TEAM': {
+      const headline = content.headline || '';
+      const members = content.members || [];
+      const membersHtml = members.map(member => `
+        <div style="text-align: center; padding: 24px; border-radius: 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+          ${member.image 
+            ? `<img src="${member.image}" alt="${member.name || ''}" style="width: 96px; height: 96px; border-radius: 50%; object-fit: cover; margin: 0 auto 16px;">`
+            : `<div style="width: 96px; height: 96px; border-radius: 50%; background: linear-gradient(135deg, ${primaryColor}, #a855f7); margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 700;">${member.name?.charAt(0) || '?'}</div>`
+          }
+          <h3 style="font-weight: 600; font-size: 18px;">${member.name || ''}</h3>
+          <div style="font-size: 14px; color: ${primaryColor}; margin-bottom: 8px;">${member.role || ''}</div>
+          ${member.bio ? `<p style="font-size: 14px; color: rgba(255,255,255,0.6);">${member.bio}</p>` : ''}
+        </div>
+      `).join('');
+      return `
+        <div style="padding: 48px 0;">
+          ${headline ? `<h2 style="font-size: 32px; font-weight: 700; text-align: center; margin-bottom: 40px;">${headline}</h2>` : ''}
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px;">${membersHtml}</div>
+        </div>
+      `;
+    }
+    
+    case 'IMAGE_BOX':
+      return `
+        <div style="border-radius: 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); overflow: hidden; text-align: ${style.textAlign || 'center'};">
+          ${content.src 
+            ? `<div style="aspect-ratio: 16/9;"><img src="${content.src}" alt="${content.title || ''}" style="width: 100%; height: 100%; object-fit: cover;"></div>`
+            : `<div style="aspect-ratio: 16/9; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center;"><span style="color: rgba(255,255,255,0.3); font-size: 32px;">🖼</span></div>`
+          }
+          <div style="padding: 24px;">
+            <h3 style="font-weight: 600; font-size: 18px; margin-bottom: 8px;">${content.title || ''}</h3>
+            <p style="font-size: 14px; color: rgba(255,255,255,0.7);">${content.description || ''}</p>
+          </div>
+        </div>
+      `;
+    
+    default:
+      return '';
+  }
+}

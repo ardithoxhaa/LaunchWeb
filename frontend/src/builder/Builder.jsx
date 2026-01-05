@@ -11,6 +11,7 @@ import { BuilderHeader } from './components/BuilderHeader';
 import { LeftPanel } from './components/LeftPanel';
 import { RightPanel } from './components/RightPanel';
 import { Canvas } from './components/Canvas';
+import { useToast } from '../components/Toast.jsx';
 
 // Main Builder wrapper with provider
 export function Builder() {
@@ -69,8 +70,12 @@ export function Builder() {
     return (
       <div className="h-screen bg-[#0f0f1a] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <div className="text-white/60">Loading builder...</div>
+          <div className="w-16 h-16 relative mx-auto mb-6">
+            <div className="absolute inset-0 border-4 border-indigo-500/20 rounded-full" />
+            <div className="absolute inset-0 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+          <div className="text-lg font-semibold text-white mb-1">LaunchWeb</div>
+          <div className="text-sm text-white/50">Loading builder...</div>
         </div>
       </div>
     );
@@ -114,6 +119,7 @@ export function Builder() {
 function BuilderContent({ websiteId, website, setWebsite, currentPageIndex, setCurrentPageIndex, allPagesDocuments, setAllPagesDocuments }) {
   const { state, actions } = useBuilder();
   const navigate = useNavigate();
+  const toast = useToast();
   const [previousPageIndex, setPreviousPageIndex] = useState(currentPageIndex);
 
   // Handle page switching - save current page's document and load new page's document
@@ -264,14 +270,15 @@ function BuilderContent({ websiteId, website, setWebsite, currentPageIndex, setC
       }
       
       actions.markSaved();
+      toast.success('Website saved successfully!');
       
     } catch (err) {
       console.error('Save failed:', err);
-      alert(err?.response?.data?.error?.message || 'Failed to save');
+      toast.error(err?.response?.data?.error?.message || 'Failed to save');
     } finally {
       actions.setSaving(false);
     }
-  }, [websiteId, state.document, state.saving.isSaving, website, actions, setWebsite, allPagesDocuments, currentPageIndex, setAllPagesDocuments]);
+  }, [websiteId, state.document, state.saving.isSaving, website, actions, setWebsite, allPagesDocuments, currentPageIndex, setAllPagesDocuments, toast]);
 
   const handlePreview = useCallback(async () => {
     // Save first if there are unsaved changes
@@ -514,22 +521,27 @@ function transformDocumentToBackend(document, website) {
         props: { width: section.settings?.contentWidth || 'boxed' },
         style: {},
         responsive: {},
-        children: (section.columns || []).map(column => ({
-          id: column.id,
-          type: 'COLUMN',
-          props: { width: column.width || 12 },
-          style: column.style || {},
-          responsive: column.responsiveStyle || {},
-          children: (column.widgets || []).map(widget => ({
-            id: widget.id,
-            type: 'WIDGET',
-            widgetType: widget.widgetType,
-            props: widget.content || {},
-            style: widget.style || {},
-            responsive: widget.responsiveStyle || {},
-            children: [],
-          })),
-        })),
+        children: (section.columns || []).map(column => {
+          // Convert percentage width to grid column span (1-12)
+          const percentWidth = column.width || 100;
+          const gridSpan = Math.round((percentWidth / 100) * 12) || 12;
+          return {
+            id: column.id,
+            type: 'COLUMN',
+            props: { width: gridSpan },
+            style: column.style || {},
+            responsive: column.responsiveStyle || {},
+            children: (column.widgets || []).map(widget => ({
+              id: widget.id,
+              type: 'WIDGET',
+              widgetType: widget.widgetType,
+              props: widget.content || {},
+              style: widget.style || {},
+              responsive: widget.responsiveStyle || {},
+              children: [],
+            })),
+          };
+        }),
       }],
     })),
   };
@@ -575,22 +587,27 @@ function transformDocumentToBackendSinglePage(document, page) {
         props: { width: section.settings?.contentWidth || 'boxed' },
         style: {},
         responsive: {},
-        children: (section.columns || []).map(column => ({
-          id: column.id,
-          type: 'COLUMN',
-          props: { width: column.width || 12 },
-          style: column.style || {},
-          responsive: column.responsiveStyle || {},
-          children: (column.widgets || []).map(widget => ({
-            id: widget.id,
-            type: 'WIDGET',
-            widgetType: widget.widgetType,
-            props: widget.content || {},
-            style: widget.style || {},
-            responsive: widget.responsiveStyle || {},
-            children: [],
-          })),
-        })),
+        children: (section.columns || []).map(column => {
+          // Convert percentage width to grid column span (1-12)
+          const percentWidth = column.width || 100;
+          const gridSpan = Math.round((percentWidth / 100) * 12) || 12;
+          return {
+            id: column.id,
+            type: 'COLUMN',
+            props: { width: gridSpan },
+            style: column.style || {},
+            responsive: column.responsiveStyle || {},
+            children: (column.widgets || []).map(widget => ({
+              id: widget.id,
+              type: 'WIDGET',
+              widgetType: widget.widgetType,
+              props: widget.content || {},
+              style: widget.style || {},
+              responsive: widget.responsiveStyle || {},
+              children: [],
+            })),
+          };
+        }),
       }],
     })),
   };

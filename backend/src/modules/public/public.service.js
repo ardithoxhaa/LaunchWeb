@@ -91,7 +91,7 @@ async function listPagesWithBuilder({ conn, websiteId }) {
 }
 
 export const publicService = {
-  async getPublishedWebsiteStructureBySlug({ slug }) {
+  async getPublishedWebsiteStructureBySlug({ slug, trackView = true }) {
     const [rows] = await pool.query(
       "SELECT id, business_id, template_id, name, slug, status, settings_json, seo_json FROM websites WHERE slug = :slug AND status = 'PUBLISHED'",
       { slug }
@@ -99,6 +99,14 @@ export const publicService = {
 
     const website = rows?.[0];
     if (!website) throw notFound('Published website not found');
+
+    // Track view count (fire and forget, don't block response)
+    if (trackView) {
+      pool.query(
+        'UPDATE websites SET view_count = COALESCE(view_count, 0) + 1, last_viewed_at = NOW() WHERE id = :id',
+        { id: website.id }
+      ).catch(() => {});
+    }
 
     const pages = await listPagesWithBuilder({ conn: pool, websiteId: website.id });
 

@@ -15,12 +15,23 @@ export const adminService = {
       count('templates'),
     ]);
 
+    const [[publishedResult], [draftResult], [recentUsersResult], [recentWebsitesResult]] = await Promise.all([
+      pool.query("SELECT COUNT(*) AS c FROM websites WHERE status = 'PUBLISHED'"),
+      pool.query("SELECT COUNT(*) AS c FROM websites WHERE status = 'DRAFT'"),
+      pool.query("SELECT COUNT(*) AS c FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)"),
+      pool.query("SELECT COUNT(*) AS c FROM websites WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)"),
+    ]);
+
     return {
       stats: {
         users,
         businesses,
         websites,
         templates,
+        publishedWebsites: Number(publishedResult?.[0]?.c ?? 0),
+        draftWebsites: Number(draftResult?.[0]?.c ?? 0),
+        newUsersThisWeek: Number(recentUsersResult?.[0]?.c ?? 0),
+        newWebsitesThisWeek: Number(recentWebsitesResult?.[0]?.c ?? 0),
       },
     };
   },

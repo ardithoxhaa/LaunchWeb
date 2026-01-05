@@ -3,11 +3,11 @@
 
 **Project Title:** LaunchWeb - A Modern No-Code Website Builder Platform
 
-**Student:** [Your Name]
+**Student:** [Ardit Hoxha]
 
-**Supervisor:** [Supervisor Name]
+**Supervisor:** [Elton Boshnjaku]
 
-**Institution:** [University/College Name]
+**Institution:** [UBT]
 
 **Department:** Computer Science
 
@@ -66,7 +66,7 @@ LaunchWeb encompasses:
 - **Website Creation:** Template-based website initialization
 - **Visual Editor:** Elementor-style drag-and-drop page builder
 - **Widget Library:** 30+ pre-built, customizable components
-- **Template System:** 5 professional, industry-specific templates
+- **Template System:** 9+ professional, industry-specific templates
 - **Asset Management:** Image upload and management
 - **Version Control:** Website version history with snapshots
 - **SEO Tools:** Meta tags and search engine optimization settings
@@ -145,7 +145,7 @@ LaunchWeb addresses these challenges by providing:
 | User Authentication | Secure JWT implementation | ✅ Achieved |
 | Visual Editor | Functional drag-and-drop | ✅ Achieved |
 | Widget Library | 20+ widgets | ✅ Achieved (30+) |
-| Templates | 5+ professional templates | ✅ Achieved (5) |
+| Templates | 5+ professional templates | ✅ Achieved (9+) |
 | Responsive Design | Desktop/Tablet/Mobile support | ✅ Achieved |
 | Database Design | Normalized schema with relationships | ✅ Achieved |
 
@@ -1519,9 +1519,37 @@ Updates a website including pages and content.
 8. Responsive preview modes
 9. Admin Dashboard
 
+## Appendix F: Recent Updates (Final Release)
+
+### User Experience Improvements
+- **Loading Skeletons:** Added skeleton loading animations to User Dashboard and Admin Dashboard for better perceived performance
+- **Dark/Light Theme Toggle:** Implemented theme switcher in the user profile dropdown menu with localStorage persistence
+- **Enhanced Loading Spinner:** Branded loading animation in the Builder with LaunchWeb logo
+
+### Admin Dashboard Enhancements
+- **Extended Statistics:** Added 8 stat cards including Published/Draft counts and weekly activity metrics (new users, new websites in last 7 days)
+- **Template Management:** Full CRUD operations for templates - Create, Edit (name/category), and Delete
+- **Improved UI:** Cleaner layout with modal-based editing for all entities
+
+### Website Card Improvements
+- **Fixed Layout:** Status badges now display inline with website name instead of overlapping action buttons
+- **Color-Coded Status:** Green badge for PUBLISHED, amber badge for DRAFT websites
+
+### New Templates Added
+- **ShopNova** (E-commerce) - Full online store with products, cart, about, and contact pages
+- **Pixel Studio** (Creative Agency) - Portfolio, services, pricing, and team pages
+- **DevFolio** (Developer Portfolio) - Projects, blog, skills showcase, and contact
+- **Bella Cucina** (Restaurant) - Menu, reservations, about, and contact pages
+
+### Technical Improvements
+- **Favicon:** Custom SVG favicon with LaunchWeb branding
+- **Meta Tags:** Added meta description and theme-color for better SEO and mobile experience
+- **Code Cleanup:** Removed debug console.log statements for production readiness
+- **Export Fix:** Improved HTML export to correctly render all widget types
+
 ---
 
 **End of Documentation**
 
-*Document Version: 1.0*
-*Last Updated: January 2026*
+*Document Version: 1.1*
+*Last Updated: January 5, 2026*

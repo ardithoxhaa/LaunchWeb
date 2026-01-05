@@ -169,3 +169,23 @@ export async function deletePage(req, res) {
   });
   res.json({ success: true });
 }
+
+export async function getWebsiteAnalytics(req, res) {
+  const id = Number(req.params.id);
+  const analytics = await websitesService.getWebsiteAnalytics({
+    userId: req.auth.userId,
+    websiteId: id,
+  });
+  res.json({ analytics });
+}
+
+export async function exportWebsite(req, res) {
+  const id = Number(req.params.id);
+  const html = await websitesService.exportWebsite({
+    userId: req.auth.userId,
+    websiteId: id,
+  });
+  res.setHeader('Content-Type', 'text/html');
+  res.setHeader('Content-Disposition', `attachment; filename="website-${id}.html"`);
+  res.send(html);
+}

@@ -1247,15 +1247,16 @@ function ReviewsBlock({ props }) {
 }
 
 function CounterBlock({ props, styles }) {
-  const value = props?.value ?? 0;
-  const suffix = props?.suffix ?? '';
-  const label = props?.label ?? '';
+  const value = props?.endValue ?? props?.value ?? 0;
+  const prefix = props?.prefix ?? '';
+  const suffix = props?.suffix ?? '+';
+  const title = props?.title ?? props?.label ?? '';
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 text-center">
+    <div className="text-center">
       <div className="text-5xl font-bold" style={styles?.color ? { color: styles.color } : { color: '#6366f1' }}>
-        {value}{suffix}
+        {prefix}{value}{suffix}
       </div>
-      <div className="mt-2 text-white/60">{label}</div>
+      {title && <div className="mt-2 text-white/60">{title}</div>}
     </div>
   );
 }
@@ -2149,10 +2150,18 @@ export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, 
                     editor.onContextMenu({ nodeType: 'CONTAINER', nodeId: containerNode.id, columnIndex: 0, x: e.clientX, y: e.clientY });
                   }}
                 >
-                  <div className={shouldGrid ? 'grid grid-cols-12 gap-6' : ''}>
+                  <div className={shouldGrid ? 'grid grid-cols-12 gap-6 items-start' : ''}>
                     {effectiveColumns.map((colNode, colIdx) => {
-                      const colWidth = Number(colNode?.props?.width);
-                      const gridColStyle = shouldGrid && Number.isFinite(colWidth) ? { gridColumn: `span ${colWidth} / span ${colWidth}` } : null;
+                      let colWidth = Number(colNode?.props?.width);
+                      // Handle percentage widths (legacy data) - convert to grid spans
+                      if (colWidth > 12) {
+                        colWidth = Math.round((colWidth / 100) * 12) || 6;
+                      }
+                      // Default to equal distribution if no width
+                      if (!Number.isFinite(colWidth) || colWidth <= 0) {
+                        colWidth = Math.floor(12 / effectiveColumns.length);
+                      }
+                      const gridColStyle = shouldGrid ? { gridColumn: `span ${colWidth} / span ${colWidth}` } : null;
                       const colStyle = colNode ? computeBuilderWrapperStyle(colNode) : null;
                       const widgets = (colNode?.children ?? []).filter((n) => n?.type === 'WIDGET');
                       return (

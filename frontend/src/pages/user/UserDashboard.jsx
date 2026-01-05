@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { api } from '../../lib/api.js';
+import { useToast } from '../../components/Toast.jsx';
+import { DashboardSkeleton } from '../../components/Skeleton.jsx';
 
 export function UserDashboard() {
   const location = useLocation();
+  const toast = useToast();
+  const [loading, setLoading] = useState(true);
   const [businesses, setBusinesses] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [websites, setWebsites] = useState([]);
+  const [analyticsModal, setAnalyticsModal] = useState(null);
 
   const [selectedBusinessId, setSelectedBusinessId] = useState(null);
 
@@ -34,6 +39,7 @@ export function UserDashboard() {
     async function load() {
       try {
         setError(null);
+        setLoading(true);
         const [b, t] = await Promise.all([api.get('/businesses'), api.get('/templates')]);
         if (canceled) return;
 
@@ -50,6 +56,8 @@ export function UserDashboard() {
         }
       } catch (err) {
         if (!canceled) setError(err?.response?.data?.error?.message ?? 'Failed to load dashboard data');
+      } finally {
+        if (!canceled) setLoading(false);
       }
     }
 
@@ -99,6 +107,10 @@ export function UserDashboard() {
   const safePage = Math.min(Math.max(1, pageWebsites), pageCount);
   const start = (safePage - 1) * pageSize;
   const visibleWebsites = filteredWebsites.slice(start, start + pageSize);
+
+  if (loading) {
+    return <DashboardSkeleton />;
+  }
 
   return (
     <div className="space-y-6">
@@ -294,16 +306,23 @@ export function UserDashboard() {
                 <div className="grid grid-cols-1 gap-3">
                   {visibleWebsites.map((w) => (
                     <div key={w.id} className="rounded-xl border border-white/10 bg-black/20 p-4">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-semibold">{w.name}</div>
-                          <div className="mt-1 truncate text-xs text-white/60">/{w.slug}</div>
-                          <div className="mt-2 inline-flex rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-white/70">
-                            {w.status}
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate text-sm font-semibold">{w.name}</span>
+                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                              w.status === 'PUBLISHED' 
+                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                                : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                            }`}>
+                              {w.status}
+                            </span>
                           </div>
+                          <div className="mt-1 truncate text-xs text-white/50">/{w.slug}</div>
                         </div>
+                      </div>
 
-                        <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-2">
                           <Link
                             className="rounded-md bg-indigo-500 px-3 py-1.5 text-xs font-medium hover:bg-indigo-400"
                             to={`/builder/${w.id}`}
@@ -328,16 +347,64 @@ export function UserDashboard() {
                             onClick={async () => {
                               try {
                                 setBusy(true);
+                                const { data } = await api.get(`/websites/${w.id}/analytics`);
+                                setAnalyticsModal(data.analytics);
+                              } catch (err) {
+                                toast.error(err?.response?.data?.error?.message ?? 'Failed to load analytics');
+                              } finally {
+                                setBusy(false);
+                              }
+                            }}
+                            className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/15 disabled:opacity-50"
+                          >
+                            Stats
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={async () => {
+                              try {
+                                setBusy(true);
+                                toast.info('Preparing export...');
+                                const response = await api.get(`/websites/${w.id}/export`, { responseType: 'blob' });
+                                const blob = new Blob([response.data], { type: 'text/html' });
+                                const url = window.URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `${w.slug || 'website'}.html`;
+                                document.body.appendChild(a);
+                                a.click();
+                                window.URL.revokeObjectURL(url);
+                                document.body.removeChild(a);
+                                toast.success('Website exported successfully!');
+                              } catch (err) {
+                                toast.error(err?.response?.data?.error?.message ?? 'Failed to export website');
+                              } finally {
+                                setBusy(false);
+                              }
+                            }}
+                            className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/15 disabled:opacity-50"
+                          >
+                            Export
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={async () => {
+                              try {
+                                setBusy(true);
                                 setError(null);
                                 if (w.status === 'PUBLISHED') {
                                   const { data } = await api.post(`/websites/${w.id}/unpublish`);
                                   setWebsites(websites.map((x) => (x.id === w.id ? { ...x, status: data.website.status } : x)));
+                                  toast.success('Website unpublished');
                                 } else {
                                   const { data } = await api.post(`/websites/${w.id}/publish`);
                                   setWebsites(websites.map((x) => (x.id === w.id ? { ...x, status: data.website.status } : x)));
+                                  toast.success('Website published!');
                                 }
                               } catch (err) {
-                                setError(err?.response?.data?.error?.message ?? 'Failed to change publish status');
+                                toast.error(err?.response?.data?.error?.message ?? 'Failed to change publish status');
                               } finally {
                                 setBusy(false);
                               }
@@ -346,7 +413,6 @@ export function UserDashboard() {
                           >
                             {w.status === 'PUBLISHED' ? 'Unpublish' : 'Publish'}
                           </button>
-                        </div>
                       </div>
                     </div>
                   ))}
@@ -403,6 +469,106 @@ export function UserDashboard() {
 
       {/* Published Websites Section */}
       <PublishedWebsitesSection websites={websites} />
+
+      {/* Analytics Modal */}
+      {analyticsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-auto rounded-2xl border border-white/10 bg-[#0d1117] p-6 shadow-2xl">
+            <button
+              onClick={() => setAnalyticsModal(null)}
+              className="absolute top-4 right-4 text-white/60 hover:text-white"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <h2 className="text-xl font-semibold mb-1">{analyticsModal.website?.name}</h2>
+            <p className="text-sm text-white/60 mb-6">Website Analytics & Statistics</p>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="text-2xl font-bold text-indigo-400">{analyticsModal.website?.viewCount ?? 0}</div>
+                <div className="text-xs text-white/60 mt-1">Total Views</div>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="text-2xl font-bold text-emerald-400">{analyticsModal.stats?.pageCount ?? 0}</div>
+                <div className="text-xs text-white/60 mt-1">Pages</div>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="text-2xl font-bold text-amber-400">{analyticsModal.stats?.totalComponents ?? 0}</div>
+                <div className="text-xs text-white/60 mt-1">Components</div>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="text-2xl font-bold text-purple-400">{analyticsModal.stats?.versionCount ?? 0}</div>
+                <div className="text-xs text-white/60 mt-1">Versions</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="text-sm font-medium mb-2">Website Info</div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Status</span>
+                    <span className={analyticsModal.website?.status === 'PUBLISHED' ? 'text-emerald-400' : 'text-amber-400'}>
+                      {analyticsModal.website?.status}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Slug</span>
+                    <span>/{analyticsModal.website?.slug}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Created</span>
+                    <span>{analyticsModal.website?.createdAt ? new Date(analyticsModal.website.createdAt).toLocaleDateString() : '—'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Last Updated</span>
+                    <span>{analyticsModal.website?.updatedAt ? new Date(analyticsModal.website.updatedAt).toLocaleDateString() : '—'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Last Viewed</span>
+                    <span>{analyticsModal.website?.lastViewedAt ? new Date(analyticsModal.website.lastViewedAt).toLocaleDateString() : 'Never'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="text-sm font-medium mb-2">Pages</div>
+                <div className="space-y-2 max-h-40 overflow-auto">
+                  {(analyticsModal.pages ?? []).map((p) => (
+                    <div key={p.id} className="flex justify-between text-sm">
+                      <span className="text-white/80">{p.name}</span>
+                      <span className="text-white/50">{p.componentCount} components</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {analyticsModal.recentVersions?.length > 0 && (
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <div className="text-sm font-medium mb-2">Recent Versions</div>
+                <div className="flex flex-wrap gap-2">
+                  {analyticsModal.recentVersions.map((v) => (
+                    <div key={v.id} className="rounded-lg bg-white/10 px-3 py-1 text-xs">
+                      {new Date(v.createdAt).toLocaleString()}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => setAnalyticsModal(null)}
+              className="mt-6 w-full rounded-lg bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/15 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

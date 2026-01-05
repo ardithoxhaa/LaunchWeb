@@ -2,6 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg-primary: #070a12;
+  --bg-secondary: #0f0f1a;
+  --bg-card: rgba(255, 255, 255, 0.05);
+  --text-primary: #e6e9ff;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-muted: rgba(255, 255, 255, 0.4);
+  --border-color: rgba(255, 255, 255, 0.1);
+  --accent-color: #6366f1;
+}
+
+.light-theme {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-card: rgba(0, 0, 0, 0.03);
+  --text-primary: #1e293b;
+  --text-secondary: rgba(0, 0, 0, 0.7);
+  --text-muted: rgba(0, 0, 0, 0.4);
+  --border-color: rgba(0, 0, 0, 0.1);
+  --accent-color: #4f46e5;
+}
+
 html, body {
   height: 100%;
 }
@@ -10,6 +32,58 @@ body {
   margin: 0;
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji",
     "Segoe UI Emoji";
-  background: #070a12;
-  color: #e6e9ff;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.light-theme .bg-black\/30,
+.light-theme .bg-black\/20,
+.light-theme .bg-black\/80 {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.light-theme .bg-\[\#070a12\],
+.light-theme .bg-\[\#0f0f1a\],
+.light-theme .bg-\[\#0a0a12\],
+.light-theme .bg-\[\#1e1e2d\],
+.light-theme .bg-\[\#0b0f1a\] {
+  background-color: #ffffff !important;
+}
+
+.light-theme .border-white\/10 {
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.light-theme .text-white {
+  color: #1e293b !important;
+}
+
+.light-theme .text-white\/80,
+.light-theme .text-white\/70,
+.light-theme .text-white\/60 {
+  color: rgba(0, 0, 0, 0.7) !important;
+}
+
+.light-theme .text-white\/50,
+.light-theme .text-white\/40 {
+  color: rgba(0, 0, 0, 0.5) !important;
+}
+
+.light-theme .bg-white\/5,
+.light-theme .bg-white\/10 {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.light-theme .hover\:bg-white\/10:hover,
+.light-theme .hover\:bg-white\/15:hover {
+  background-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.light-theme .from-indigo-500\/15 {
+  --tw-gradient-from: rgba(99, 102, 241, 0.1) !important;
+}
+
+.light-theme .placeholder\:text-white\/40::placeholder {
+  color: rgba(0, 0, 0, 0.4) !important;
 }
