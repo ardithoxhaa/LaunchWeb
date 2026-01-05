@@ -9,7 +9,7 @@ import { useBuilder } from '../store/builderStore.jsx';
 import { VersionHistory } from './VersionHistory';
 import { SeoEditor } from './SeoEditor';
 
-export function BuilderHeader({ websiteId, websiteName, websiteSeo, onSave, onPreview, onVersionRestore }) {
+export function BuilderHeader({ websiteId, websiteName, websiteSeo, onSave, onPreview, onVersionRestore, onSeoUpdate }) {
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [showSeoEditor, setShowSeoEditor] = useState(false);
   const { state, actions } = useBuilder();
@@ -182,6 +182,7 @@ export function BuilderHeader({ websiteId, websiteName, websiteSeo, onSave, onPr
           initialSeo={websiteSeo}
           onSave={() => {}}
           onClose={() => setShowSeoEditor(false)}
+          onSeoUpdate={onSeoUpdate}
         />
       )}
     </header>

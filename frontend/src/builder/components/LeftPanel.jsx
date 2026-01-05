@@ -6,8 +6,9 @@
 import { useState, useCallback } from 'react';
 import { useBuilder } from '../store/builderStore.jsx';
 import { WIDGETS, WIDGET_CATEGORIES, getWidgetsByCategory } from '../widgets/widgetRegistry';
+import { api } from '../../lib/api';
 
-export function LeftPanel() {
+export function LeftPanel({ websiteId, pages, currentPageIndex, onPageChange, onPagesUpdate }) {
   const { state, actions } = useBuilder();
   const { ui, document, selection } = state;
   const [searchQuery, setSearchQuery] = useState('');
@@ -23,16 +24,16 @@ export function LeftPanel() {
           label="Widgets"
         />
         <PanelTab
+          active={ui.leftPanelTab === 'pages'}
+          onClick={() => actions.setLeftPanelTab('pages')}
+          icon="📄"
+          label="Pages"
+        />
+        <PanelTab
           active={ui.leftPanelTab === 'navigator'}
           onClick={() => actions.setLeftPanelTab('navigator')}
           icon="☰"
           label="Navigator"
-        />
-        <PanelTab
-          active={ui.leftPanelTab === 'settings'}
-          onClick={() => actions.setLeftPanelTab('settings')}
-          icon="⚙"
-          label="Settings"
         />
       </div>
 
@@ -41,11 +42,17 @@ export function LeftPanel() {
         {ui.leftPanelTab === 'widgets' && (
           <WidgetsPanel searchQuery={searchQuery} onSearchChange={setSearchQuery} />
         )}
+        {ui.leftPanelTab === 'pages' && (
+          <PagesPanel 
+            websiteId={websiteId}
+            pages={pages}
+            currentPageIndex={currentPageIndex}
+            onPageChange={onPageChange}
+            onPagesUpdate={onPagesUpdate}
+          />
+        )}
         {ui.leftPanelTab === 'navigator' && (
           <NavigatorPanel />
-        )}
-        {ui.leftPanelTab === 'settings' && (
-          <SettingsPanel />
         )}
       </div>
     </div>
@@ -188,6 +195,278 @@ function WidgetItem({ widget, onDragStart }) {
     >
       <span className="text-xl">{widget.icon}</span>
       <span className="text-[10px] text-white/70 text-center leading-tight">{widget.name}</span>
+    </div>
+  );
+}
+
+function PagesPanel({ websiteId, pages, currentPageIndex, onPageChange, onPagesUpdate }) {
+  const [showAddPage, setShowAddPage] = useState(false);
+  const [newPageName, setNewPageName] = useState('');
+  const [newPagePath, setNewPagePath] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+  const [error, setError] = useState(null);
+  
+  // Edit page state
+  const [editingPageId, setEditingPageId] = useState(null);
+  const [editPageName, setEditPageName] = useState('');
+  const [editPagePath, setEditPagePath] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editError, setEditError] = useState(null);
+
+  const handleEditPage = useCallback(async (pageId) => {
+    if (!editPageName.trim() || !editPagePath.trim()) {
+      setEditError('Name and path are required');
+      return;
+    }
+
+    const path = editPagePath.startsWith('/') ? editPagePath : `/${editPagePath}`;
+
+    try {
+      setIsEditing(true);
+      setEditError(null);
+      const { data } = await api.put(`/websites/${websiteId}/pages/${pageId}`, {
+        name: editPageName.trim(),
+        path: path.toLowerCase(),
+      });
+      
+      // Update page in pages array
+      const updatedPages = pages.map(p => p.id === pageId ? { ...p, name: editPageName.trim(), path: path.toLowerCase() } : p);
+      onPagesUpdate(updatedPages);
+      setEditingPageId(null);
+      setEditPageName('');
+      setEditPagePath('');
+    } catch (err) {
+      setEditError(err?.response?.data?.error?.message || 'Failed to update page');
+    } finally {
+      setIsEditing(false);
+    }
+  }, [websiteId, editPageName, editPagePath, pages, onPagesUpdate]);
+
+  const startEditingPage = useCallback((page) => {
+    setEditingPageId(page.id);
+    setEditPageName(page.name);
+    setEditPagePath(page.path);
+    setEditError(null);
+  }, []);
+
+  const cancelEditingPage = useCallback(() => {
+    setEditingPageId(null);
+    setEditPageName('');
+    setEditPagePath('');
+    setEditError(null);
+  }, []);
+
+  const handleAddPage = useCallback(async () => {
+    if (!newPageName.trim() || !newPagePath.trim()) {
+      setError('Name and path are required');
+      return;
+    }
+
+    const path = newPagePath.startsWith('/') ? newPagePath : `/${newPagePath}`;
+
+    try {
+      setIsAdding(true);
+      setError(null);
+      const { data } = await api.post(`/websites/${websiteId}/pages`, {
+        name: newPageName.trim(),
+        path: path.toLowerCase(),
+      });
+      
+      // Add new page to pages array
+      onPagesUpdate([...pages, data.page]);
+      setShowAddPage(false);
+      setNewPageName('');
+      setNewPagePath('');
+    } catch (err) {
+      setError(err?.response?.data?.error?.message || 'Failed to add page');
+    } finally {
+      setIsAdding(false);
+    }
+  }, [websiteId, newPageName, newPagePath, pages, onPagesUpdate]);
+
+  const handleDeletePage = useCallback(async (pageId) => {
+    if (pages.length <= 1) {
+      alert('Cannot delete the last page');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to delete this page?')) {
+      return;
+    }
+
+    try {
+      await api.delete(`/websites/${websiteId}/pages/${pageId}`);
+      const newPages = pages.filter(p => p.id !== pageId);
+      onPagesUpdate(newPages);
+      
+      // If we deleted the current page, switch to the first page
+      if (pages[currentPageIndex]?.id === pageId) {
+        onPageChange(0);
+      }
+    } catch (err) {
+      alert(err?.response?.data?.error?.message || 'Failed to delete page');
+    }
+  }, [websiteId, pages, currentPageIndex, onPageChange, onPagesUpdate]);
+
+  return (
+    <div className="p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-xs font-medium text-white/50 uppercase tracking-wide">
+          Pages ({pages.length})
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowAddPage(true)}
+          className="text-xs px-2 py-1 rounded bg-indigo-500 hover:bg-indigo-400 transition-colors"
+        >
+          + Add
+        </button>
+      </div>
+
+      {/* Add Page Form */}
+      {showAddPage && (
+        <div className="mb-4 p-3 rounded-xl border border-white/10 bg-white/5">
+          <div className="text-xs font-medium mb-2">Add New Page</div>
+          {error && (
+            <div className="mb-2 text-xs text-red-400">{error}</div>
+          )}
+          <input
+            type="text"
+            value={newPageName}
+            onChange={(e) => setNewPageName(e.target.value)}
+            placeholder="Page name (e.g., About)"
+            className="w-full mb-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm focus:border-indigo-500 focus:outline-none"
+          />
+          <input
+            type="text"
+            value={newPagePath}
+            onChange={(e) => setNewPagePath(e.target.value)}
+            placeholder="Path (e.g., /about)"
+            className="w-full mb-3 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm focus:border-indigo-500 focus:outline-none"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleAddPage}
+              disabled={isAdding}
+              className="flex-1 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              {isAdding ? 'Adding...' : 'Add Page'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowAddPage(false);
+                setNewPageName('');
+                setNewPagePath('');
+                setError(null);
+              }}
+              className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Pages List */}
+      <div className="space-y-1">
+        {pages.map((page, index) => (
+          <div key={page.id}>
+            {editingPageId === page.id ? (
+              /* Edit Page Form */
+              <div className="p-3 rounded-xl border border-indigo-500/30 bg-indigo-500/10">
+                <div className="text-xs font-medium mb-2">Edit Page</div>
+                {editError && (
+                  <div className="mb-2 text-xs text-red-400">{editError}</div>
+                )}
+                <input
+                  type="text"
+                  value={editPageName}
+                  onChange={(e) => setEditPageName(e.target.value)}
+                  placeholder="Page name"
+                  className="w-full mb-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm focus:border-indigo-500 focus:outline-none"
+                />
+                <input
+                  type="text"
+                  value={editPagePath}
+                  onChange={(e) => setEditPagePath(e.target.value)}
+                  placeholder="Path (e.g., /about)"
+                  className="w-full mb-3 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm focus:border-indigo-500 focus:outline-none"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleEditPage(page.id)}
+                    disabled={isEditing}
+                    className="flex-1 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-sm font-medium transition-colors disabled:opacity-50"
+                  >
+                    {isEditing ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelEditingPage}
+                    className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Page Item */
+              <div
+                className={`
+                  group flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer transition-colors
+                  ${index === currentPageIndex 
+                    ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' 
+                    : 'hover:bg-white/5 border border-transparent'
+                  }
+                `}
+                onClick={() => onPageChange(index)}
+              >
+                <span className="text-lg">📄</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{page.name}</div>
+                  <div className="text-xs text-white/40 truncate">{page.path}</div>
+                </div>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startEditingPage(page);
+                    }}
+                    className="w-6 h-6 rounded flex items-center justify-center text-white/40 hover:text-indigo-400 hover:bg-indigo-500/20"
+                    title="Edit page"
+                  >
+                    ✎
+                  </button>
+                  {pages.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeletePage(page.id);
+                      }}
+                      className="w-6 h-6 rounded flex items-center justify-center text-white/40 hover:text-red-400 hover:bg-red-500/20"
+                      title="Delete page"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {pages.length === 0 && (
+        <div className="text-center py-8 text-white/40 text-sm">
+          <div className="text-2xl mb-2">📄</div>
+          <div>No pages yet</div>
+        </div>
+      )}
     </div>
   );
 }
@@ -368,117 +647,3 @@ function NavigatorWidget({ widget, section, column, index, isSelected }) {
   );
 }
 
-function SettingsPanel() {
-  return (
-    <div className="p-4 space-y-4">
-      <div className="text-xs font-medium text-white/50 uppercase tracking-wide mb-3">
-        Global Settings
-      </div>
-
-      <div className="space-y-4">
-        <SettingsSection title="Colors">
-          <ColorSetting label="Primary" defaultValue="#6366f1" />
-          <ColorSetting label="Secondary" defaultValue="#22c55e" />
-          <ColorSetting label="Background" defaultValue="#0f0f1a" />
-          <ColorSetting label="Text" defaultValue="#ffffff" />
-        </SettingsSection>
-
-        <SettingsSection title="Typography">
-          <SelectSetting
-            label="Font Family"
-            options={['Inter', 'Roboto', 'Open Sans', 'Poppins', 'Montserrat']}
-            defaultValue="Inter"
-          />
-          <RangeSetting label="Base Size" min={12} max={20} defaultValue={16} unit="px" />
-        </SettingsSection>
-
-        <SettingsSection title="Layout">
-          <RangeSetting label="Content Width" min={800} max={1400} defaultValue={1200} unit="px" />
-          <RangeSetting label="Section Padding" min={20} max={120} defaultValue={60} unit="px" />
-        </SettingsSection>
-      </div>
-    </div>
-  );
-}
-
-function SettingsSection({ title, children }) {
-  const [isOpen, setIsOpen] = useState(true);
-
-  return (
-    <div className="rounded-xl border border-white/10 overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2.5 flex items-center justify-between bg-white/5 hover:bg-white/10 transition-colors"
-      >
-        <span className="text-xs font-semibold">{title}</span>
-        <span className="text-white/40 text-xs">{isOpen ? '▾' : '▸'}</span>
-      </button>
-      {isOpen && <div className="p-3 space-y-3">{children}</div>}
-    </div>
-  );
-}
-
-function ColorSetting({ label, defaultValue }) {
-  const [value, setValue] = useState(defaultValue);
-
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-xs text-white/70">{label}</span>
-      <div className="flex items-center gap-2">
-        <input
-          type="color"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          className="w-6 h-6 rounded cursor-pointer"
-        />
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          className="w-20 px-2 py-1 rounded bg-white/5 border border-white/10 text-xs"
-        />
-      </div>
-    </div>
-  );
-}
-
-function SelectSetting({ label, options, defaultValue }) {
-  const [value, setValue] = useState(defaultValue);
-
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-xs text-white/70">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        className="px-2 py-1 rounded bg-white/5 border border-white/10 text-xs"
-      >
-        {options.map(opt => (
-          <option key={opt} value={opt}>{opt}</option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-function RangeSetting({ label, min, max, defaultValue, unit }) {
-  const [value, setValue] = useState(defaultValue);
-
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-white/70">{label}</span>
-        <span className="text-xs text-white/50">{value}{unit}</span>
-      </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        value={value}
-        onChange={(e) => setValue(Number(e.target.value))}
-        className="w-full"
-      />
-    </div>
-  );
-}

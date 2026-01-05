@@ -21,7 +21,7 @@ export function Navbar() {
   }, []);
 
   return (
-    <header className="border-b border-white/10 bg-black/30 backdrop-blur">
+    <header className="relative z-50 border-b border-white/10 bg-black/30 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
         <Link to="/" className="text-lg font-semibold tracking-tight">
           LaunchWeb
@@ -71,7 +71,7 @@ export function Navbar() {
                   {user?.name ?? 'Profile'}
                 </button>
                 {open ? (
-                  <div className="absolute right-0 mt-2 w-44 overflow-hidden rounded-xl border border-white/10 bg-black/80 backdrop-blur">
+                  <div className="absolute right-0 z-50 mt-2 w-44 overflow-hidden rounded-xl border border-white/10 bg-black/80 backdrop-blur">
                     <Link
                       className="block px-3 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white"
                       to="/profile"

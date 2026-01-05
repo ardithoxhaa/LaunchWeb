@@ -52,8 +52,9 @@ function NavbarBlock({ props, theme, linkBasePath }) {
               className="h-10 w-auto object-contain"
               loading="lazy"
             />
-          ) : null}
-          <div className="text-lg font-semibold tracking-tight" style={{ color: theme?.text }}>{logoText}</div>
+          ) : (
+            <div className="text-lg font-semibold tracking-tight" style={{ color: theme?.text }}>{logoText}</div>
+          )}
         </div>
         <div className="flex items-center gap-6 text-sm" style={{ color: theme?.mutedText || 'rgba(255,255,255,0.75)' }}>
           {links.map((l, idx) => (
@@ -79,19 +80,24 @@ function NavbarBlock({ props, theme, linkBasePath }) {
 function AdvancedNavbarBlock({ props, theme, linkBasePath }) {
   const links = props?.links ?? [];
   const ctas = props?.ctas ?? [];
+  // Support both logoImageUrl and logo.image formats
+  const logoImage = props?.logoImageUrl || props?.logo?.image;
+  const logoText = props?.logoText || props?.logo?.text || 'Website';
+  
   return (
     <div className="border-b border-white/10 bg-black/30">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4">
         <div className="flex items-center gap-3">
-          {props?.logoImageUrl ? (
+          {logoImage ? (
             <img
-              src={props.logoImageUrl}
-              alt={props?.logoText ?? 'Logo'}
-              className="h-8 w-8 rounded object-cover"
+              src={logoImage}
+              alt={logoText}
+              className="h-10 w-auto object-contain"
               loading="lazy"
             />
-          ) : null}
-          <div className="text-sm font-semibold tracking-tight">{props?.logoText ?? 'Website'}</div>
+          ) : (
+            <div className="text-sm font-semibold tracking-tight">{logoText}</div>
+          )}
         </div>
 
         {props?.showSearch ? (
@@ -1258,6 +1264,47 @@ function ToggleBlock({ props }) {
   );
 }
 
+function ProgressBarBlock({ props, styles }) {
+  const title = props?.title ?? 'Progress';
+  const percentage = props?.percentage ?? 50;
+  const barColor = styles?.barColor || props?.barColor || '#6366f1';
+  
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-4">
+      <div className="flex justify-between mb-2">
+        <span className="text-sm font-medium">{title}</span>
+        <span className="text-sm text-white/60">{percentage}%</span>
+      </div>
+      <div className="w-full h-2 rounded-full bg-white/10">
+        <div 
+          className="h-full rounded-full transition-all duration-500" 
+          style={{ width: `${percentage}%`, backgroundColor: barColor }} 
+        />
+      </div>
+    </div>
+  );
+}
+
+function TestimonialBlock({ props, styles }) {
+  const content = props?.content ?? props?.quote ?? 'Great service!';
+  const name = props?.name ?? 'Customer';
+  const title = props?.title ?? props?.role ?? '';
+  const image = props?.image ?? props?.avatar ?? '';
+  
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-8">
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
+        {image && (
+          <img src={image} alt={name} className="w-16 h-16 rounded-full mx-auto mb-4 object-cover" />
+        )}
+        <p className="text-white/80 italic mb-4">"{content}"</p>
+        <div className="font-semibold">{name}</div>
+        {title && <div className="text-sm text-white/50">{title}</div>}
+      </div>
+    </div>
+  );
+}
+
 function TestimonialSliderBlock({ props }) {
   const items = props?.items ?? [];
   return (
@@ -1287,6 +1334,71 @@ function ImageCarouselBlock({ props }) {
             )}
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function CarouselBlock({ props }) {
+  const slides = props?.slides ?? [];
+  
+  if (slides.length === 0) {
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-6">
+        <div className="aspect-video bg-white/5 border border-dashed border-white/20 rounded-xl flex items-center justify-center">
+          <span className="text-white/30">No slides</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-6">
+      <div className="relative rounded-xl overflow-hidden">
+        <div className="aspect-video relative">
+          {slides[0]?.image ? (
+            <img src={slides[0].image} alt={slides[0]?.title || ''} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center">
+              <span className="text-white/30 text-4xl">🖼</span>
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+          <div className="absolute bottom-0 left-0 right-0 p-6">
+            <h3 className="text-xl font-bold mb-2">{slides[0]?.title}</h3>
+            {slides[0]?.description && (
+              <p className="text-white/70">{slides[0].description}</p>
+            )}
+          </div>
+        </div>
+        
+        {slides.length > 1 && (
+          <>
+            <button
+              type="button"
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 flex items-center justify-center hover:bg-black/70 transition-colors"
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 flex items-center justify-center hover:bg-black/70 transition-colors"
+            >
+              →
+            </button>
+          </>
+        )}
+        
+        {slides.length > 1 && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+            {slides.map((_, i) => (
+              <div
+                key={i}
+                className={`w-2 h-2 rounded-full ${i === 0 ? 'bg-white' : 'bg-white/40'}`}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1457,6 +1569,10 @@ function RenderComponent({ component, theme, editorCtx, linkBasePath }) {
       return <ReviewsBlock props={props} />;
     case 'COUNTER':
       return <CounterBlock props={props} styles={styles} />;
+    case 'PROGRESS_BAR':
+      return <ProgressBarBlock props={props} styles={styles} />;
+    case 'TESTIMONIAL':
+      return <TestimonialBlock props={props} styles={styles} />;
     case 'ACCORDION':
       return <AccordionBlock props={props} />;
     case 'TABS':
@@ -1467,6 +1583,8 @@ function RenderComponent({ component, theme, editorCtx, linkBasePath }) {
       return <TestimonialSliderBlock props={props} />;
     case 'IMAGE_CAROUSEL':
       return <ImageCarouselBlock props={props} />;
+    case 'CAROUSEL':
+      return <CarouselBlock props={props} />;
     case 'NEWSLETTER':
       return <NewsletterBlock props={props} theme={theme} />;
     case 'SEARCH_BOX':

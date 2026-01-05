@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../lib/api';
 
-export function SeoEditor({ websiteId, initialSeo, onSave, onClose }) {
+export function SeoEditor({ websiteId, initialSeo, onSave, onClose, onSeoUpdate }) {
   const [seo, setSeo] = useState({
     title: '',
     description: '',
@@ -31,7 +31,13 @@ export function SeoEditor({ websiteId, initialSeo, onSave, onClose }) {
     try {
       setSaving(true);
       setError(null);
-      await api.put(`/websites/${websiteId}/seo`, { seo });
+      const { data } = await api.put(`/websites/${websiteId}/seo`, { seo });
+      // Update parent with new SEO data
+      if (data?.website?.seo) {
+        onSeoUpdate?.(data.website.seo);
+      } else {
+        onSeoUpdate?.(seo);
+      }
       onSave?.(seo);
       onClose?.();
     } catch (err) {
@@ -39,7 +45,7 @@ export function SeoEditor({ websiteId, initialSeo, onSave, onClose }) {
     } finally {
       setSaving(false);
     }
-  }, [websiteId, seo, onSave, onClose]);
+  }, [websiteId, seo, onSave, onClose, onSeoUpdate]);
 
   const titleLength = (seo.title || '').length;
   const descLength = (seo.description || '').length;

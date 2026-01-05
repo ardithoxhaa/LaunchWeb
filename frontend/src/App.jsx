@@ -13,6 +13,7 @@ import { TemplatesHubPage } from './pages/public/TemplatesHubPage.jsx';
 import { LoginPage } from './pages/public/LoginPage.jsx';
 import { RegisterPage } from './pages/public/RegisterPage.jsx';
 import { PreviewPage } from './pages/public/PreviewPage.jsx';
+import { PublicSitePage } from './pages/public/PublicSitePage.jsx';
 
 import { UserDashboard } from './pages/user/UserDashboard.jsx';
 import { Builder } from './builder/Builder.jsx';
@@ -43,6 +44,10 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* Public Site - Full screen without AppShell */}
+        <Route path="/site/:slug" element={<PublicSitePage />} />
+        <Route path="/site/:slug/*" element={<PublicSitePage />} />
 
         <Route element={<AppShell />}>
           <Route path="/" element={<HomePage />} />

@@ -22,6 +22,8 @@ export function Builder() {
   const [error, setError] = useState(null);
   const [website, setWebsite] = useState(null);
   const [initialDocument, setInitialDocument] = useState(null);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [allPagesDocuments, setAllPagesDocuments] = useState({});
 
   // Load website data
   useEffect(() => {
@@ -41,8 +43,15 @@ export function Builder() {
         // Store website with pages included
         setWebsite({ ...data.website, pages: data.pages });
         
-        // Transform backend data to builder document format
-        const document = transformBackendToDocument(data.pages);
+        // Transform all pages to builder document format and store them
+        const pagesDocuments = {};
+        (data.pages || []).forEach((page, index) => {
+          pagesDocuments[index] = transformBackendToDocument([page]);
+        });
+        setAllPagesDocuments(pagesDocuments);
+        
+        // Set initial document to first page
+        const document = pagesDocuments[0] || { sections: [] };
         setInitialDocument(document);
         
       } catch (err) {
@@ -92,15 +101,43 @@ export function Builder() {
         websiteId={websiteId} 
         website={website}
         setWebsite={setWebsite}
+        currentPageIndex={currentPageIndex}
+        setCurrentPageIndex={setCurrentPageIndex}
+        allPagesDocuments={allPagesDocuments}
+        setAllPagesDocuments={setAllPagesDocuments}
       />
     </BuilderProvider>
   );
 }
 
 // Inner builder content with access to builder context
-function BuilderContent({ websiteId, website, setWebsite }) {
+function BuilderContent({ websiteId, website, setWebsite, currentPageIndex, setCurrentPageIndex, allPagesDocuments, setAllPagesDocuments }) {
   const { state, actions } = useBuilder();
   const navigate = useNavigate();
+  const [previousPageIndex, setPreviousPageIndex] = useState(currentPageIndex);
+
+  // Handle page switching - save current page's document and load new page's document
+  useEffect(() => {
+    if (previousPageIndex !== currentPageIndex) {
+      // Save current document to the previous page's slot and load new page
+      setAllPagesDocuments(prev => {
+        const updated = {
+          ...prev,
+          [previousPageIndex]: state.document,
+        };
+        // Load the new page's document from the updated state
+        const newPageDocument = updated[currentPageIndex] || { sections: [] };
+        // Use setTimeout to ensure state update completes before setting document
+        setTimeout(() => {
+          actions.setDocument(newPageDocument);
+        }, 0);
+        return updated;
+      });
+      
+      // Update previous page index
+      setPreviousPageIndex(currentPageIndex);
+    }
+  }, [currentPageIndex, previousPageIndex, state.document, actions, setAllPagesDocuments]);
 
   // Set theme from website settings when website loads
   useEffect(() => {
@@ -195,14 +232,31 @@ function BuilderContent({ websiteId, website, setWebsite }) {
     actions.setSaving(true);
 
     try {
-      // Transform document to backend format
-      const pages = transformDocumentToBackend(state.document, website);
+      // Update allPagesDocuments with current page's document
+      const updatedPagesDocuments = {
+        ...allPagesDocuments,
+        [currentPageIndex]: state.document,
+      };
+      setAllPagesDocuments(updatedPagesDocuments);
+      
+      // Transform ALL pages to backend format
+      const allPages = (website?.pages || []).map((page, index) => {
+        const pageDocument = updatedPagesDocuments[index] || { sections: [] };
+        const transformed = transformDocumentToBackendSinglePage(pageDocument, page);
+        return transformed;
+      });
 
-      const { data } = await api.put(`/websites/${websiteId}/builder`, { pages });
+      const { data } = await api.put(`/websites/${websiteId}/builder`, { pages: allPages });
       
       // Update website with the response data (includes pages)
       if (data.website && data.pages) {
         setWebsite({ ...data.website, pages: data.pages });
+        // Update allPagesDocuments with fresh data
+        const freshPagesDocuments = {};
+        (data.pages || []).forEach((page, index) => {
+          freshPagesDocuments[index] = transformBackendToDocument([page]);
+        });
+        setAllPagesDocuments(freshPagesDocuments);
       } else if (data.pages) {
         setWebsite(prev => ({ ...prev, pages: data.pages }));
       } else if (data.website) {
@@ -217,7 +271,7 @@ function BuilderContent({ websiteId, website, setWebsite }) {
     } finally {
       actions.setSaving(false);
     }
-  }, [websiteId, state.document, state.saving.isSaving, website, actions, setWebsite]);
+  }, [websiteId, state.document, state.saving.isSaving, website, actions, setWebsite, allPagesDocuments, currentPageIndex, setAllPagesDocuments]);
 
   const handlePreview = useCallback(async () => {
     // Save first if there are unsaved changes
@@ -272,12 +326,33 @@ function BuilderContent({ websiteId, website, setWebsite }) {
         onSave={handleSave}
         onPreview={handlePreview}
         onVersionRestore={() => window.location.reload()}
+        onSeoUpdate={(newSeo) => setWebsite(prev => ({ ...prev, seo: newSeo }))}
       />
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Panel - Widgets & Navigator */}
-        <LeftPanel />
+        <LeftPanel 
+          websiteId={websiteId}
+          pages={website?.pages || []}
+          currentPageIndex={currentPageIndex}
+          onPageChange={setCurrentPageIndex}
+          onPagesUpdate={(newPages) => {
+            // Update website pages
+            setWebsite(prev => ({ ...prev, pages: newPages }));
+            // If a new page was added, initialize its document
+            if (newPages.length > Object.keys(allPagesDocuments).length) {
+              const newPageIndex = newPages.length - 1;
+              const newPage = newPages[newPageIndex];
+              setAllPagesDocuments(prev => ({
+                ...prev,
+                [newPageIndex]: transformBackendToDocument([newPage]),
+              }));
+              // Switch to the new page
+              setCurrentPageIndex(newPageIndex);
+            }
+          }}
+        />
 
         {/* Canvas */}
         <Canvas />
@@ -476,6 +551,58 @@ function transformDocumentToBackend(document, website) {
     meta: existingPage?.meta || {},
     builder: { version: 1, root },
   }];
+}
+
+/**
+ * Transform a single page's document to backend format
+ */
+function transformDocumentToBackendSinglePage(document, page) {
+  const sections = document?.sections || [];
+
+  // Build the tree structure
+  const root = {
+    id: generateId(),
+    type: 'ROOT',
+    children: sections.map(section => ({
+      id: section.id,
+      type: 'SECTION',
+      props: section.settings || {},
+      style: section.style || {},
+      responsive: section.responsiveStyle || {},
+      children: [{
+        id: generateId(),
+        type: 'CONTAINER',
+        props: { width: section.settings?.contentWidth || 'boxed' },
+        style: {},
+        responsive: {},
+        children: (section.columns || []).map(column => ({
+          id: column.id,
+          type: 'COLUMN',
+          props: { width: column.width || 12 },
+          style: column.style || {},
+          responsive: column.responsiveStyle || {},
+          children: (column.widgets || []).map(widget => ({
+            id: widget.id,
+            type: 'WIDGET',
+            widgetType: widget.widgetType,
+            props: widget.content || {},
+            style: widget.style || {},
+            responsive: widget.responsiveStyle || {},
+            children: [],
+          })),
+        })),
+      }],
+    })),
+  };
+
+  return {
+    id: page?.id,
+    name: page?.name || 'Page',
+    path: page?.path || '/',
+    sortOrder: page?.sortOrder ?? page?.sort_order ?? 0,
+    meta: page?.meta || {},
+    builder: { version: 1, root },
+  };
 }
 
 export default Builder;

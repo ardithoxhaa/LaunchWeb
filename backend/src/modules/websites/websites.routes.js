@@ -11,6 +11,9 @@ import {
   updateWebsiteSettingsSchema,
   updateWebsiteStructureSchema,
   updateWebsiteBuilderSchema,
+  updateWebsiteSlugSchema,
+  addPageSchema,
+  updatePageSchema,
 } from './websites.validation.js';
 
 import {
@@ -28,6 +31,11 @@ import {
   updateWebsiteBuilder,
   listWebsiteVersions,
   restoreWebsiteVersion,
+  checkSlugAvailability,
+  updateWebsiteSlug,
+  addPage,
+  deletePage,
+  updatePage,
 } from './websites.controller.js';
 
 const router = Router();
@@ -48,5 +56,10 @@ router.post('/:id/publish', asyncHandler(publishWebsite));
 router.post('/:id/unpublish', asyncHandler(unpublishWebsite));
 router.get('/:id/versions', asyncHandler(listWebsiteVersions));
 router.post('/:id/versions/:versionId/restore', asyncHandler(restoreWebsiteVersion));
+router.get('/check-slug/:slug', asyncHandler(checkSlugAvailability));
+router.put('/:id/slug', validate(updateWebsiteSlugSchema), asyncHandler(updateWebsiteSlug));
+router.post('/:id/pages', validate(addPageSchema), asyncHandler(addPage));
+router.put('/:id/pages/:pageId', validate(updatePageSchema), asyncHandler(updatePage));
+router.delete('/:id/pages/:pageId', asyncHandler(deletePage));
 
 export default router;

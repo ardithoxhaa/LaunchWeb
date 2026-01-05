@@ -400,6 +400,86 @@ export function UserDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Published Websites Section */}
+      <PublishedWebsitesSection websites={websites} />
+    </div>
+  );
+}
+
+function PublishedWebsitesSection({ websites }) {
+  const publishedWebsites = useMemo(() => {
+    return (websites || []).filter((w) => w.status === 'PUBLISHED');
+  }, [websites]);
+
+  if (publishedWebsites.length === 0) {
+    return null;
+  }
+
+  const baseUrl = window.location.origin;
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-emerald-500/10 via-white/5 to-transparent p-6">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400">
+          🌐
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold">Published Websites</h3>
+          <p className="text-sm text-white/60">Your live websites accessible to the public</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {publishedWebsites.map((w) => {
+          const liveUrl = `${baseUrl}/site/${w.slug}`;
+          return (
+            <div
+              key={w.id}
+              className="rounded-xl border border-emerald-500/20 bg-black/20 p-4 hover:border-emerald-500/40 transition-colors"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="text-sm font-semibold truncate">{w.name}</span>
+                  </div>
+                  <div className="mt-2 text-xs text-white/50">Live URL:</div>
+                  <a
+                    href={liveUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 block text-sm text-emerald-400 hover:text-emerald-300 truncate underline underline-offset-2"
+                  >
+                    {liveUrl}
+                  </a>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <a
+                  href={liveUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 rounded-md bg-emerald-500 px-3 py-2 text-center text-xs font-medium hover:bg-emerald-400 transition-colors"
+                >
+                  Visit Site →
+                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(liveUrl);
+                    alert('URL copied to clipboard!');
+                  }}
+                  className="rounded-md bg-white/10 px-3 py-2 text-xs font-medium hover:bg-white/15 transition-colors"
+                >
+                  Copy URL
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

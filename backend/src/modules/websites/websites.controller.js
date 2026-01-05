@@ -1,5 +1,19 @@
 import { websitesService } from './websites.service.js';
 
+export async function checkSlugAvailability(req, res) {
+  const { slug } = req.params;
+  const websiteId = req.query.websiteId ? Number(req.query.websiteId) : null;
+  const available = await websitesService.checkSlugAvailability({ slug, excludeWebsiteId: websiteId });
+  res.json({ available, slug });
+}
+
+export async function updateWebsiteSlug(req, res) {
+  const id = Number(req.params.id);
+  const { slug } = req.validated.body;
+  const website = await websitesService.updateWebsiteSlug({ userId: req.auth.userId, websiteId: id, slug });
+  res.json({ website });
+}
+
 export async function listWebsitesForBusiness(req, res) {
   const businessId = Number(req.params.businessId);
   const websites = await websitesService.listWebsitesForBusiness({
@@ -117,4 +131,41 @@ export async function restoreWebsiteVersion(req, res) {
     versionId,
   });
   res.json(structure);
+}
+
+export async function addPage(req, res) {
+  const id = Number(req.params.id);
+  const { name, path } = req.validated.body;
+  const page = await websitesService.addPage({
+    userId: req.auth.userId,
+    websiteId: id,
+    name,
+    path,
+  });
+  res.status(201).json({ page });
+}
+
+export async function updatePage(req, res) {
+  const id = Number(req.params.id);
+  const pageId = Number(req.params.pageId);
+  const { name, path } = req.validated.body;
+  const page = await websitesService.updatePage({
+    userId: req.auth.userId,
+    websiteId: id,
+    pageId,
+    name,
+    path,
+  });
+  res.json({ page });
+}
+
+export async function deletePage(req, res) {
+  const id = Number(req.params.id);
+  const pageId = Number(req.params.pageId);
+  await websitesService.deletePage({
+    userId: req.auth.userId,
+    websiteId: id,
+    pageId,
+  });
+  res.json({ success: true });
 }

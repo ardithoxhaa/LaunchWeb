@@ -947,6 +947,168 @@ export const websitesService = {
     return rows;
   },
 
+  async checkSlugAvailability({ slug, excludeWebsiteId }) {
+    const conn = pool;
+    let query = 'SELECT id FROM websites WHERE slug = :slug';
+    const params = { slug };
+    
+    if (excludeWebsiteId) {
+      query += ' AND id != :excludeWebsiteId';
+      params.excludeWebsiteId = excludeWebsiteId;
+    }
+    
+    const [rows] = await conn.query(query, params);
+    return rows.length === 0;
+  },
+
+  async updateWebsiteSlug({ userId, websiteId, slug }) {
+    const conn = pool;
+    await assertWebsiteOwned({ conn, userId, websiteId });
+    
+    // Check if slug is available
+    const [existing] = await conn.query(
+      'SELECT id FROM websites WHERE slug = :slug AND id != :websiteId',
+      { slug, websiteId }
+    );
+    
+    if (existing.length > 0) {
+      throw badRequest('This domain/slug is already in use by another website');
+    }
+    
+    await conn.query('UPDATE websites SET slug = :slug WHERE id = :websiteId', {
+      websiteId,
+      slug,
+    });
+    
+    return this.getWebsite({ userId, websiteId });
+  },
+
+  async addPage({ userId, websiteId, name, path }) {
+    const conn = pool;
+    await assertWebsiteOwned({ conn, userId, websiteId });
+    
+    // Check if path already exists for this website
+    const [existing] = await conn.query(
+      'SELECT id FROM pages WHERE website_id = :websiteId AND path = :path',
+      { websiteId, path }
+    );
+    
+    if (existing.length > 0) {
+      throw badRequest('A page with this path already exists');
+    }
+    
+    // Get max sort order
+    const [maxOrder] = await conn.query(
+      'SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM pages WHERE website_id = :websiteId',
+      { websiteId }
+    );
+    const sortOrder = (maxOrder[0]?.max_order ?? -1) + 1;
+    
+    // Create empty builder structure
+    const builderJson = {
+      version: 1,
+      root: {
+        id: makeNodeId(),
+        type: 'ROOT',
+        children: [],
+      },
+    };
+    
+    const [result] = await conn.query(
+      'INSERT INTO pages (website_id, name, path, sort_order, meta_json, builder_json) VALUES (:websiteId, :name, :path, :sortOrder, :metaJson, :builderJson)',
+      {
+        websiteId,
+        name,
+        path,
+        sortOrder,
+        metaJson: JSON.stringify({ title: name, description: '' }),
+        builderJson: JSON.stringify(builderJson),
+      }
+    );
+    
+    return {
+      id: result.insertId,
+      name,
+      path,
+      sortOrder,
+      meta: { title: name, description: '' },
+      builder: builderJson,
+    };
+  },
+
+  async deletePage({ userId, websiteId, pageId }) {
+    const conn = pool;
+    await assertWebsiteOwned({ conn, userId, websiteId });
+    
+    // Check page count - don't allow deleting the last page
+    const [pages] = await conn.query(
+      'SELECT id FROM pages WHERE website_id = :websiteId',
+      { websiteId }
+    );
+    
+    if (pages.length <= 1) {
+      throw badRequest('Cannot delete the last page of a website');
+    }
+    
+    // Delete the page
+    const [result] = await conn.query(
+      'DELETE FROM pages WHERE id = :pageId AND website_id = :websiteId',
+      { pageId, websiteId }
+    );
+    
+    if (result.affectedRows === 0) {
+      throw notFound('Page not found');
+    }
+    
+    return true;
+  },
+
+  async updatePage({ userId, websiteId, pageId, name, path }) {
+    const conn = pool;
+    await assertWebsiteOwned({ conn, userId, websiteId });
+    
+    // Check if page exists
+    const [pageRows] = await conn.query(
+      'SELECT id FROM pages WHERE id = :pageId AND website_id = :websiteId',
+      { pageId, websiteId }
+    );
+    
+    if (!pageRows.length) {
+      throw notFound('Page not found');
+    }
+    
+    // Check if path is already used by another page
+    const [existingPath] = await conn.query(
+      'SELECT id FROM pages WHERE website_id = :websiteId AND path = :path AND id != :pageId',
+      { websiteId, path, pageId }
+    );
+    
+    if (existingPath.length > 0) {
+      throw badRequest('A page with this path already exists');
+    }
+    
+    // Update the page
+    await conn.query(
+      'UPDATE pages SET name = :name, path = :path, updated_at = NOW() WHERE id = :pageId AND website_id = :websiteId',
+      { pageId, websiteId, name, path }
+    );
+    
+    // Return updated page
+    const [updatedRows] = await conn.query(
+      'SELECT id, name, path, sort_order, meta_json FROM pages WHERE id = :pageId',
+      { pageId }
+    );
+    
+    const page = updatedRows[0];
+    return {
+      id: page.id,
+      name: page.name,
+      path: page.path,
+      sortOrder: page.sort_order,
+      meta: parseJsonMaybe(page.meta_json, {}),
+    };
+  },
+
   async restoreWebsiteVersion({ userId, websiteId, versionId }) {
     return withTransaction(async (conn) => {
       await assertWebsiteOwned({ conn, userId, websiteId });

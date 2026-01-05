@@ -76,3 +76,29 @@ export const updateWebsiteBuilderSchema = z.object({
   query: z.any().optional(),
   params: z.any().optional(),
 });
+
+export const updateWebsiteSlugSchema = z.object({
+  body: z.object({
+    slug: z.string().min(1).max(160).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug must be lowercase letters, numbers, and hyphens only'),
+  }),
+  query: z.any().optional(),
+  params: z.any().optional(),
+});
+
+export const addPageSchema = z.object({
+  body: z.object({
+    name: z.string().min(1).max(120),
+    path: z.string().min(1).max(200),
+  }),
+  query: z.any().optional(),
+  params: z.any().optional(),
+});
+
+export const updatePageSchema = z.object({
+  body: z.object({
+    name: z.string().min(1).max(120),
+    path: z.string().min(1).max(200),
+  }),
+  query: z.any().optional(),
+  params: z.any().optional(),
+});
