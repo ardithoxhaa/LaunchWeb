@@ -1230,9 +1230,12 @@ export const websitesService = {
 
       // Simple query to get website analytics
       const [websiteRows] = await conn.query(
-        'SELECT w.id, w.name, w.slug, w.status, w.created_at, w.updated_at, w.published_at, w.view_count, w.last_viewed_at, COUNT(*) as page_count, COUNT(*) as version_count FROM websites w WHERE w.id = ?',
+        'SELECT w.id, w.name, w.slug, w.status, w.created_at, w.updated_at, w.published_at, w.view_count, w.last_viewed_at FROM websites w WHERE w.id = ?',
         [websiteId]
       );
+
+      const website = websiteRows[0];
+      if (!website) throw notFound('Website not found');
 
       // Get page count
       const [pageCountResult] = await conn.query(
