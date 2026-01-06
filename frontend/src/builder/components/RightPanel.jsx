@@ -1948,6 +1948,148 @@ function WidgetContentPanel({ widget, onUpdate }) {
         </div>
       );
 
+    case 'PRODUCT_GRID':
+      return (
+        <div className="p-4 space-y-4">
+          <InspectorSection title="Content">
+            <TextField
+              label="Headline"
+              value={content.headline || ''}
+              onChange={(v) => handleContentUpdate('headline', v)}
+              placeholder="Featured Products"
+            />
+            <TextField
+              label="Subheadline"
+              value={content.subheadline || ''}
+              onChange={(v) => handleContentUpdate('subheadline', v)}
+              placeholder="Handpicked favorites from our collection"
+            />
+          </InspectorSection>
+
+          <InspectorSection title="CTA Button">
+            <TextField
+              label="Button Label"
+              value={content.cta?.label || ''}
+              onChange={(v) => handleContentUpdate('cta', { ...content.cta, label: v })}
+              placeholder="View All Products"
+            />
+            <TextField
+              label="Button Link"
+              value={content.cta?.href || ''}
+              onChange={(v) => handleContentUpdate('cta', { ...content.cta, href: v })}
+              placeholder="/products"
+            />
+          </InspectorSection>
+
+          <InspectorSection title="Products">
+            {(content.products || []).map((product, idx) => (
+              <div key={idx} className="p-3 rounded-lg bg-white/5 border border-white/10 space-y-3 mb-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-white/70">Product {idx + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newProducts = [...(content.products || [])];
+                      newProducts.splice(idx, 1);
+                      handleContentUpdate('products', newProducts);
+                    }}
+                    className="text-xs text-red-400 hover:text-red-300"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <TextField
+                  label="Name"
+                  value={product.name || ''}
+                  onChange={(v) => {
+                    const newProducts = [...(content.products || [])];
+                    newProducts[idx] = { ...newProducts[idx], name: v };
+                    handleContentUpdate('products', newProducts);
+                  }}
+                  placeholder="Product name"
+                />
+                <TextField
+                  label="Description"
+                  value={product.description || ''}
+                  onChange={(v) => {
+                    const newProducts = [...(content.products || [])];
+                    newProducts[idx] = { ...newProducts[idx], description: v };
+                    handleContentUpdate('products', newProducts);
+                  }}
+                  placeholder="Short description"
+                />
+                <TextField
+                  label="Price"
+                  value={product.price || ''}
+                  onChange={(v) => {
+                    const newProducts = [...(content.products || [])];
+                    newProducts[idx] = { ...newProducts[idx], price: v };
+                    handleContentUpdate('products', newProducts);
+                  }}
+                  placeholder="$99"
+                />
+                <TextField
+                  label="Badge"
+                  value={product.badge || ''}
+                  onChange={(v) => {
+                    const newProducts = [...(content.products || [])];
+                    newProducts[idx] = { ...newProducts[idx], badge: v };
+                    handleContentUpdate('products', newProducts);
+                  }}
+                  placeholder="New, Best Seller, etc."
+                />
+                <ImageUploadField
+                  label="Product Image"
+                  value={product.imageUrl || product.image || ''}
+                  onChange={(v) => {
+                    const newProducts = [...(content.products || [])];
+                    newProducts[idx] = { ...newProducts[idx], imageUrl: v, image: v };
+                    handleContentUpdate('products', newProducts);
+                  }}
+                />
+                <TextField
+                  label="Button Label"
+                  value={product.cta?.label || ''}
+                  onChange={(v) => {
+                    const newProducts = [...(content.products || [])];
+                    newProducts[idx] = { ...newProducts[idx], cta: { ...newProducts[idx].cta, label: v } };
+                    handleContentUpdate('products', newProducts);
+                  }}
+                  placeholder="Buy Now"
+                />
+                <TextField
+                  label="Button Link"
+                  value={product.cta?.href || ''}
+                  onChange={(v) => {
+                    const newProducts = [...(content.products || [])];
+                    newProducts[idx] = { ...newProducts[idx], cta: { ...newProducts[idx].cta, href: v } };
+                    handleContentUpdate('products', newProducts);
+                  }}
+                  placeholder="/product/1"
+                />
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                const newProducts = [...(content.products || []), { 
+                  name: 'New Product', 
+                  description: 'Product description', 
+                  price: '$49',
+                  badge: '',
+                  imageUrl: '',
+                  cta: { label: 'Buy', href: '/contact' }
+                }];
+                handleContentUpdate('products', newProducts);
+              }}
+              className="w-full py-2 rounded-lg bg-indigo-500/20 text-indigo-400 text-xs font-medium hover:bg-indigo-500/30"
+            >
+              + Add Product
+            </button>
+          </InspectorSection>
+        </div>
+      );
+
     default:
       return (
         <div className="p-4">

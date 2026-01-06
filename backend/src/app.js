@@ -34,6 +34,7 @@ app.use(
       return cb(new Error('Not allowed by CORS'));
     },
     credentials: true,
+    exposedHeaders: ['Content-Type', 'Content-Disposition'],
   })
 );
 app.use(express.json({ limit: '50mb' }));

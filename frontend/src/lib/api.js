@@ -7,6 +7,9 @@ const client = axios.create({
   withCredentials: true,
 });
 
+// Expose all response headers for CORS
+client.defaults.headers.common['Access-Control-Expose-Headers'] = 'Content-Type, Content-Disposition';
+
 let accessToken = null;
 
 client.interceptors.request.use((config) => {

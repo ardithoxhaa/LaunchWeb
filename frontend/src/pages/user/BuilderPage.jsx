@@ -6087,7 +6087,7 @@ export function BuilderPage() {
                   </div>
                 ) : null}
 
-                {activeComponent.type === 'PRODUCT_GRID' ? (
+                {inspectorTab === 'content' && activeComponent.type === 'PRODUCT_GRID' ? (
                   <div className="space-y-3">
                     <TextInput
                       label="Headline"
@@ -6166,18 +6166,71 @@ export function BuilderPage() {
                             }
                             placeholder="New"
                           />
-                          <TextInput
-                            label="Image URL"
-                            value={p?.imageUrl}
-                            onChange={(v) =>
-                              updateActiveComponent((c) => {
-                                const products = [...(c.props?.products ?? [])];
-                                products[idx] = { ...(products[idx] ?? {}), imageUrl: v };
-                                c.props = { ...(c.props ?? {}), products };
-                              })
-                            }
-                            placeholder="https://..."
-                          />
+                          <div className="space-y-2">
+                            <div className="text-xs font-medium text-white/70">Product Image</div>
+                            <div className="flex items-center gap-3">
+                              {p?.imageUrl ? (
+                                <img
+                                  src={p.imageUrl}
+                                  alt={p?.name || 'Product'}
+                                  className="h-16 w-16 rounded border border-white/10 object-cover"
+                                />
+                              ) : (
+                                <div className="h-16 w-16 rounded border border-white/10 bg-black/20 flex items-center justify-center text-white/30">🛍</div>
+                              )}
+                              <div className="flex-1">
+                                <select
+                                  className="w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
+                                  value={p?.imageUrl ?? ''}
+                                  onChange={(e) =>
+                                    updateActiveComponent((c) => {
+                                      const products = [...(c.props?.products ?? [])];
+                                      products[idx] = { ...(products[idx] ?? {}), imageUrl: e.target.value || '' };
+                                      c.props = { ...(c.props ?? {}), products };
+                                    })
+                                  }
+                                >
+                                  <option value="">No image</option>
+                                  {(assets ?? []).map((a) => {
+                                    const fullUrl = makeAbsoluteAssetUrl(a.url);
+                                    return (
+                                      <option key={a.id} value={fullUrl}>
+                                        {a.meta?.originalName ?? fullUrl}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                                <input
+                                  type="text"
+                                  className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-3 py-1.5 text-xs"
+                                  placeholder="Or paste URL..."
+                                  value={p?.imageUrl ?? ''}
+                                  onChange={(e) =>
+                                    updateActiveComponent((c) => {
+                                      const products = [...(c.props?.products ?? [])];
+                                      products[idx] = { ...(products[idx] ?? {}), imageUrl: e.target.value };
+                                      c.props = { ...(c.props ?? {}), products };
+                                    })
+                                  }
+                                />
+                              </div>
+                              {p?.imageUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateActiveComponent((c) => {
+                                      const products = [...(c.props?.products ?? [])];
+                                      products[idx] = { ...(products[idx] ?? {}), imageUrl: '' };
+                                      c.props = { ...(c.props ?? {}), products };
+                                    })
+                                  }
+                                  className="rounded-md bg-white/10 px-2 py-2 text-xs font-medium text-white/80 hover:bg-white/15"
+                                >
+                                  Clear
+                                </button>
+                              )}
+                            </div>
+                          </div>
                           <TextInput
                             label="Button label"
                             value={p?.cta?.label}

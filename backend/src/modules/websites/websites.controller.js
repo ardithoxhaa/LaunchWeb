@@ -180,12 +180,83 @@ export async function getWebsiteAnalytics(req, res) {
 }
 
 export async function exportWebsite(req, res) {
-  const id = Number(req.params.id);
-  const html = await websitesService.exportWebsite({
-    userId: req.auth.userId,
-    websiteId: id,
-  });
-  res.setHeader('Content-Type', 'text/html');
-  res.setHeader('Content-Disposition', `attachment; filename="website-${id}.html"`);
-  res.send(html);
+  try {
+    const id = Number(req.params.id);
+    const { files, websiteName } = await websitesService.exportWebsite({
+      userId: req.auth.userId,
+      websiteId: id,
+    });
+
+    // If only one page, return single HTML file
+    if (files.length === 1) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${files[0].filename}"`);
+      res.send(files[0].content);
+      return;
+    }
+
+    // Multiple pages - create ZIP archive
+    const archiver = (await import('archiver')).default;
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    
+    const slugName = websiteName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'website';
+    
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${slugName}-export.zip"`);
+    
+    archive.pipe(res);
+    
+    // Add each HTML file to the archive
+    for (const file of files) {
+      archive.append(file.content, { name: file.filename });
+    }
+    
+    // Add a simple README
+    const readme = `# ${websiteName} - Exported Website
+
+This website was exported from LaunchWeb.
+
+## Files included:
+${files.map(f => `- ${f.filename}`).join('\n')}
+
+## How to use:
+
+### Option 1: Local Web Server (Recommended)
+1. Extract all files to a folder
+2. Start a local web server:
+   - Python: \`python -m http.server 8000\`
+   - Node.js: \`npx serve\`
+   - Live Server extension in VS Code
+3. Open http://localhost:8000 in your browser
+
+### Option 2: Direct File Access
+1. Extract all files to a folder
+2. Double-click index.html
+3. Note: Some browsers may block local file access due to security policies
+
+### Option 3: Web Hosting
+1. Upload all files to your web server
+2. Ensure the server serves static files
+3. Access your website via the provided URL
+
+## Important Notes
+- The exported HTML files are self-contained and work offline
+- All styles and content are embedded in the HTML files
+- No external dependencies are required
+- For best results, use a local web server or proper web hosting
+
+© ${new Date().getFullYear()} - Exported from LaunchWeb
+`;
+    archive.append(readme, { name: 'README.md' });
+    
+    archive.on('error', (err) => {
+      console.error('Archive error:', err);
+      throw err;
+    });
+    
+    await archive.finalize();
+  } catch (error) {
+    console.error('Export error:', error);
+    res.status(500).json({ error: { message: 'Failed to export website' } });
+  }
 }

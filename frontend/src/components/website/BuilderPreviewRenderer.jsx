@@ -668,10 +668,385 @@ function renderWidget(type, content, style, designSystem) {
         </div>
       );
 
+    case 'PRODUCT_GRID':
+      return (
+        <div className="py-12">
+          {content.headline && <h2 className="text-3xl font-bold mb-2">{content.headline}</h2>}
+          {content.subheadline && <p className="text-white/70 mb-8">{content.subheadline}</p>}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {(content.products || []).map((product, i) => (
+              <div key={i} className="rounded-2xl bg-white/5 border border-white/10 overflow-hidden">
+                {product.image ? (
+                  <div className="aspect-square">
+                    <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="aspect-square bg-white/5 flex items-center justify-center">
+                    <span className="text-white/30 text-4xl">🛍</span>
+                  </div>
+                )}
+                <div className="p-4">
+                  <h3 className="font-semibold">{product.name || 'Product'}</h3>
+                  {product.price && <div className="text-indigo-400 font-bold mt-1">{product.price}</div>}
+                  {product.description && <p className="text-sm text-white/60 mt-2">{product.description}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+          {content.cta && (
+            <div className="mt-8 text-center">
+              <a href={content.cta.href || '#'} className="px-6 py-3 bg-indigo-500 rounded-lg font-medium hover:bg-indigo-400 transition-colors">
+                {content.cta.label || 'View All'}
+              </a>
+            </div>
+          )}
+        </div>
+      );
+
+    case 'FILTER_TABS':
+      return (
+        <div className="py-12">
+          {content.headline && <h2 className="text-3xl font-bold text-center mb-8">{content.headline}</h2>}
+          <div className="flex justify-center gap-2 mb-8">
+            {(content.tabs || ['All', 'Category 1', 'Category 2']).map((tab, i) => (
+              <button key={i} className={`px-4 py-2 rounded-lg text-sm font-medium ${i === 0 ? 'bg-indigo-500' : 'bg-white/10 hover:bg-white/20'} transition-colors`}>
+                {typeof tab === 'string' ? tab : tab.label}
+              </button>
+            ))}
+          </div>
+          <div className="grid md:grid-cols-3 gap-6">
+            {(content.items || []).slice(0, 6).map((item, i) => (
+              <div key={i} className="rounded-xl bg-white/5 border border-white/10 overflow-hidden">
+                {item.image && <img src={item.image} alt={item.title} className="w-full aspect-video object-cover" />}
+                <div className="p-4">
+                  <h3 className="font-semibold">{item.title || 'Item'}</h3>
+                  {item.description && <p className="text-sm text-white/60 mt-1">{item.description}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+
+    case 'ADVANCED_NAVBAR':
+      return (
+        <nav className="flex items-center justify-between py-4 px-6 bg-white/5 rounded-xl">
+          <div className="flex items-center gap-8">
+            <div className="font-bold text-lg">{content.logo?.text || 'Logo'}</div>
+            <div className="hidden md:flex items-center gap-6">
+              {(content.links || []).map((link, i) => (
+                <a key={i} href={link.href || '#'} className="text-white/70 hover:text-white transition-colors text-sm">
+                  {link.label}
+                </a>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            {content.search && <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">🔍</div>}
+            {content.cta && (
+              <a href={content.cta.href || '#'} className="px-4 py-2 bg-indigo-500 rounded-lg text-sm font-medium hover:bg-indigo-400 transition-colors">
+                {content.cta.label}
+              </a>
+            )}
+          </div>
+        </nav>
+      );
+
+    case 'CONTENT':
+      return (
+        <div className="py-12">
+          <div className="prose prose-invert max-w-none">
+            {content.title && <h2 className="text-2xl font-bold mb-4">{content.title}</h2>}
+            <div className="text-white/70">{content.body || content.text || 'Content block'}</div>
+          </div>
+        </div>
+      );
+
+    case 'FEATURE_CAROUSEL':
+    case 'MULTI_ROW_CAROUSEL':
+    case 'IMAGE_CAROUSEL':
+      return (
+        <div className="py-12">
+          {content.headline && <h2 className="text-3xl font-bold text-center mb-8">{content.headline}</h2>}
+          <div className="relative">
+            <div className="flex gap-4 overflow-hidden">
+              {(content.items || content.slides || []).slice(0, 4).map((item, i) => (
+                <div key={i} className="flex-shrink-0 w-64 rounded-xl bg-white/5 border border-white/10 overflow-hidden">
+                  {(item.image || item.src) && <img src={item.image || item.src} alt={item.title} className="w-full aspect-video object-cover" />}
+                  <div className="p-4">
+                    <h3 className="font-semibold">{item.title || 'Slide'}</h3>
+                    {item.description && <p className="text-sm text-white/60 mt-1">{item.description}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button className="absolute left-0 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 flex items-center justify-center">←</button>
+            <button className="absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 flex items-center justify-center">→</button>
+          </div>
+        </div>
+      );
+
+    case 'FOOTER_LINKS':
+      return (
+        <div className="py-8">
+          <div className="grid md:grid-cols-4 gap-8">
+            {(content.columns || []).map((col, i) => (
+              <div key={i}>
+                <h4 className="font-semibold mb-4">{col.title}</h4>
+                <ul className="space-y-2">
+                  {(col.links || []).map((link, li) => (
+                    <li key={li}>
+                      <a href={link.href || '#'} className="text-white/60 hover:text-white transition-colors text-sm">
+                        {link.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+
+    case 'ICON_LIST':
+      return (
+        <ul className="space-y-3">
+          {(content.items || []).map((item, i) => (
+            <li key={i} className="flex items-center gap-3">
+              <span className="text-indigo-400">{item.icon || '✓'}</span>
+              <span>{item.text || item.label}</span>
+            </li>
+          ))}
+        </ul>
+      );
+
+    case 'MENU':
+      return (
+        <nav className="flex gap-6">
+          {(content.items || content.links || []).map((item, i) => (
+            <a key={i} href={item.href || '#'} className="text-white/70 hover:text-white transition-colors">
+              {item.label}
+            </a>
+          ))}
+        </nav>
+      );
+
+    case 'BREADCRUMBS':
+      return (
+        <nav className="flex items-center gap-2 text-sm">
+          {(content.items || [{ label: 'Home' }, { label: 'Page' }]).map((item, i, arr) => (
+            <span key={i} className="flex items-center gap-2">
+              <a href={item.href || '#'} className={i === arr.length - 1 ? 'text-white' : 'text-white/60 hover:text-white'}>
+                {item.label}
+              </a>
+              {i < arr.length - 1 && <span className="text-white/40">/</span>}
+            </span>
+          ))}
+        </nav>
+      );
+
+    case 'PAGE_HEADER':
+      return (
+        <div className="py-12 text-center">
+          <h1 className="text-4xl font-bold mb-4">{content.title || 'Page Title'}</h1>
+          {content.subtitle && <p className="text-white/70 text-lg">{content.subtitle}</p>}
+        </div>
+      );
+
+    case 'CALL_TO_ACTION':
+      return (
+        <div className="py-16 px-8 rounded-2xl bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-center">
+          <h2 className="text-3xl font-bold mb-4">{content.headline || 'Ready to get started?'}</h2>
+          <p className="text-white/70 mb-8 max-w-xl mx-auto">{content.description || ''}</p>
+          <div className="flex gap-4 justify-center">
+            {content.primaryCta && (
+              <a href={content.primaryCta.href || '#'} className="px-6 py-3 bg-indigo-500 rounded-lg font-medium hover:bg-indigo-400 transition-colors">
+                {content.primaryCta.label}
+              </a>
+            )}
+            {content.secondaryCta && (
+              <a href={content.secondaryCta.href || '#'} className="px-6 py-3 border border-white/20 rounded-lg font-medium hover:bg-white/10 transition-colors">
+                {content.secondaryCta.label}
+              </a>
+            )}
+          </div>
+        </div>
+      );
+
+    case 'STATS_CTA':
+      return (
+        <div className="py-12">
+          <div className="grid md:grid-cols-3 gap-8 mb-8">
+            {(content.stats || []).map((stat, i) => (
+              <div key={i} className="text-center">
+                <div className="text-4xl font-bold text-indigo-400">{stat.value}</div>
+                <div className="text-white/60 mt-1">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+          {content.cta && (
+            <div className="text-center">
+              <a href={content.cta.href || '#'} className="px-6 py-3 bg-indigo-500 rounded-lg font-medium hover:bg-indigo-400 transition-colors">
+                {content.cta.label}
+              </a>
+            </div>
+          )}
+        </div>
+      );
+
+    case 'ICON_CARDS':
+      return (
+        <div className="grid md:grid-cols-3 gap-6">
+          {(content.cards || content.items || []).map((card, i) => (
+            <div key={i} className="p-6 rounded-xl bg-white/5 border border-white/10 text-center">
+              <div className="text-3xl mb-4">{card.icon || '★'}</div>
+              <h3 className="font-semibold mb-2">{card.title}</h3>
+              <p className="text-sm text-white/70">{card.description || card.text}</p>
+            </div>
+          ))}
+        </div>
+      );
+
+    case 'ABOUT':
+      return (
+        <div className="py-12 grid md:grid-cols-2 gap-12 items-center">
+          <div>
+            {content.image ? (
+              <img src={content.image} alt="About" className="rounded-2xl w-full" />
+            ) : (
+              <div className="aspect-video bg-white/5 rounded-2xl flex items-center justify-center">
+                <span className="text-white/30 text-4xl">🖼</span>
+              </div>
+            )}
+          </div>
+          <div>
+            <h2 className="text-3xl font-bold mb-4">{content.headline || 'About Us'}</h2>
+            <p className="text-white/70 mb-6">{content.description || content.text || ''}</p>
+            {content.cta && (
+              <a href={content.cta.href || '#'} className="px-6 py-3 bg-indigo-500 rounded-lg font-medium hover:bg-indigo-400 transition-colors">
+                {content.cta.label}
+              </a>
+            )}
+          </div>
+        </div>
+      );
+
+    case 'REVIEWS':
+      return (
+        <div className="py-12">
+          {content.headline && <h2 className="text-3xl font-bold text-center mb-10">{content.headline}</h2>}
+          <div className="grid md:grid-cols-3 gap-6">
+            {(content.reviews || content.items || []).map((review, i) => (
+              <div key={i} className="p-6 rounded-2xl bg-white/5 border border-white/10">
+                <div className="flex gap-1 mb-3">
+                  {Array.from({ length: review.rating || 5 }).map((_, si) => (
+                    <span key={si} className="text-yellow-400">★</span>
+                  ))}
+                </div>
+                <p className="text-white/80 mb-4">"{review.text || review.content}"</p>
+                <div className="font-semibold">{review.name || review.author}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+
+    case 'TOGGLE':
+      return (
+        <div className="space-y-2">
+          {(content.items || []).map((item, i) => (
+            <div key={i} className="p-4 rounded-xl bg-white/5 border border-white/10">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">{item.title || item.label}</span>
+                <div className="w-12 h-6 rounded-full bg-indigo-500 relative">
+                  <div className="absolute right-1 top-1 w-4 h-4 rounded-full bg-white" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+
+    case 'TESTIMONIAL_SLIDER':
+      return (
+        <div className="py-12 text-center">
+          <div className="max-w-2xl mx-auto">
+            <p className="text-xl italic text-white/80 mb-6">"{content.testimonials?.[0]?.quote || 'Great product!'}"</p>
+            <div className="font-semibold">{content.testimonials?.[0]?.name || 'Customer'}</div>
+            <div className="text-sm text-white/60">{content.testimonials?.[0]?.role || ''}</div>
+          </div>
+          <div className="flex justify-center gap-2 mt-6">
+            {(content.testimonials || [1, 2, 3]).map((_, i) => (
+              <div key={i} className={`w-2 h-2 rounded-full ${i === 0 ? 'bg-white' : 'bg-white/40'}`} />
+            ))}
+          </div>
+        </div>
+      );
+
+    case 'NEWSLETTER':
+      return (
+        <div className="py-12 text-center">
+          <h2 className="text-2xl font-bold mb-4">{content.headline || 'Subscribe to our newsletter'}</h2>
+          <p className="text-white/70 mb-6">{content.description || 'Stay updated with our latest news'}</p>
+          <form className="flex gap-2 max-w-md mx-auto" onSubmit={(e) => e.preventDefault()}>
+            <input type="email" placeholder={content.placeholder || 'Enter your email'} className="flex-1 px-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-indigo-500 outline-none" />
+            <button type="submit" className="px-6 py-3 bg-indigo-500 rounded-lg font-medium hover:bg-indigo-400 transition-colors">
+              {content.buttonText || 'Subscribe'}
+            </button>
+          </form>
+        </div>
+      );
+
+    case 'SEARCH_BOX':
+      return (
+        <div className="relative">
+          <input type="text" placeholder={content.placeholder || 'Search...'} className="w-full px-4 py-3 pl-10 rounded-lg bg-white/5 border border-white/10 focus:border-indigo-500 outline-none" />
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40">🔍</span>
+        </div>
+      );
+
+    case 'COPYRIGHT':
+      return (
+        <div className="py-4 text-center text-sm text-white/50">
+          {content.text || `© ${new Date().getFullYear()} Company. All rights reserved.`}
+        </div>
+      );
+
+    case 'PRICE_TABLE':
+      return (
+        <div className="py-12">
+          {content.headline && <h2 className="text-3xl font-bold text-center mb-10">{content.headline}</h2>}
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b border-white/10">
+                  <th className="p-4 text-left">Feature</th>
+                  {(content.plans || []).map((plan, i) => (
+                    <th key={i} className="p-4 text-center">{plan.name}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(content.features || []).map((feature, fi) => (
+                  <tr key={fi} className="border-b border-white/10">
+                    <td className="p-4">{feature.name}</td>
+                    {(content.plans || []).map((plan, pi) => (
+                      <td key={pi} className="p-4 text-center">
+                        {feature.values?.[pi] ? '✓' : '—'}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+
     default:
       return (
         <div className="p-4 border border-dashed border-white/20 rounded-lg text-center text-white/50">
-          {type || 'Unknown widget'}
+          Unknown widget: {type}
         </div>
       );
   }

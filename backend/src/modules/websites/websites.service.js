@@ -1280,6 +1280,7 @@ export const websitesService = {
   },
 
   async exportWebsite({ userId, websiteId }) {
+    console.log(`=== EXPORT WEBSITE CALLED: userId=${userId}, websiteId=${websiteId} ===`);
     return withTransaction(async (conn) => {
       await assertWebsiteOwned({ conn, userId, websiteId });
 
@@ -1297,7 +1298,7 @@ export const websitesService = {
       );
 
       // Step 2: Get builder_json separately (no sorting needed)
-      let pagesHtml = [];
+      let pagesData = [];
       if (pagesMeta.length > 0) {
         const pageIds = pagesMeta.map(p => p.id);
         const [builderRows] = await conn.query(
@@ -1310,8 +1311,9 @@ export const websitesService = {
           builderMap.set(row.id, row.builder_json);
         }
 
-        pagesHtml = pagesMeta.map(page => {
+        pagesData = pagesMeta.map(page => {
           const builder = parseJsonMaybe(builderMap.get(page.id), {});
+          console.log(`Page ${page.name} (${page.path}) builder data:`, JSON.stringify(builder, null, 2).substring(0, 500));
           return { name: page.name, path: page.path, builder };
         });
       }
@@ -1320,32 +1322,42 @@ export const websitesService = {
       const seo = parseJsonMaybe(website.seo_json, {});
       const designSystem = settings?.designSystem ?? {};
 
-      // Generate complete HTML document
-      const html = generateExportHtml({
+      // Generate separate HTML files for each page
+      console.log('=== CALLING generateExportFiles ===');
+      const files = generateExportFiles({
         websiteName: website.name,
         seo,
         designSystem,
-        pages: pagesHtml,
+        pages: pagesData,
       });
+      console.log('=== generateExportFiles RETURNED:', files.length, 'files');
 
-      return html;
+      return { files, websiteName: website.name };
     });
   },
 };
 
-function generateExportHtml({ websiteName, seo, designSystem, pages }) {
+function generateExportFiles({ websiteName, seo, designSystem, pages }) {
   const primaryColor = designSystem?.colors?.primary ?? '#6366f1';
   const bgColor = designSystem?.colors?.background ?? '#0a0a12';
   const textColor = designSystem?.colors?.text ?? '#ffffff';
   const fontFamily = designSystem?.typography?.fontFamily ?? 'system-ui, -apple-system, sans-serif';
 
-  // Render all sections from all pages
-  const allSectionsHtml = pages.map(page => {
+  // Generate navigation links for all pages
+  const navLinks = pages.map(page => {
+    const filename = page.path === '/' ? 'index.html' : `${page.path.replace(/^\//, '').replace(/\//g, '-')}.html`;
+    return { name: page.name, href: filename, path: page.path };
+  });
+
+  // Generate separate HTML file for each page
+  const files = pages.map(page => {
+    const filename = page.path === '/' ? 'index.html' : `${page.path.replace(/^\//, '').replace(/\//g, '-')}.html`;
+    const pageTitle = page.path === '/' ? (seo?.title ?? websiteName) : `${page.name} - ${websiteName}`;
+    
     const sections = page.builder?.root?.children ?? [];
-    const sectionId = page.path === '/' ? 'home' : page.path.replace(/^\//, '');
     
     // Render each section with its containers and columns
-    const sectionsContent = sections.map(section => {
+    const sectionsHtml = sections.map(section => {
       if (section.type !== 'SECTION') return '';
       
       const sectionStyle = section.style ?? {};
@@ -1382,18 +1394,26 @@ function generateExportHtml({ websiteName, seo, designSystem, pages }) {
         return `<div style="max-width: ${maxWidth}; margin: 0 auto; ${gridStyle}">${columnsHtml}</div>`;
       }).join('');
       
-      return `<section id="${sectionId}" style="background: ${sectionBg}; padding: ${sectionPadding};">${containersHtml}</section>`;
+      return `<section style="background: ${sectionBg}; padding: ${sectionPadding};">${containersHtml}</section>`;
     }).join('');
-    
-    return sectionsContent;
-  }).join('');
 
-  return `<!DOCTYPE html>
+    // Generate navigation HTML
+    const navHtml = navLinks.length > 1 ? `
+    <nav style="position: sticky; top: 0; z-index: 100; background: ${bgColor}; border-bottom: 1px solid rgba(255,255,255,0.1); padding: 16px 24px;">
+      <div style="max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between;">
+        <a href="index.html" style="font-weight: 700; font-size: 18px; text-decoration: none;">${websiteName}</a>
+        <div style="display: flex; gap: 24px;">
+          ${navLinks.map(link => `<a href="${link.href}" style="color: ${link.path === page.path ? 'white' : 'rgba(255,255,255,0.7)'}; text-decoration: none; font-size: 14px;">${link.name}</a>`).join('')}
+        </div>
+      </div>
+    </nav>` : '';
+
+    const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${seo?.title ?? websiteName}</title>
+  <title>${pageTitle}</title>
   <meta name="description" content="${seo?.description ?? ''}">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1403,7 +1423,8 @@ function generateExportHtml({ websiteName, seo, designSystem, pages }) {
       color: ${textColor};
       line-height: 1.6;
     }
-    a { color: inherit; }
+    a { color: inherit; text-decoration: none; }
+    a:hover { text-decoration: underline; }
     img { max-width: 100%; height: auto; }
     .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
     @media (max-width: 768px) {
@@ -1416,11 +1437,19 @@ function generateExportHtml({ websiteName, seo, designSystem, pages }) {
       [style*="display: grid"] > div {
         margin-bottom: 24px;
       }
+      nav > div {
+        flex-direction: column;
+        gap: 16px;
+      }
     }
   </style>
 </head>
 <body>
-  ${allSectionsHtml}
+  ${navHtml}
+  
+  <main>
+    ${sectionsHtml}
+  </main>
   
   <footer style="padding: 32px 24px; text-align: center; border-top: 1px solid rgba(255,255,255,0.1);">
     <p style="color: rgba(255,255,255,0.6);">© ${new Date().getFullYear()} ${websiteName}. All rights reserved.</p>
@@ -1428,6 +1457,14 @@ function generateExportHtml({ websiteName, seo, designSystem, pages }) {
   </footer>
 </body>
 </html>`;
+
+  // Debug: Log first 500 chars of generated HTML
+  console.log(`Generated HTML for ${filename} (first 500 chars):`, html.substring(0, 500));
+
+    return { filename, content: html };
+  });
+
+  return files;
 }
 
 function renderWidgetToHtml(widget, primaryColor) {
@@ -1875,6 +1912,370 @@ function renderWidgetToHtml(widget, primaryColor) {
           </div>
         </div>
       `;
+    
+    case 'PRODUCT_GRID': {
+      const headline = content.headline || '';
+      const subheadline = content.subheadline || '';
+      const products = content.products || [];
+      const cta = content.cta;
+      const productsHtml = products.map(product => `
+        <div style="border-radius: 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); overflow: hidden;">
+          <div style="aspect-ratio: 1; position: relative;">
+            ${product.imageUrl || product.image 
+              ? `<img src="${product.imageUrl || product.image}" alt="${product.name || ''}" style="width: 100%; height: 100%; object-fit: cover;">`
+              : `<div style="width: 100%; height: 100%; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center;"><span style="color: rgba(255,255,255,0.3); font-size: 32px;">🛍</span></div>`
+            }
+            ${product.badge ? `<span style="position: absolute; top: 8px; left: 8px; padding: 4px 8px; font-size: 12px; border-radius: 4px; background: rgba(255,255,255,0.2); backdrop-filter: blur(4px);">${product.badge}</span>` : ''}
+          </div>
+          <div style="padding: 16px;">
+            <h3 style="font-weight: 600; margin-bottom: 4px;">${product.name || 'Product'}</h3>
+            ${product.description ? `<p style="font-size: 14px; color: rgba(255,255,255,0.6); margin-bottom: 8px;">${product.description}</p>` : ''}
+            ${product.price ? `<div style="font-weight: 700; color: ${primaryColor};">${product.price}</div>` : ''}
+            ${product.cta?.label ? `<a href="${product.cta.href || '#'}" style="display: inline-block; margin-top: 12px; padding: 8px 16px; background: ${primaryColor}; color: white; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 500;">${product.cta.label}</a>` : ''}
+          </div>
+        </div>
+      `).join('');
+      return `
+        <div style="padding: 48px 0;">
+          ${headline ? `<h2 style="font-size: 32px; font-weight: 700; margin-bottom: 8px;">${headline}</h2>` : ''}
+          ${subheadline ? `<p style="color: rgba(255,255,255,0.7); margin-bottom: 32px;">${subheadline}</p>` : ''}
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px;">${productsHtml}</div>
+          ${cta?.label ? `<div style="text-align: center; margin-top: 32px;"><a href="${cta.href || '#'}" style="display: inline-block; padding: 14px 28px; background: ${primaryColor}; color: white; text-decoration: none; border-radius: 8px; font-weight: 500;">${cta.label}</a></div>` : ''}
+        </div>
+      `;
+    }
+    
+    case 'FILTER_TABS': {
+      const headline = content.headline || '';
+      const subheadline = content.subheadline || '';
+      const tabs = content.tabs || [];
+      const products = content.products || [];
+      const tabsHtml = tabs.map((tab, i) => 
+        `<span style="padding: 8px 16px; font-size: 14px; font-weight: 500; border-radius: 8px; ${i === 0 ? `background: ${primaryColor}; color: white;` : 'background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7);'}">${tab.label || tab}</span>`
+      ).join('');
+      const productsHtml = products.slice(0, 6).map(product => `
+        <div style="border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); overflow: hidden;">
+          ${product.imageUrl || product.image ? `<img src="${product.imageUrl || product.image}" alt="${product.name || ''}" style="width: 100%; aspect-ratio: 16/9; object-fit: cover;">` : ''}
+          <div style="padding: 16px;">
+            <h3 style="font-weight: 600;">${product.name || ''}</h3>
+            ${product.description ? `<p style="font-size: 14px; color: rgba(255,255,255,0.6); margin-top: 4px;">${product.description}</p>` : ''}
+            ${product.price ? `<div style="font-weight: 700; color: ${primaryColor}; margin-top: 8px;">${product.price}</div>` : ''}
+          </div>
+        </div>
+      `).join('');
+      return `
+        <div style="padding: 48px 0;">
+          ${headline ? `<h2 style="font-size: 32px; font-weight: 700; text-align: center; margin-bottom: 8px;">${headline}</h2>` : ''}
+          ${subheadline ? `<p style="color: rgba(255,255,255,0.7); text-align: center; margin-bottom: 32px;">${subheadline}</p>` : ''}
+          ${tabs.length > 0 ? `<div style="display: flex; justify-content: center; gap: 8px; margin-bottom: 32px;">${tabsHtml}</div>` : ''}
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px;">${productsHtml}</div>
+        </div>
+      `;
+    }
+    
+    case 'ADVANCED_NAVBAR': {
+      const logoText = content.logo?.text || content.logoText || 'Logo';
+      const logoImage = content.logo?.image || content.logoImageUrl;
+      const links = (content.links || []).map(link => 
+        `<a href="${link.href || '#'}" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 14px;">${link.label}</a>`
+      ).join('');
+      const ctas = (content.ctas || []).map(cta => 
+        `<a href="${cta.href || '#'}" style="padding: 8px 16px; ${cta.variant === 'primary' ? `background: ${primaryColor};` : 'background: rgba(255,255,255,0.1);'} color: white; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 500;">${cta.label}</a>`
+      ).join('');
+      return `
+        <nav style="display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; background: rgba(255,255,255,0.05); border-radius: 12px;">
+          <div style="display: flex; align-items: center; gap: 32px;">
+            <div style="font-weight: 700; font-size: 18px;">${logoImage ? `<img src="${logoImage}" alt="${logoText}" style="height: 40px; width: auto;">` : logoText}</div>
+            <div style="display: flex; align-items: center; gap: 24px;">${links}</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            ${content.showSearch ? `<div style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center;">🔍</div>` : ''}
+            ${ctas}
+          </div>
+        </nav>
+      `;
+    }
+    
+    case 'CONTENT': {
+      const title = content.title || '';
+      const text = content.paragraphs?.[0] || content.body || content.text || '';
+      return `
+        <div style="padding: 48px 0;">
+          ${title ? `<h2 style="font-size: 28px; font-weight: 700; margin-bottom: 16px;">${title}</h2>` : ''}
+          <div style="color: rgba(255,255,255,0.7); line-height: 1.8;">${text}</div>
+        </div>
+      `;
+    }
+    
+    case 'FEATURE_CAROUSEL':
+    case 'MULTI_ROW_CAROUSEL':
+    case 'IMAGE_CAROUSEL': {
+      const headline = content.headline || '';
+      const items = content.items || content.rows?.[0]?.items || content.slides || [];
+      const itemsHtml = items.slice(0, 4).map(item => `
+        <div style="flex: 0 0 250px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); overflow: hidden;">
+          ${item.image || item.imageUrl || item.src ? `<img src="${item.image || item.imageUrl || item.src}" alt="${item.title || ''}" style="width: 100%; aspect-ratio: 16/9; object-fit: cover;">` : ''}
+          <div style="padding: 16px;">
+            <h3 style="font-weight: 600;">${item.title || ''}</h3>
+            ${item.description || item.tagline ? `<p style="font-size: 14px; color: rgba(255,255,255,0.6); margin-top: 4px;">${item.description || item.tagline}</p>` : ''}
+          </div>
+        </div>
+      `).join('');
+      return `
+        <div style="padding: 48px 0;">
+          ${headline ? `<h2 style="font-size: 32px; font-weight: 700; text-align: center; margin-bottom: 32px;">${headline}</h2>` : ''}
+          <div style="display: flex; gap: 16px; overflow-x: auto; padding-bottom: 16px;">${itemsHtml}</div>
+        </div>
+      `;
+    }
+    
+    case 'FOOTER_LINKS': {
+      const brand = content.brand || '';
+      const description = content.description || '';
+      const columns = content.columns || [];
+      const copyright = content.copyright || '';
+      const columnsHtml = columns.map(col => `
+        <div>
+          <h4 style="font-weight: 600; margin-bottom: 16px;">${col.title || ''}</h4>
+          <ul style="list-style: none;">
+            ${(col.links || []).map(link => `<li style="margin-bottom: 8px;"><a href="${link.href || '#'}" style="color: rgba(255,255,255,0.6); text-decoration: none; font-size: 14px;">${link.label}</a></li>`).join('')}
+          </ul>
+        </div>
+      `).join('');
+      return `
+        <div style="padding: 32px 0;">
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px;">
+            ${brand ? `<div><div style="font-weight: 700; font-size: 18px; margin-bottom: 8px;">${brand}</div>${description ? `<p style="font-size: 14px; color: rgba(255,255,255,0.6);">${description}</p>` : ''}</div>` : ''}
+            ${columnsHtml}
+          </div>
+          ${copyright ? `<div style="margin-top: 32px; padding-top: 32px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 14px; color: rgba(255,255,255,0.5);">${copyright}</div>` : ''}
+        </div>
+      `;
+    }
+    
+    case 'ICON_LIST': {
+      const items = content.items || [];
+      const itemsHtml = items.map(item => `
+        <li style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+          <span style="color: ${primaryColor};">${item.icon || '✓'}</span>
+          <span>${item.text || item.label || ''}</span>
+        </li>
+      `).join('');
+      return `<ul style="list-style: none;">${itemsHtml}</ul>`;
+    }
+    
+    case 'MENU': {
+      const items = content.items || content.links || [];
+      const itemsHtml = items.map(item => 
+        `<a href="${item.href || '#'}" style="color: rgba(255,255,255,0.7); text-decoration: none;">${item.label}</a>`
+      ).join('');
+      return `<nav style="display: flex; gap: 24px;">${itemsHtml}</nav>`;
+    }
+    
+    case 'BREADCRUMBS': {
+      const items = content.items || [{ label: 'Home' }, { label: 'Page' }];
+      const separator = content.separator || '/';
+      const itemsHtml = items.map((item, i) => `
+        <span style="display: flex; align-items: center; gap: 8px;">
+          <a href="${item.href || '#'}" style="color: ${i === items.length - 1 ? 'white' : 'rgba(255,255,255,0.6)'}; text-decoration: none;">${item.label}</a>
+          ${i < items.length - 1 ? `<span style="color: rgba(255,255,255,0.4);">${separator}</span>` : ''}
+        </span>
+      `).join('');
+      return `<nav style="display: flex; align-items: center; gap: 8px; font-size: 14px;">${itemsHtml}</nav>`;
+    }
+    
+    case 'PAGE_HEADER': {
+      const title = content.title || 'Page Title';
+      const subtitle = content.subtitle || '';
+      const bgImage = content.backgroundImage;
+      return `
+        <div style="padding: 48px 0; text-align: center; ${bgImage ? `background-image: url(${bgImage}); background-size: cover; background-position: center;` : ''}">
+          <h1 style="font-size: 40px; font-weight: 700; margin-bottom: 16px;">${title}</h1>
+          ${subtitle ? `<p style="font-size: 18px; color: rgba(255,255,255,0.7);">${subtitle}</p>` : ''}
+        </div>
+      `;
+    }
+    
+    case 'CALL_TO_ACTION': {
+      const headline = content.headline || 'Ready to get started?';
+      const text = content.text || content.description || '';
+      const primaryCta = content.primaryCta;
+      const secondaryCta = content.secondaryCta;
+      return `
+        <div style="padding: 64px 32px; background: linear-gradient(135deg, ${primaryColor}33, transparent); border-radius: 16px; text-align: center;">
+          <h2 style="font-size: 32px; font-weight: 700; margin-bottom: 16px;">${headline}</h2>
+          ${text ? `<p style="color: rgba(255,255,255,0.7); margin-bottom: 32px; max-width: 600px; margin-left: auto; margin-right: auto;">${text}</p>` : ''}
+          <div style="display: flex; gap: 16px; justify-content: center;">
+            ${primaryCta?.label ? `<a href="${primaryCta.href || '#'}" style="padding: 14px 28px; background: ${primaryColor}; color: white; text-decoration: none; border-radius: 8px; font-weight: 500;">${primaryCta.label}</a>` : ''}
+            ${secondaryCta?.label ? `<a href="${secondaryCta.href || '#'}" style="padding: 14px 28px; border: 1px solid rgba(255,255,255,0.2); color: white; text-decoration: none; border-radius: 8px; font-weight: 500;">${secondaryCta.label}</a>` : ''}
+          </div>
+        </div>
+      `;
+    }
+    
+    case 'STATS_CTA': {
+      const headline = content.headline || '';
+      const subheadline = content.subheadline || '';
+      const stats = content.items || content.stats || [];
+      const primaryCta = content.primaryCta;
+      const statsHtml = stats.map(stat => `
+        <div style="text-align: center;">
+          <div style="font-size: 40px; font-weight: 700; color: ${primaryColor};">${stat.value}</div>
+          <div style="color: rgba(255,255,255,0.6); margin-top: 4px;">${stat.label}</div>
+        </div>
+      `).join('');
+      return `
+        <div style="padding: 48px 0;">
+          ${headline ? `<h2 style="font-size: 32px; font-weight: 700; text-align: center; margin-bottom: 8px;">${headline}</h2>` : ''}
+          ${subheadline ? `<p style="color: rgba(255,255,255,0.7); text-align: center; margin-bottom: 32px;">${subheadline}</p>` : ''}
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 32px; margin-bottom: 32px;">${statsHtml}</div>
+          ${primaryCta?.label ? `<div style="text-align: center;"><a href="${primaryCta.href || '#'}" style="display: inline-block; padding: 14px 28px; background: ${primaryColor}; color: white; text-decoration: none; border-radius: 8px; font-weight: 500;">${primaryCta.label}</a></div>` : ''}
+        </div>
+      `;
+    }
+    
+    case 'ICON_CARDS': {
+      const cards = content.cards || content.items || [];
+      const cardsHtml = cards.map(card => `
+        <div style="padding: 24px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); text-align: center;">
+          <div style="font-size: 32px; margin-bottom: 16px;">${card.icon || '★'}</div>
+          <h3 style="font-weight: 600; margin-bottom: 8px;">${card.title || ''}</h3>
+          <p style="font-size: 14px; color: rgba(255,255,255,0.7);">${card.description || card.text || ''}</p>
+        </div>
+      `).join('');
+      return `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px;">${cardsHtml}</div>`;
+    }
+    
+    case 'ABOUT': {
+      const headline = content.headline || 'About Us';
+      const text = content.text || content.description || '';
+      const image = content.image;
+      const cta = content.cta;
+      return `
+        <div style="padding: 48px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center;">
+          <div>
+            ${image 
+              ? `<img src="${image}" alt="About" style="width: 100%; border-radius: 16px;">`
+              : `<div style="aspect-ratio: 16/9; background: rgba(255,255,255,0.05); border-radius: 16px; display: flex; align-items: center; justify-content: center;"><span style="color: rgba(255,255,255,0.3); font-size: 32px;">🖼</span></div>`
+            }
+          </div>
+          <div>
+            <h2 style="font-size: 32px; font-weight: 700; margin-bottom: 16px;">${headline}</h2>
+            <p style="color: rgba(255,255,255,0.7); margin-bottom: 24px; line-height: 1.8;">${text}</p>
+            ${cta?.label ? `<a href="${cta.href || '#'}" style="display: inline-block; padding: 14px 28px; background: ${primaryColor}; color: white; text-decoration: none; border-radius: 8px; font-weight: 500;">${cta.label}</a>` : ''}
+          </div>
+        </div>
+      `;
+    }
+    
+    case 'REVIEWS': {
+      const headline = content.headline || '';
+      const reviews = content.reviews || content.items || [];
+      const reviewsHtml = reviews.map(review => `
+        <div style="padding: 24px; border-radius: 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+          <div style="display: flex; gap: 4px; margin-bottom: 12px;">
+            ${Array.from({ length: review.rating || 5 }).map(() => `<span style="color: #fbbf24;">★</span>`).join('')}
+          </div>
+          <p style="color: rgba(255,255,255,0.8); margin-bottom: 16px;">"${review.text || review.content || ''}"</p>
+          <div style="font-weight: 600;">${review.name || review.author || ''}</div>
+        </div>
+      `).join('');
+      return `
+        <div style="padding: 48px 0;">
+          ${headline ? `<h2 style="font-size: 32px; font-weight: 700; text-align: center; margin-bottom: 40px;">${headline}</h2>` : ''}
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">${reviewsHtml}</div>
+        </div>
+      `;
+    }
+    
+    case 'TOGGLE': {
+      const items = content.items || [{ label: content.label || 'Toggle option' }];
+      const itemsHtml = items.map(item => `
+        <div style="padding: 16px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <span style="font-weight: 500;">${item.title || item.label || ''}</span>
+          <div style="width: 48px; height: 24px; border-radius: 12px; background: ${primaryColor}; position: relative;">
+            <div style="position: absolute; right: 4px; top: 4px; width: 16px; height: 16px; border-radius: 50%; background: white;"></div>
+          </div>
+        </div>
+      `).join('');
+      return `<div>${itemsHtml}</div>`;
+    }
+    
+    case 'TESTIMONIAL_SLIDER': {
+      const testimonials = content.items || content.testimonials || [];
+      if (testimonials.length === 0) return '';
+      const first = testimonials[0];
+      const dotsHtml = testimonials.length > 1 
+        ? `<div style="display: flex; justify-content: center; gap: 8px; margin-top: 24px;">${testimonials.map((_, i) => `<span style="width: 8px; height: 8px; border-radius: 50%; background: ${i === 0 ? 'white' : 'rgba(255,255,255,0.4)'};"></span>`).join('')}</div>` 
+        : '';
+      return `
+        <div style="padding: 48px 0; text-align: center;">
+          <div style="max-width: 600px; margin: 0 auto;">
+            <p style="font-size: 20px; font-style: italic; color: rgba(255,255,255,0.8); margin-bottom: 24px;">"${first.quote || first.content || ''}"</p>
+            <div style="font-weight: 600;">${first.name || ''}</div>
+            <div style="font-size: 14px; color: rgba(255,255,255,0.6);">${first.role || ''}</div>
+          </div>
+          ${dotsHtml}
+        </div>
+      `;
+    }
+    
+    case 'NEWSLETTER': {
+      const headline = content.headline || 'Subscribe to our newsletter';
+      const description = content.description || '';
+      const placeholder = content.placeholder || 'Enter your email';
+      const buttonLabel = content.buttonLabel || content.buttonText || 'Subscribe';
+      return `
+        <div style="padding: 48px 0; text-align: center;">
+          <h2 style="font-size: 28px; font-weight: 700; margin-bottom: 16px;">${headline}</h2>
+          ${description ? `<p style="color: rgba(255,255,255,0.7); margin-bottom: 24px;">${description}</p>` : ''}
+          <form style="display: flex; gap: 8px; max-width: 400px; margin: 0 auto;">
+            <input type="email" placeholder="${placeholder}" style="flex: 1; padding: 12px 16px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white;">
+            <button type="submit" style="padding: 12px 24px; background: ${primaryColor}; color: white; border: none; border-radius: 8px; font-weight: 500; cursor: pointer;">${buttonLabel}</button>
+          </form>
+        </div>
+      `;
+    }
+    
+    case 'SEARCH_BOX': {
+      const placeholder = content.placeholder || 'Search...';
+      return `
+        <div style="position: relative;">
+          <input type="text" placeholder="${placeholder}" style="width: 100%; padding: 12px 16px 12px 40px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white;">
+          <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.4);">🔍</span>
+        </div>
+      `;
+    }
+    
+    case 'COPYRIGHT': {
+      const text = content.text || `© ${new Date().getFullYear()} Company. All rights reserved.`;
+      return `<div style="padding: 16px 0; text-align: center; font-size: 14px; color: rgba(255,255,255,0.5);">${text}</div>`;
+    }
+    
+    case 'PRICE_TABLE': {
+      const headline = content.headline || '';
+      const plans = content.plans || [];
+      const features = content.features || [];
+      if (plans.length === 0) return '';
+      const headerHtml = `<tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><th style="padding: 16px; text-align: left;">Feature</th>${plans.map(plan => `<th style="padding: 16px; text-align: center;"><div>${plan.name || ''}</div><div style="font-size: 18px; font-weight: 700;">${plan.price || ''}</div></th>`).join('')}</tr>`;
+      const featuresHtml = (features.length > 0 ? features : (plans[0]?.features || []).map(f => ({ name: f }))).map(feature => `
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+          <td style="padding: 16px;">${typeof feature === 'string' ? feature : feature.name || ''}</td>
+          ${plans.map(() => `<td style="padding: 16px; text-align: center;">✓</td>`).join('')}
+        </tr>
+      `).join('');
+      return `
+        <div style="padding: 48px 0;">
+          ${headline ? `<h2 style="font-size: 32px; font-weight: 700; text-align: center; margin-bottom: 40px;">${headline}</h2>` : ''}
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead>${headerHtml}</thead>
+              <tbody>${featuresHtml}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
     
     default:
       return '';

@@ -366,19 +366,61 @@ export function UserDashboard() {
                               try {
                                 setBusy(true);
                                 toast.info('Preparing export...');
-                                const response = await api.get(`/websites/${w.id}/export`, { responseType: 'blob' });
-                                const blob = new Blob([response.data], { type: 'text/html' });
+                                
+                                // Use fetch instead of axios for better blob handling
+                                console.log('Website ID:', w.id, 'Type:', typeof w.id);
+                                const exportUrl = `http://localhost:5000/api/websites/${w.id}/export`;
+                                console.log(`Making export request to: ${exportUrl}`);
+                                const response = await fetch(exportUrl, {
+                                  method: 'GET',
+                                  credentials: 'include',
+                                  cache: 'no-cache', // Prevent caching
+                                  headers: {
+                                    'Authorization': `Bearer ${localStorage.getItem('launchweb_access_token') || ''}`
+                                  }
+                                });
+                                
+                                if (!response.ok) {
+                                  throw new Error('Export failed');
+                                }
+                                
+                                // Get content type and filename from headers
+                                const contentType = response.headers.get('content-type') || '';
+                                const contentDisposition = response.headers.get('content-disposition') || '';
+                                const isZip = contentType.includes('application/zip');
+                                
+                                // Extract filename from Content-Disposition header
+                                let filename = isZip ? `${w.slug || 'website'}-export.zip` : `${w.slug || 'website'}.html`;
+                                const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+                                if (filenameMatch) {
+                                  filename = filenameMatch[1];
+                                }
+                                
+                                console.log('Export details:', { contentType, isZip, filename });
+                                
+                                // Get blob and trigger download
+                                const blob = await response.blob();
+                                console.log('Blob size:', blob.size, 'type:', blob.type);
+                                
+                                // For debugging: read first 1000 chars of blob content
+                                if (!isZip) {
+                                  const text = await blob.text();
+                                  console.log('HTML content preview (first 1000 chars):', text.substring(0, 1000));
+                                }
+                                
                                 const url = window.URL.createObjectURL(blob);
                                 const a = document.createElement('a');
                                 a.href = url;
-                                a.download = `${w.slug || 'website'}.html`;
+                                a.download = filename;
                                 document.body.appendChild(a);
                                 a.click();
                                 window.URL.revokeObjectURL(url);
                                 document.body.removeChild(a);
-                                toast.success('Website exported successfully!');
+                                
+                                toast.success(`Website exported as ${isZip ? 'ZIP file' : 'HTML file'}!`);
                               } catch (err) {
-                                toast.error(err?.response?.data?.error?.message ?? 'Failed to export website');
+                                console.error('Export error:', err);
+                                toast.error('Failed to export website');
                               } finally {
                                 setBusy(false);
                               }
