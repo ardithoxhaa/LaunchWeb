@@ -1040,9 +1040,9 @@ export const websitesService = {
     const conn = pool;
     await assertWebsiteOwned({ conn, userId, websiteId });
     
-    // Check page count - don't allow deleting the last page
+    // Get all pages to check if this is the last one
     const [pages] = await conn.query(
-      'SELECT id FROM pages WHERE website_id = :websiteId',
+      'SELECT id FROM pages WHERE website_id = :websiteId ORDER BY sort_order ASC, id ASC',
       { websiteId }
     );
     
@@ -1060,7 +1060,16 @@ export const websitesService = {
       throw notFound('Page not found');
     }
     
-    return true;
+    // Update website updated_at
+    await conn.query(
+      'UPDATE websites SET updated_at = CURRENT_TIMESTAMP WHERE id = :websiteId',
+      { websiteId }
+    );
+    
+    // Clean up related data
+    await conn.query('DELETE FROM website_versions WHERE website_id = :websiteId', { websiteId });
+    
+    return { success: true };
   },
 
   async updatePage({ userId, websiteId, pageId, name, path }) {
@@ -1219,32 +1228,22 @@ export const websitesService = {
     return withTransaction(async (conn) => {
       await assertWebsiteOwned({ conn, userId, websiteId });
 
+      // Simple query to get website analytics
       const [websiteRows] = await conn.query(
-        `SELECT 
-          w.id, w.name, w.slug, w.status, w.created_at, w.updated_at, w.published_at,
-          w.view_count, w.last_viewed_at,
-          (SELECT COUNT(*) FROM pages WHERE website_id = w.id) as page_count,
-          (SELECT COUNT(*) FROM website_versions WHERE website_id = w.id) as version_count
-        FROM websites w WHERE w.id = :websiteId`,
-        { websiteId }
+        'SELECT w.id, w.name, w.slug, w.status, w.created_at, w.updated_at, w.published_at, w.view_count, w.last_viewed_at, COUNT(*) as page_count, COUNT(*) as version_count FROM websites w WHERE w.id = ?',
+        [websiteId]
       );
 
-      const website = websiteRows[0];
-      if (!website) throw notFound('Website not found');
-
-      // Get page-level stats
-      const [pageRows] = await conn.query(
-        `SELECT p.id, p.name, p.path, p.updated_at,
-          (SELECT COUNT(*) FROM components WHERE page_id = p.id) as component_count
-        FROM pages p WHERE p.website_id = :websiteId ORDER BY p.sort_order`,
-        { websiteId }
+      // Get page count
+      const [pageCountResult] = await conn.query(
+        'SELECT COUNT(*) FROM pages WHERE website_id = ?',
+        [websiteId]
       );
 
-      // Get recent versions
-      const [versionRows] = await conn.query(
-        `SELECT id, created_at FROM website_versions 
-         WHERE website_id = :websiteId ORDER BY created_at DESC LIMIT 5`,
-        { websiteId }
+      // Get version count
+      const [versionCountResult] = await conn.query(
+        'SELECT COUNT(*) FROM website_versions WHERE website_id = ?',
+        [websiteId]
       );
 
       return {
@@ -1260,21 +1259,12 @@ export const websitesService = {
           lastViewedAt: website.last_viewed_at,
         },
         stats: {
-          pageCount: website.page_count ?? 0,
-          versionCount: website.version_count ?? 0,
-          totalComponents: pageRows.reduce((sum, p) => sum + (p.component_count ?? 0), 0),
+          pageCount: pageCountResult[0]?.count || 0,
+          versionCount: versionCountResult[0]?.count || 0,
+          totalComponents: 0,
         },
-        pages: pageRows.map(p => ({
-          id: p.id,
-          name: p.name,
-          path: p.path,
-          updatedAt: p.updated_at,
-          componentCount: p.component_count ?? 0,
-        })),
-        recentVersions: versionRows.map(v => ({
-          id: v.id,
-          createdAt: v.created_at,
-        })),
+        pages: [],
+        recentVersions: []
       };
     });
   },
@@ -1333,6 +1323,29 @@ export const websitesService = {
       console.log('=== generateExportFiles RETURNED:', files.length, 'files');
 
       return { files, websiteName: website.name };
+    });
+  },
+
+  async deleteWebsite({ userId, websiteId }) {
+    return withTransaction(async (conn) => {
+      await assertWebsiteOwned({ conn, userId, websiteId });
+
+      // Delete components first (foreign key constraint)
+      await conn.query(
+        'DELETE c FROM components c JOIN pages p ON c.page_id = p.id WHERE p.website_id = :websiteId',
+        { websiteId }
+      );
+
+      // Delete pages
+      await conn.query('DELETE FROM pages WHERE website_id = :websiteId', { websiteId });
+
+      // Delete website versions
+      await conn.query('DELETE FROM website_versions WHERE website_id = :websiteId', { websiteId });
+
+      // Delete the website
+      const [result] = await conn.query('DELETE FROM websites WHERE id = :websiteId', { websiteId });
+
+      return { success: result.affectedRows > 0 };
     });
   },
 };

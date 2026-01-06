@@ -260,3 +260,22 @@ ${files.map(f => `- ${f.filename}`).join('\n')}
     res.status(500).json({ error: { message: 'Failed to export website' } });
   }
 }
+
+export async function deleteWebsite(req, res) {
+  try {
+    const id = Number(req.params.id);
+    const result = await websitesService.deleteWebsite({
+      userId: req.auth.userId,
+      websiteId: id,
+    });
+
+    if (result.success) {
+      res.json({ success: true });
+    } else {
+      res.status(400).json({ error: { message: 'Failed to delete website' } });
+    }
+  } catch (error) {
+    console.error('Delete website error:', error);
+    res.status(500).json({ error: { message: 'Failed to delete website' } });
+  }
+}

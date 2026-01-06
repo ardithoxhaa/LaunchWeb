@@ -38,6 +38,7 @@ import {
   updatePage,
   getWebsiteAnalytics,
   exportWebsite,
+  deleteWebsite,
 } from './websites.controller.js';
 
 const router = Router();
@@ -65,5 +66,6 @@ router.put('/:id/pages/:pageId', validate(updatePageSchema), asyncHandler(update
 router.delete('/:id/pages/:pageId', asyncHandler(deletePage));
 router.get('/:id/analytics', asyncHandler(getWebsiteAnalytics));
 router.get('/:id/export', asyncHandler(exportWebsite));
+router.delete('/:id', asyncHandler(deleteWebsite));
 
 export default router;

@@ -368,7 +368,7 @@ export function UserDashboard() {
                                 toast.info('Preparing export...');
                                 
                                 // Use fetch instead of axios for better blob handling
-                                console.log('Website ID:', w.id, 'Type:', typeof w.id);
+                                console.log('Testing delete - Website ID:', w.id, 'Type:', typeof w.id, 'Status:', w.status);
                                 const exportUrl = `http://localhost:5000/api/websites/${w.id}/export`;
                                 console.log(`Making export request to: ${exportUrl}`);
                                 const response = await fetch(exportUrl, {
@@ -428,6 +428,46 @@ export function UserDashboard() {
                             className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/15 disabled:opacity-50"
                           >
                             Export
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={async () => {
+                              if (!confirm(`Are you sure you want to delete "${w.name}"? This action cannot be undone.`)) {
+                                return;
+                              }
+                              
+                              try {
+                                setBusy(true);
+                                const response = await fetch(`http://localhost:5000/api/websites/${w.id}`, {
+                                  method: 'DELETE',
+                                  credentials: 'include',
+                                  headers: {
+                                    'Authorization': `Bearer ${localStorage.getItem('launchweb_access_token') || ''}`
+                                  }
+                                });
+                                
+                                if (!response.ok) {
+                                  throw new Error('Delete failed');
+                                }
+                                
+                                const result = await response.json();
+                                if (result.success) {
+                                  toast.success('Website deleted successfully!');
+                                  setWebsites(websites.filter(website => website.id !== w.id));
+                                } else {
+                                  toast.error('Failed to delete website');
+                                }
+                              } catch (err) {
+                                console.error('Delete error:', err);
+                                toast.error('Failed to delete website');
+                              } finally {
+                                setBusy(false);
+                              }
+                            }}
+                            className="rounded-md bg-red-500/20 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600/30 disabled:opacity-50"
+                          >
+                            Delete
                           </button>
                           <button
                             type="button"
