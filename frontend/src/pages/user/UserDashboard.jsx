@@ -144,7 +144,7 @@ export function UserDashboard() {
           <div className="text-sm font-semibold">Businesses</div>
           <div className="mt-3 space-y-3">
             <select
-              className="w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
+              className="w-full rounded-md border border-white/10 bg-gray-800 px-3 py-2 text-sm text-white"
               value={selectedBusinessId ?? ''}
               onChange={(e) => setSelectedBusinessId(e.target.value)}
             >
@@ -222,7 +222,7 @@ export function UserDashboard() {
           <div className="mt-4 space-y-2">
             <div className="text-sm text-white/70">Template</div>
             <select
-              className="w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
+              className="w-full rounded-md border border-white/10 bg-gray-800 px-3 py-2 text-sm text-white"
               value={selectedTemplateId ?? ''}
               onChange={(e) => setSelectedTemplateId(Number(e.target.value))}
             >

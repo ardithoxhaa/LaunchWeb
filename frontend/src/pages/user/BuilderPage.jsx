@@ -167,10 +167,10 @@ function SelectField({ label, value, onChange, options }) {
       <select
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md border border-white/10 bg-black/30 px-2 py-1.5 text-xs"
+        className="w-full rounded-md border border-white/10 bg-gray-800 px-2 py-1.5 text-xs text-white"
       >
         {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
+          <option key={opt.value} value={opt.value} className="bg-gray-800 text-white">
             {opt.label}
           </option>
         ))}

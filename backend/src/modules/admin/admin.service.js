@@ -22,6 +22,111 @@ export const adminService = {
       pool.query("SELECT COUNT(*) AS c FROM websites WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)"),
     ]);
 
+    // Page view tracking analytics (with fallback if table doesn't exist)
+    let pageViewsResult = [{ totalViews: 0, uniqueWebsites: 0, avgViewsPerSite: 0 }];
+    try {
+      [pageViewsResult] = await pool.query(`
+        SELECT 
+          COUNT(*) AS totalViews,
+          COUNT(DISTINCT website_id) AS uniqueWebsites,
+          AVG(view_count) AS avgViewsPerSite
+        FROM (
+          SELECT 
+            website_id,
+            COUNT(*) AS view_count
+          FROM website_analytics 
+          WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+          GROUP BY website_id
+        ) AS site_views
+      `);
+    } catch (error) {
+      console.log('Analytics table not found or missing created_at column:', error.message);
+    }
+
+    // Template usage analytics
+    let templateUsageResult = [];
+    try {
+      [templateUsageResult] = await pool.query(`
+        SELECT 
+          t.name,
+          t.category,
+          COUNT(w.id) AS usageCount,
+          ROUND(COUNT(w.id) * 100.0 / (SELECT COUNT(*) FROM websites), 2) AS usagePercentage
+        FROM templates t
+        LEFT JOIN websites w ON t.id = w.template_id
+        GROUP BY t.id, t.name, t.category
+        ORDER BY usageCount DESC
+        LIMIT 10
+      `);
+    } catch (error) {
+      console.log('Template usage query failed:', error.message);
+    }
+
+    // User registration trends (last 30 days)
+    let userTrendsResult = [];
+    try {
+      [userTrendsResult] = await pool.query(`
+        SELECT 
+          DATE(created_at) AS date,
+          COUNT(*) AS registrations
+        FROM users 
+        WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        GROUP BY DATE(created_at)
+        ORDER BY date DESC
+        LIMIT 30
+      `);
+    } catch (error) {
+      if (error.code === 'ER_NO_SUCH_TABLE') {
+        console.log('Users table not found, skipping user trends analytics');
+      } else {
+        console.log('User trends query failed:', error.message);
+      }
+    }
+
+    // Website creation trends (last 30 days)
+    let websiteTrendsResult = [];
+    try {
+      [websiteTrendsResult] = await pool.query(`
+        SELECT 
+          DATE(created_at) AS date,
+          COUNT(*) AS creations,
+          SUM(CASE WHEN status = 'PUBLISHED' THEN 1 ELSE 0 END) AS published
+        FROM websites 
+        WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        GROUP BY DATE(created_at)
+        ORDER BY date DESC
+        LIMIT 30
+      `);
+    } catch (error) {
+      if (error.code === 'ER_NO_SUCH_TABLE') {
+        console.log('Websites table not found, skipping website trends analytics');
+      } else {
+        console.log('Website trends query failed:', error.message);
+      }
+    }
+
+    // Top performing websites (by page views)
+    let topWebsitesResult = [];
+    try {
+      [topWebsitesResult] = await pool.query(`
+        SELECT 
+          w.id,
+          w.name,
+          w.slug,
+          COUNT(wa.id) AS pageViews,
+          w.status,
+          w.created_at
+        FROM websites w
+        LEFT JOIN website_analytics wa ON w.id = wa.website_id 
+          AND wa.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        GROUP BY w.id, w.name, w.slug, w.status, w.created_at
+        ORDER BY pageViews DESC
+        LIMIT 10
+      `);
+    } catch (error) {
+      console.log('Top websites query failed:', error.message);
+    }
+
     return {
       stats: {
         users,
@@ -32,6 +137,15 @@ export const adminService = {
         draftWebsites: Number(draftResult?.[0]?.c ?? 0),
         newUsersThisWeek: Number(recentUsersResult?.[0]?.c ?? 0),
         newWebsitesThisWeek: Number(recentWebsitesResult?.[0]?.c ?? 0),
+        totalPageViews: Number(pageViewsResult?.[0]?.totalViews ?? 0),
+        uniqueWebsitesViewed: Number(pageViewsResult?.[0]?.uniqueWebsites ?? 0),
+        avgViewsPerSite: Number(pageViewsResult?.[0]?.avgViewsPerSite ?? 0),
+      },
+      analytics: {
+        templateUsage: templateUsageResult,
+        userTrends: userTrendsResult,
+        websiteTrends: websiteTrendsResult,
+        topWebsites: topWebsitesResult,
       },
     };
   },

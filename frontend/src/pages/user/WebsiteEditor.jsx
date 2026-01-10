@@ -475,11 +475,10 @@ export function WebsiteEditor() {
           <div className="text-sm font-semibold">Pages</div>
           <div className="mt-3 space-y-2">
             <select
-              className="w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
+              className="w-full rounded-md border border-white/10 bg-gray-800 px-3 py-2 text-sm text-white"
               value={activePageIndex}
               onChange={(e) => {
                 setActivePageIndex(Number(e.target.value));
-                setActiveComponentIndex(0);
               }}
             >
               {(pages ?? []).map((p, idx) => (
@@ -584,7 +583,7 @@ export function WebsiteEditor() {
 
           <div className="mt-2">
             <select
-              className="w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-sm"
+              className="w-full rounded-md border border-white/10 bg-gray-800 px-3 py-2 text-sm text-white"
               value={addType}
               onChange={(e) => setAddType(e.target.value)}
             >

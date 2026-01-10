@@ -1650,8 +1650,19 @@ function RenderComponent({ component, theme, editorCtx, linkBasePath }) {
   }
 }
 
-export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, editor, linkBasePath }) {
+import { useEffect } from 'react';
+import { WebsiteAnalytics } from '../../lib/analytics.js';
+
+export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, editor, linkBasePath, websiteId, isPublic }) {
   const page = pages?.[activePageIndex] ?? null;
+
+  // Track page view for public websites (not in editor)
+  useEffect(() => {
+    if (isPublic && websiteId && page && typeof window !== 'undefined') {
+      const analytics = new WebsiteAnalytics(websiteId);
+      analytics.trackPageView(page.path || '/');
+    }
+  }, [page, websiteId, isPublic]);
 
   if (!page) {
     return <div className="p-6 text-sm text-white/70">No pages yet.</div>;

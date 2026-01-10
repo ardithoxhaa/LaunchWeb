@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useParams, Link } from 'react-router-dom';
 import { api } from '../../lib/api.js';
 import { SiteRenderer } from '../../components/website/SiteRenderer.jsx';
+import { WebsiteAnalytics } from '../../lib/analytics.js';
 
 export function PublicSitePage() {
   const { slug } = useParams();
@@ -14,6 +15,7 @@ export function PublicSitePage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [websiteId, setWebsiteId] = useState(null);
 
   const activePath = useMemo(() => {
     const prefix = `/site/${slug}`;
@@ -57,6 +59,14 @@ export function PublicSitePage() {
       canceled = true;
     };
   }, [slug]);
+
+    // Track page view analytics
+  useEffect(() => {
+    if (data?.website?.id && activePath) {
+      const analytics = new WebsiteAnalytics(data.website.id);
+      analytics.trackPageView(activePath);
+    }
+  }, [data?.website?.id, activePath]);
 
   // Update document title based on SEO
   useEffect(() => {
@@ -138,6 +148,7 @@ export function PublicSitePage() {
         designSystem={data.website?.settings?.designSystem}
         linkBasePath={`/site/${slug}`}
         isPublic={true}
+        websiteId={data.website?.id}
       />
     </div>
   );

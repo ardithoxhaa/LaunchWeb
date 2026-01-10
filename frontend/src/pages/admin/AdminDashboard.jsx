@@ -116,6 +116,7 @@ export function AdminDashboard() {
   const { user: currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
   const [users, setUsers] = useState([]);
   const [businesses, setBusinesses] = useState([]);
   const [websites, setWebsites] = useState([]);
@@ -155,6 +156,7 @@ export function AdminDashboard() {
         if (canceled) return;
 
         setStats(o.data.stats);
+        setAnalytics(o.data.analytics);
         setUsers(u.data.users ?? []);
         setBusinesses(b.data.businesses ?? []);
         setWebsites(w.data.websites ?? []);
@@ -182,6 +184,7 @@ export function AdminDashboard() {
       api.get('/admin/templates'),
     ]);
     setStats(o.data.stats);
+    setAnalytics(o.data.analytics);
     setUsers(u.data.users ?? []);
     setBusinesses(b.data.businesses ?? []);
     setWebsites(w.data.websites ?? []);
@@ -220,6 +223,9 @@ export function AdminDashboard() {
             <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')}>
               Overview
             </TabButton>
+            <TabButton active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')}>
+              Analytics
+            </TabButton>
             <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')}>
               Users
             </TabButton>
@@ -245,8 +251,8 @@ export function AdminDashboard() {
         <StatCard label="Templates" value={stats?.templates} />
         <StatCard label="Published" value={stats?.publishedWebsites} />
         <StatCard label="Drafts" value={stats?.draftWebsites} />
+        <StatCard label="Page Views (30d)" value={stats?.totalPageViews?.toLocaleString() || '0'} />
         <StatCard label="New Users (7d)" value={stats?.newUsersThisWeek} />
-        <StatCard label="New Sites (7d)" value={stats?.newWebsitesThisWeek} />
       </div>
 
       {activeTab !== 'overview' ? (
@@ -361,6 +367,96 @@ export function AdminDashboard() {
               >
                 {editSaving ? 'Saving…' : 'Save changes'}
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {activeTab === 'analytics' ? (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* Template Usage */}
+          <div className="space-y-2">
+            <div className="text-sm font-semibold">Template Usage</div>
+            <Table
+              rowKey={(r) => r.name}
+              columns={[
+                { key: 'name', label: 'Template' },
+                { key: 'category', label: 'Category' },
+                { key: 'usageCount', label: 'Usage' },
+                { key: 'usagePercentage', label: '%', render: (r) => `${r.usagePercentage}%` },
+              ]}
+              rows={analytics?.templateUsage || []}
+              emptyText="No template usage data."
+            />
+          </div>
+
+          {/* Top Websites */}
+          <div className="space-y-2">
+            <div className="text-sm font-semibold">Top Performing Websites (30d)</div>
+            <Table
+              rowKey={(r) => r.id}
+              columns={[
+                { key: 'name', label: 'Website' },
+                { key: 'slug', label: 'Slug' },
+                { key: 'pageViews', label: 'Views' },
+                { key: 'status', label: 'Status' },
+              ]}
+              rows={analytics?.topWebsites || []}
+              emptyText="No website traffic data."
+            />
+          </div>
+
+          {/* User Registration Trends */}
+          <div className="space-y-2">
+            <div className="text-sm font-semibold">User Registration Trends (30d)</div>
+            <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+              <div className="grid grid-cols-7 gap-2 text-xs">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                  <div key={day} className="text-center text-white/50 font-medium">{day}</div>
+                ))}
+              </div>
+              <div className="mt-2 space-y-1">
+                {analytics?.userTrends?.slice(0, 4).map((trend, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <div className="text-xs text-white/60 w-20">
+                      {new Date(trend.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </div>
+                    <div className="flex-1 bg-white/10 rounded-full h-4 relative overflow-hidden">
+                      <div 
+                        className="absolute inset-y-0 left-0 bg-indigo-500 rounded-full transition-all"
+                        style={{ width: `${Math.min((trend.registrations / 5) * 100, 100)}%` }}
+                      />
+                    </div>
+                    <div className="text-xs text-white/80 w-8 text-right">{trend.registrations}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Website Creation Trends */}
+          <div className="space-y-2">
+            <div className="text-sm font-semibold">Website Creation Trends (30d)</div>
+            <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+              <div className="space-y-2">
+                {analytics?.websiteTrends?.slice(0, 6).map((trend, idx) => (
+                  <div key={idx} className="flex items-center justify-between">
+                    <div className="text-xs text-white/60">
+                      {new Date(trend.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full" />
+                        <div className="text-xs text-white/80">{trend.creations} created</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                        <div className="text-xs text-white/80">{trend.published} published</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
