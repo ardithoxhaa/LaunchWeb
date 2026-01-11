@@ -1652,9 +1652,23 @@ function RenderComponent({ component, theme, editorCtx, linkBasePath }) {
 
 import { useEffect } from 'react';
 import { WebsiteAnalytics } from '../../lib/analytics.js';
+import { scopeCss } from '../../builder/utils/scopeCss.js';
 
 export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, editor, linkBasePath, websiteId, isPublic }) {
   const page = pages?.[activePageIndex] ?? null;
+
+  function getNodeSettings(node) {
+    return node?.settings || node?.props || {};
+  }
+
+  function buildScopedCustomCss(node, scopeSelector) {
+    const settings = getNodeSettings(node);
+    if (!settings?.customCSS) return '';
+    return scopeCss(settings.customCSS, scopeSelector, {
+      rootId: settings.cssId,
+      rootClasses: settings.cssClasses,
+    });
+  }
 
   // Track page view for public websites (not in editor)
   useEffect(() => {
@@ -1875,6 +1889,18 @@ export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, 
     const columns = builder ? getColumns(builder) : [];
     const columnNode = columns?.[forceColumnIndex] ?? null;
 
+    const sectionSettings = getNodeSettings(sectionNode);
+    const containerSettings = getNodeSettings(containerNode);
+    const columnSettings = getNodeSettings(columnNode);
+
+    const sectionScopeSelector = sectionNode?.id ? `[data-site-node="section-${sectionNode.id}"]` : '';
+    const containerScopeSelector = containerNode?.id ? `[data-site-node="container-${containerNode.id}"]` : '';
+    const columnScopeSelector = columnNode?.id ? `[data-site-node="column-${columnNode.id}"]` : '';
+
+    const sectionCustomCss = sectionScopeSelector ? buildScopedCustomCss(sectionNode, sectionScopeSelector) : '';
+    const containerCustomCss = containerScopeSelector ? buildScopedCustomCss(containerNode, containerScopeSelector) : '';
+    const columnCustomCss = columnScopeSelector ? buildScopedCustomCss(columnNode, columnScopeSelector) : '';
+
     const sectionStyle = computeSectionStyle(sectionNode);
     const containerStyle = computeContainerStyle(containerNode);
     const columnStyle = columnNode ? computeBuilderWrapperStyle(columnNode) : null;
@@ -1883,6 +1909,9 @@ export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, 
       <div style={rootStyle}>
         <div
           style={sectionStyle ?? undefined}
+          id={sectionSettings?.cssId ? sectionSettings.cssId : undefined}
+          className={sectionSettings?.cssClasses ? String(sectionSettings.cssClasses) : undefined}
+          data-site-node={sectionNode?.id ? `section-${sectionNode.id}` : undefined}
           onContextMenu={(e) => {
             if (!editor?.onContextMenu || !sectionNode?.id) return;
             e.preventDefault();
@@ -1890,8 +1919,12 @@ export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, 
             editor.onContextMenu({ nodeType: 'SECTION', nodeId: sectionNode.id, columnIndex: forceColumnIndex, x: e.clientX, y: e.clientY });
           }}
         >
+          {sectionCustomCss ? <style dangerouslySetInnerHTML={{ __html: sectionCustomCss }} /> : null}
           <div
             style={containerStyle ?? undefined}
+            id={containerSettings?.cssId ? containerSettings.cssId : undefined}
+            className={containerSettings?.cssClasses ? String(containerSettings.cssClasses) : undefined}
+            data-site-node={containerNode?.id ? `container-${containerNode.id}` : undefined}
             onContextMenu={(e) => {
               if (!editor?.onContextMenu || !containerNode?.id) return;
               e.preventDefault();
@@ -1899,8 +1932,12 @@ export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, 
               editor.onContextMenu({ nodeType: 'CONTAINER', nodeId: containerNode.id, columnIndex: forceColumnIndex, x: e.clientX, y: e.clientY });
             }}
           >
+            {containerCustomCss ? <style dangerouslySetInnerHTML={{ __html: containerCustomCss }} /> : null}
             <div
               style={columnStyle ?? undefined}
+              id={columnSettings?.cssId ? columnSettings.cssId : undefined}
+              className={columnSettings?.cssClasses ? String(columnSettings.cssClasses) : undefined}
+              data-site-node={columnNode?.id ? `column-${columnNode.id}` : undefined}
               onContextMenu={(e) => {
                 if (!editor?.onContextMenu || !columnNode?.id) return;
                 e.preventDefault();
@@ -1908,6 +1945,7 @@ export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, 
                 editor.onContextMenu({ nodeType: 'COLUMN', nodeId: columnNode.id, columnIndex: forceColumnIndex, x: e.clientX, y: e.clientY });
               }}
             >
+              {columnCustomCss ? <style dangerouslySetInnerHTML={{ __html: columnCustomCss }} /> : null}
               {comps.map((c, idx) => {
                 const selected = editor?.selectedIndex === idx;
 
@@ -2067,6 +2105,16 @@ export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, 
     const c = nodeToComponent(widgetNode);
     const selected = editor?.selectedIndex === idx;
 
+    const widgetSettings = getNodeSettings(widgetNode);
+    const widgetScopeSelector = widgetNode?.id ? `[data-site-node="widget-${widgetNode.id}"]` : '';
+    const widgetCustomCss = widgetScopeSelector ? buildScopedCustomCss(widgetNode, widgetScopeSelector) : '';
+
+    const editorOutlineClass = editor
+      ? (selected ? 'outline outline-2 outline-indigo-400/60' : 'outline outline-1 outline-transparent')
+      : '';
+    const widgetCssClasses = widgetSettings?.cssClasses ? String(widgetSettings.cssClasses) : '';
+    const widgetClassName = `${widgetCssClasses} ${editorOutlineClass}`.trim() || undefined;
+
     const onDrop = () => {
       if (!editor) return;
       if (editor.dragNewType) {
@@ -2085,6 +2133,9 @@ export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, 
         <DropZone index={idx} />
         <div
           data-builder-comp-idx={editor ? idx : undefined}
+          id={widgetSettings?.cssId ? widgetSettings.cssId : undefined}
+          className={widgetClassName}
+          data-site-node={widgetNode?.id ? `widget-${widgetNode.id}` : undefined}
           draggable={!!editor}
           onDragStart={() => editor?.onSetDragIndex?.(idx)}
           onDragOver={(e) => (editor ? e.preventDefault() : null)}
@@ -2095,8 +2146,8 @@ export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, 
             e.preventDefault();
             editor.onContextMenu({ componentIndex: idx, columnIndex: 0, x: e.clientX, y: e.clientY });
           }}
-          className={editor ? (selected ? 'outline outline-2 outline-indigo-400/60' : 'outline outline-1 outline-transparent') : ''}
         >
+          {widgetCustomCss ? <style dangerouslySetInnerHTML={{ __html: widgetCustomCss }} /> : null}
           <div style={computeComponentWrapperStyle(c)}>
             <RenderComponent
               component={c}
@@ -2121,10 +2172,17 @@ export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, 
         const containers = (sectionNode?.children ?? []).filter((n) => n?.type === 'CONTAINER');
         const effectiveContainers = containers.length ? containers : [null];
 
+        const sectionSettings = getNodeSettings(sectionNode);
+        const sectionScopeSelector = sectionNode?.id ? `[data-site-node="section-${sectionNode.id}"]` : '';
+        const sectionCustomCss = sectionScopeSelector ? buildScopedCustomCss(sectionNode, sectionScopeSelector) : '';
+
         return (
           <div
             key={sectionNode?.id ?? `section-${sidx}`}
             style={sectionStyle ?? undefined}
+            id={sectionSettings?.cssId ? sectionSettings.cssId : undefined}
+            className={sectionSettings?.cssClasses ? String(sectionSettings.cssClasses) : undefined}
+            data-site-node={sectionNode?.id ? `section-${sectionNode.id}` : undefined}
             onContextMenu={(e) => {
               if (!editor?.onContextMenu || !sectionNode?.id) return;
               e.preventDefault();
@@ -2132,6 +2190,7 @@ export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, 
               editor.onContextMenu({ nodeType: 'SECTION', nodeId: sectionNode.id, columnIndex: 0, x: e.clientX, y: e.clientY });
             }}
           >
+            {sectionCustomCss ? <style dangerouslySetInnerHTML={{ __html: sectionCustomCss }} /> : null}
             {effectiveContainers.map((containerNode, cidx) => {
               const containerStyle = computeContainerStyle(containerNode);
               const containerChildren = containerNode ? containerNode.children ?? [] : sectionNode?.children ?? [];
@@ -2150,10 +2209,17 @@ export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, 
 
               const shouldGrid = effectiveColumns.length > 1;
 
+              const containerSettings = getNodeSettings(containerNode);
+              const containerScopeSelector = containerNode?.id ? `[data-site-node="container-${containerNode.id}"]` : '';
+              const containerCustomCss = containerScopeSelector ? buildScopedCustomCss(containerNode, containerScopeSelector) : '';
+
               return (
                 <div
                   key={containerNode?.id ?? `container-${sidx}-${cidx}`}
                   style={containerStyle ?? undefined}
+                  id={containerSettings?.cssId ? containerSettings.cssId : undefined}
+                  className={containerSettings?.cssClasses ? String(containerSettings.cssClasses) : undefined}
+                  data-site-node={containerNode?.id ? `container-${containerNode.id}` : undefined}
                   onContextMenu={(e) => {
                     if (!editor?.onContextMenu || !containerNode?.id) return;
                     e.preventDefault();
@@ -2161,6 +2227,7 @@ export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, 
                     editor.onContextMenu({ nodeType: 'CONTAINER', nodeId: containerNode.id, columnIndex: 0, x: e.clientX, y: e.clientY });
                   }}
                 >
+                  {containerCustomCss ? <style dangerouslySetInnerHTML={{ __html: containerCustomCss }} /> : null}
                   <div className={shouldGrid ? 'grid grid-cols-12 gap-6 items-start' : ''}>
                     {effectiveColumns.map((colNode, colIdx) => {
                       let colWidth = Number(colNode?.props?.width);
@@ -2175,10 +2242,17 @@ export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, 
                       const gridColStyle = shouldGrid ? { gridColumn: `span ${colWidth} / span ${colWidth}` } : null;
                       const colStyle = colNode ? computeBuilderWrapperStyle(colNode) : null;
                       const widgets = (colNode?.children ?? []).filter((n) => n?.type === 'WIDGET');
+
+                      const colSettings = getNodeSettings(colNode);
+                      const colScopeSelector = colNode?.id ? `[data-site-node="column-${colNode.id}"]` : '';
+                      const colCustomCss = colScopeSelector ? buildScopedCustomCss(colNode, colScopeSelector) : '';
                       return (
                         <div
                           key={colNode?.id ?? `col-${sidx}-${cidx}-${colIdx}`}
                           style={{ ...(gridColStyle ?? null), ...(colStyle ?? null) }}
+                          id={colSettings?.cssId ? colSettings.cssId : undefined}
+                          className={colSettings?.cssClasses ? String(colSettings.cssClasses) : undefined}
+                          data-site-node={colNode?.id ? `column-${colNode.id}` : undefined}
                           onContextMenu={(e) => {
                             if (!editor?.onContextMenu || !colNode?.id) return;
                             e.preventDefault();
@@ -2186,6 +2260,7 @@ export function SiteRenderer({ pages, activePageIndex = 0, theme, designSystem, 
                             editor.onContextMenu({ nodeType: 'COLUMN', nodeId: colNode.id, columnIndex: colIdx, x: e.clientX, y: e.clientY });
                           }}
                         >
+                          {colCustomCss ? <style dangerouslySetInnerHTML={{ __html: colCustomCss }} /> : null}
                           {widgets.map((w) => renderWidgetNode(w, `${sectionNode?.id ?? sidx}-${containerNode?.id ?? cidx}-${colNode?.id ?? colIdx}`))}
                         </div>
                       );
