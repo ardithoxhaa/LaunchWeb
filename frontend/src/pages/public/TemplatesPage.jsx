@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api.js';
 import { useAuth } from '../../auth/AuthContext.jsx';
@@ -6,6 +6,18 @@ import { SiteRenderer } from '../../components/website/SiteRenderer.jsx';
 
 const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:5000/api';
 const ASSET_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '');
+
+const FEATURED_TEMPLATE_PREVIEW_IMAGES = [
+  '/template-previews/pixel-studio.png',
+  '/template-previews/shopnova.png',
+  '/template-previews/devfolio.png',
+  '/template-previews/bella-cucina.png',
+  '/template-previews/saveur.png',
+  '/template-previews/ironforge.png',
+  '/template-previews/nova.png',
+  '/template-previews/cloudpulse.png',
+  '/template-previews/prestige-estates.png',
+];
 
 export function TemplatesPage() {
   const nav = useNavigate();
@@ -56,6 +68,21 @@ export function TemplatesPage() {
     };
   }, []);
 
+  const templatesWithFeaturedPreviews = useMemo(() => {
+    const list = templates ?? [];
+    const featuredCount = Math.min(FEATURED_TEMPLATE_PREVIEW_IMAGES.length, list.length);
+
+    const featured = list.slice(0, featuredCount).map((t, idx) => {
+      return {
+        ...t,
+        __featured_preview_src: FEATURED_TEMPLATE_PREVIEW_IMAGES[idx],
+      };
+    });
+
+    const rest = list.slice(featuredCount);
+    return [...featured, ...rest];
+  }, [templates]);
+
   async function openPreview(templateId) {
     setPreviewOpen(true);
     setPreviewLoading(true);
@@ -78,9 +105,9 @@ export function TemplatesPage() {
     }
   }
 
-  const categories = ['ALL', ...Array.from(new Set((templates ?? []).map((t) => t.category).filter(Boolean))).sort((a, b) => a.localeCompare(b))];
+  const categories = ['ALL', ...Array.from(new Set((templatesWithFeaturedPreviews ?? []).map((t) => t.category).filter(Boolean))).sort((a, b) => a.localeCompare(b))];
   const q = query.trim().toLowerCase();
-  const filtered = (templates ?? []).filter((t) => {
+  const filtered = (templatesWithFeaturedPreviews ?? []).filter((t) => {
     if (category !== 'ALL' && t.category !== category) return false;
     if (!q) return true;
     return `${t.name ?? ''} ${t.category ?? ''}`.toLowerCase().includes(q);
@@ -192,9 +219,9 @@ export function TemplatesPage() {
             <div className="text-sm text-white/60">{t.category}</div>
             <div className="mt-2 text-lg font-semibold">{t.name}</div>
             <div className="mt-4 h-24 overflow-hidden rounded-lg bg-gradient-to-br from-white/10 to-transparent">
-              {t.preview_image_url ? (
+              {t.__featured_preview_src || t.preview_image_url ? (
                 <img
-                  src={`${ASSET_BASE_URL}${t.preview_image_url}`}
+                  src={t.__featured_preview_src ? t.__featured_preview_src : `${ASSET_BASE_URL}${t.preview_image_url}`}
                   alt={`${t.name} preview`}
                   className="h-full w-full object-cover"
                   loading="lazy"

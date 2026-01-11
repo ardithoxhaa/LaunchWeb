@@ -3,15 +3,23 @@
  * Represents a section in the page hierarchy (Section → Column → Widget)
  */
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { useBuilder } from '../store/builderStore.jsx';
 import { Column } from './Column';
 import { SectionToolbar } from './SectionToolbar';
+import { scopeCss } from '../utils/scopeCss.js';
 
 export function Section({ section, index, isSelected }) {
   const { state, actions } = useBuilder();
   const { drag, viewport } = state;
   const sectionRef = useRef(null);
+  const settings = section?.settings || {};
+
+  const scopeSelector = `[data-builder-node="section-${section?.id}"]`;
+  const scopedCustomCss = useMemo(() => {
+    if (!settings.customCSS) return '';
+    return scopeCss(settings.customCSS, scopeSelector, { rootId: settings.cssId, rootClasses: settings.cssClasses });
+  }, [settings.customCSS, settings.cssId, settings.cssClasses, scopeSelector]);
 
   const handleClick = useCallback((e) => {
     e.stopPropagation();
@@ -59,11 +67,21 @@ export function Section({ section, index, isSelected }) {
     width: '100%',
   };
 
+  const hiddenForViewport =
+    (viewport === 'desktop' && settings.hideOnDesktop) ||
+    (viewport === 'tablet' && settings.hideOnTablet) ||
+    (viewport === 'mobile' && settings.hideOnMobile);
+
+  if (hiddenForViewport) return null;
+
   return (
     <div
       ref={sectionRef}
+      id={settings.cssId ? settings.cssId : undefined}
+      data-builder-node={`section-${section.id}`}
       className={`
         group relative transition-all duration-200
+        ${settings.cssClasses ? settings.cssClasses : ''}
         ${isSelected ? 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-[#1a1a2e]' : ''}
         ${drag.isDragging && drag.dragType === 'section' && drag.dragId === section.id ? 'opacity-50' : ''}
       `}
@@ -72,6 +90,7 @@ export function Section({ section, index, isSelected }) {
       draggable
       onDragStart={handleDragStart}
     >
+      {scopedCustomCss ? <style dangerouslySetInnerHTML={{ __html: scopedCustomCss }} /> : null}
       {/* Section Toolbar */}
       <SectionToolbar
         section={section}

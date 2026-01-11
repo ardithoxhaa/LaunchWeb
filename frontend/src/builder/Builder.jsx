@@ -397,9 +397,9 @@ function transformBackendToDocument(pages) {
       const section = {
         id: node.id || generateId(),
         type: 'section',
-        settings: node.settings || {},
+        settings: node.settings || node.props || {},
         style: node.style || {},
-        responsiveStyle: node.responsiveStyle || {},
+        responsiveStyle: node.responsiveStyle || node.responsive || {},
         columns: [],
       };
 
@@ -411,13 +411,21 @@ function transformBackendToDocument(pages) {
           const containerChildren = Array.isArray(child.children) ? child.children : [];
           for (const colNode of containerChildren) {
             if (colNode.type === 'COLUMN') {
+              const rawWidth = colNode.width ?? colNode.props?.width;
+              const nextWidth =
+                Number.isFinite(Number(rawWidth)) && Number(rawWidth) > 0
+                  ? Number(rawWidth) <= 12
+                    ? Math.round((Number(rawWidth) / 12) * 100)
+                    : Number(rawWidth)
+                  : Math.floor(100 / containerChildren.length);
+
               const column = {
                 id: colNode.id || generateId(),
                 type: 'column',
-                width: colNode.width || Math.floor(100 / containerChildren.length),
-                settings: colNode.settings || {},
+                width: nextWidth,
+                settings: colNode.settings || colNode.props || {},
                 style: colNode.style || {},
-                responsiveStyle: colNode.responsiveStyle || {},
+                responsiveStyle: colNode.responsiveStyle || colNode.responsive || {},
                 widgets: [],
               };
 
@@ -431,7 +439,7 @@ function transformBackendToDocument(pages) {
                     widgetType: widgetNode.widgetType,
                     content: widgetNode.props || {},
                     style: widgetNode.style || {},
-                    responsiveStyle: widgetNode.responsiveStyle || {},
+                    responsiveStyle: widgetNode.responsiveStyle || widgetNode.responsive || {},
                     settings: widgetNode.settings || {},
                   });
                 }
@@ -442,13 +450,21 @@ function transformBackendToDocument(pages) {
           }
         } else if (child.type === 'COLUMN') {
           // Direct column child
+          const rawWidth = child.width ?? child.props?.width;
+          const nextWidth =
+            Number.isFinite(Number(rawWidth)) && Number(rawWidth) > 0
+              ? Number(rawWidth) <= 12
+                ? Math.round((Number(rawWidth) / 12) * 100)
+                : Number(rawWidth)
+              : 100;
+
           const column = {
             id: child.id || generateId(),
             type: 'column',
-            width: child.width || 100,
-            settings: child.settings || {},
+            width: nextWidth,
+            settings: child.settings || child.props || {},
             style: child.style || {},
-            responsiveStyle: child.responsiveStyle || {},
+            responsiveStyle: child.responsiveStyle || child.responsive || {},
             widgets: [],
           };
 
@@ -461,7 +477,7 @@ function transformBackendToDocument(pages) {
                 widgetType: widgetNode.widgetType,
                 content: widgetNode.props || {},
                 style: widgetNode.style || {},
-                responsiveStyle: widgetNode.responsiveStyle || {},
+                responsiveStyle: widgetNode.responsiveStyle || widgetNode.responsive || {},
                 settings: widgetNode.settings || {},
               });
             }
@@ -529,6 +545,7 @@ function transformDocumentToBackend(document, website) {
             id: column.id,
             type: 'COLUMN',
             props: { width: gridSpan },
+            settings: column.settings || {},
             style: column.style || {},
             responsive: column.responsiveStyle || {},
             children: (column.widgets || []).map(widget => ({
@@ -536,6 +553,7 @@ function transformDocumentToBackend(document, website) {
               type: 'WIDGET',
               widgetType: widget.widgetType,
               props: widget.content || {},
+              settings: widget.settings || {},
               style: widget.style || {},
               responsive: widget.responsiveStyle || {},
               children: [],
@@ -595,6 +613,7 @@ function transformDocumentToBackendSinglePage(document, page) {
             id: column.id,
             type: 'COLUMN',
             props: { width: gridSpan },
+            settings: column.settings || {},
             style: column.style || {},
             responsive: column.responsiveStyle || {},
             children: (column.widgets || []).map(widget => ({
@@ -602,6 +621,7 @@ function transformDocumentToBackendSinglePage(document, page) {
               type: 'WIDGET',
               widgetType: widget.widgetType,
               props: widget.content || {},
+              settings: widget.settings || {},
               style: widget.style || {},
               responsive: widget.responsiveStyle || {},
               children: [],

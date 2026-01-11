@@ -3,16 +3,24 @@
  * Represents a column within a section that contains widgets
  */
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { useBuilder } from '../store/builderStore.jsx';
 import { Widget } from './Widget';
 import { DropZone } from './DropZone';
 import { createWidgetInstance } from '../widgets/widgetRegistry';
+import { scopeCss } from '../utils/scopeCss.js';
 
 export function Column({ column, section, index, isSelected }) {
   const { state, actions } = useBuilder();
   const { drag, viewport, selection } = state;
   const columnRef = useRef(null);
+  const settings = column?.settings || {};
+
+  const scopeSelector = `[data-builder-node="column-${column?.id}"]`;
+  const scopedCustomCss = useMemo(() => {
+    if (!settings.customCSS) return '';
+    return scopeCss(settings.customCSS, scopeSelector, { rootId: settings.cssId, rootClasses: settings.cssClasses });
+  }, [settings.customCSS, settings.cssId, settings.cssClasses, scopeSelector]);
 
   const handleClick = useCallback((e) => {
     e.stopPropagation();
@@ -75,11 +83,21 @@ export function Column({ column, section, index, isSelected }) {
   const isEmpty = column.widgets.length === 0;
   const isDropTarget = drag.isDragging && drag.dropTarget === `column-${column.id}`;
 
+  const hiddenForViewport =
+    (viewport === 'desktop' && settings.hideOnDesktop) ||
+    (viewport === 'tablet' && settings.hideOnTablet) ||
+    (viewport === 'mobile' && settings.hideOnMobile);
+
+  if (hiddenForViewport) return null;
+
   return (
     <div
       ref={columnRef}
+      id={settings.cssId ? settings.cssId : undefined}
+      data-builder-node={`column-${column.id}`}
       className={`
         group/column relative transition-all duration-200
+        ${settings.cssClasses ? settings.cssClasses : ''}
         ${isSelected ? 'ring-2 ring-cyan-500 ring-inset' : ''}
         ${isDropTarget ? 'bg-indigo-500/10 ring-2 ring-indigo-500/50 ring-dashed' : ''}
       `}
@@ -88,6 +106,7 @@ export function Column({ column, section, index, isSelected }) {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >
+      {scopedCustomCss ? <style dangerouslySetInnerHTML={{ __html: scopedCustomCss }} /> : null}
       {/* Column Label */}
       <div className={`
         absolute -top-6 left-1/2 -translate-x-1/2

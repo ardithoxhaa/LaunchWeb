@@ -48,8 +48,8 @@ export function AssetsPage() {
           <div className="text-sm text-white/60">Website #{websiteId}</div>
         </div>
         <div className="flex items-center gap-2">
-          <Link className="rounded-md bg-white/10 px-3 py-2 text-sm font-medium hover:bg-white/15" to={`/editor/${websiteId}`}>
-            Back to editor
+          <Link className="rounded-md bg-white/10 px-3 py-2 text-sm font-medium hover:bg-white/15" to={`/builder/${websiteId}`}>
+            Back to builder
           </Link>
           <label className="rounded-md bg-indigo-500 px-3 py-2 text-sm font-medium hover:bg-indigo-400 cursor-pointer">
             {uploading ? 'Uploading…' : 'Upload image'}

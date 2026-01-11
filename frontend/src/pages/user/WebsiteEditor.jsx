@@ -455,12 +455,14 @@ export function WebsiteEditor() {
           >
             Advanced builder
           </Link>
-          <Link
-            className="rounded-md bg-indigo-500 px-3 py-2 text-sm font-medium hover:bg-indigo-400"
-            to={`/builder-v2/${websiteId}`}
+          <button
+            type="button"
+            disabled
+            className="rounded-md bg-indigo-500/40 px-3 py-2 text-sm font-medium text-white/70 cursor-not-allowed"
+            title="Builder V2 is not available in this build"
           >
             Builder V2 ✨
-          </Link>
+          </button>
           <Link
             className="rounded-md bg-white/10 px-3 py-2 text-sm font-medium hover:bg-white/15"
             to={`/draft-preview/${websiteId}`}

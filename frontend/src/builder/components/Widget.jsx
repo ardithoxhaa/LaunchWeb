@@ -3,16 +3,24 @@
  * Renders individual widgets with editing capabilities
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useBuilder } from '../store/builderStore.jsx';
 import { getWidget } from '../widgets/widgetRegistry';
 import { WidgetRenderer } from './WidgetRenderer';
+import { scopeCss } from '../utils/scopeCss.js';
 
 export function Widget({ widget, section, column, index, isSelected }) {
   const { state, actions } = useBuilder();
   const { drag, viewport } = state;
   const widgetRef = useRef(null);
   const [isEditing, setIsEditing] = useState(false);
+  const settings = widget?.settings || {};
+
+  const scopeSelector = `[data-builder-node="widget-${widget?.id}"]`;
+  const scopedCustomCss = useMemo(() => {
+    if (!settings.customCSS) return '';
+    return scopeCss(settings.customCSS, scopeSelector, { rootId: settings.cssId, rootClasses: settings.cssClasses });
+  }, [settings.customCSS, settings.cssId, settings.cssClasses, scopeSelector]);
 
   const widgetDef = getWidget(widget.widgetType);
 
@@ -67,11 +75,21 @@ export function Widget({ widget, section, column, index, isSelected }) {
 
   const isDragging = drag.isDragging && drag.dragType === 'widget' && drag.dragId === widget.id;
 
+  const hiddenForViewport =
+    (viewport === 'desktop' && settings.hideOnDesktop) ||
+    (viewport === 'tablet' && settings.hideOnTablet) ||
+    (viewport === 'mobile' && settings.hideOnMobile);
+
+  if (hiddenForViewport) return null;
+
   return (
     <div
       ref={widgetRef}
+      id={settings.cssId ? settings.cssId : undefined}
+      data-builder-node={`widget-${widget.id}`}
       className={`
         group/widget relative transition-all duration-150
+        ${settings.cssClasses ? settings.cssClasses : ''}
         ${isSelected ? 'ring-2 ring-emerald-500 ring-offset-1 ring-offset-transparent' : ''}
         ${isDragging ? 'opacity-50 scale-95' : ''}
       `}
@@ -81,6 +99,7 @@ export function Widget({ widget, section, column, index, isSelected }) {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
+      {scopedCustomCss ? <style dangerouslySetInnerHTML={{ __html: scopedCustomCss }} /> : null}
       {/* Widget Toolbar */}
       {isSelected && (
         <div className="absolute -top-9 left-0 right-0 flex items-center justify-between z-10">
