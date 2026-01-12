@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../lib/api.js';
 import { useAuth } from '../../auth/AuthContext.jsx';
 import { AdminDashboardSkeleton } from '../../components/Skeleton.jsx';
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 function Table({
   columns,
@@ -139,6 +140,7 @@ export function AdminDashboard() {
   const [showCreateTemplate, setShowCreateTemplate] = useState(false);
   const [newTplName, setNewTplName] = useState('');
   const [newTplCategory, setNewTplCategory] = useState('');
+  const [dateRange, setDateRange] = useState('30'); // 7, 30, 90 days
 
   useEffect(() => {
     let canceled = false;
@@ -253,6 +255,88 @@ export function AdminDashboard() {
         <StatCard label="Drafts" value={stats?.draftWebsites} />
         <StatCard label="Page Views (30d)" value={stats?.totalPageViews?.toLocaleString() || '0'} />
         <StatCard label="New Users (7d)" value={stats?.newUsersThisWeek} />
+      </div>
+
+      {/* Quick Overview Charts */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Website Status Distribution */}
+        <div className="space-y-2">
+          <div className="text-sm font-semibold">Website Status</div>
+          <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie
+                  data={[
+                    { name: 'Published', value: stats?.publishedWebsites || 0 },
+                    { name: 'Drafts', value: stats?.draftWebsites || 0 }
+                  ]}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={60}
+                  label={({name, value}) => `${name}: ${value}`}
+                >
+                  <Cell fill="#10b981" />
+                  <Cell fill="#f59e0b" />
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#1f2937', border: '1px solid rgba(255,255,255,0.1)' }}
+                  labelStyle={{ color: '#fff' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Growth Metrics */}
+        <div className="space-y-2">
+          <div className="text-sm font-semibold">Growth Metrics</div>
+          <div className="rounded-xl border border-white/10 bg-black/20 p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-white/60">User Growth</span>
+              <span className="text-sm font-semibold text-green-400">+{stats?.newUsersThisWeek || 0}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-white/60">Website Activity</span>
+              <span className="text-sm font-semibold text-blue-400">{stats?.newWebsitesThisWeek || 0}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-white/60">Publish Rate</span>
+              <span className="text-sm font-semibold text-purple-400">
+                {stats?.websites ? Math.round((stats?.publishedWebsites / stats?.websites) * 100) : 0}%
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-white/60">Avg Views/Site</span>
+              <span className="text-sm font-semibold text-orange-400">
+                {Math.round(stats?.avgViewsPerSite || 0)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Activity */}
+        <div className="space-y-2">
+          <div className="text-sm font-semibold">Recent Activity</div>
+          <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                <div className="text-xs text-white/80">System Active</div>
+              </div>
+              <div className="text-xs text-white/60">
+                {stats?.totalPageViews ? `${stats.totalPageViews.toLocaleString()} page views this month` : 'No page view data'}
+              </div>
+              <div className="text-xs text-white/60">
+                {stats?.users ? `${stats.users} total users registered` : 'No user data'}
+              </div>
+              <div className="text-xs text-white/60">
+                {stats?.websites ? `${stats.websites} websites created` : 'No website data'}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {activeTab !== 'overview' ? (
@@ -373,21 +457,111 @@ export function AdminDashboard() {
       ) : null}
 
       {activeTab === 'analytics' ? (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* Template Usage */}
+        <>
+          {/* Date Range Filter */}
+          <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="text-sm font-semibold">Analytics Dashboard</div>
+            <div className="flex items-center gap-2">
+              <div className="text-xs text-white/50">Time Range:</div>
+              <select
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+                className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white/90"
+              >
+                <option value="7">Last 7 days</option>
+                <option value="30">Last 30 days</option>
+                <option value="90">Last 90 days</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* Template Usage Pie Chart */}
           <div className="space-y-2">
-            <div className="text-sm font-semibold">Template Usage</div>
-            <Table
-              rowKey={(r) => r.name}
-              columns={[
-                { key: 'name', label: 'Template' },
-                { key: 'category', label: 'Category' },
-                { key: 'usageCount', label: 'Usage' },
-                { key: 'usagePercentage', label: '%', render: (r) => `${r.usagePercentage}%` },
-              ]}
-              rows={analytics?.templateUsage || []}
-              emptyText="No template usage data."
-            />
+            <div className="text-sm font-semibold">Template Usage Distribution</div>
+            <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={analytics?.templateUsage?.slice(0, 5) || []}
+                    dataKey="usageCount"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    label={({name, percentage}) => `${name}: ${percentage}%`}
+                  >
+                    <Cell fill="#8b5cf6" />
+                    <Cell fill="#3b82f6" />
+                    <Cell fill="#10b981" />
+                    <Cell fill="#f59e0b" />
+                    <Cell fill="#ef4444" />
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#1f2937', border: '1px solid rgba(255,255,255,0.1)' }}
+                    labelStyle={{ color: '#fff' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* User Registration Line Chart */}
+          <div className="space-y-2">
+            <div className="text-sm font-semibold">User Registration Trends (30d)</div>
+            <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={analytics?.userTrends?.reverse().slice(0, 30) || []}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="#9ca3af"
+                    tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  />
+                  <YAxis stroke="#9ca3af" />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#1f2937', border: '1px solid rgba(255,255,255,0.1)' }}
+                    labelStyle={{ color: '#fff' }}
+                    formatter={(value) => [`${value} users`, 'Registrations']}
+                    labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="registrations" 
+                    stroke="#8b5cf6" 
+                    strokeWidth={2}
+                    dot={{ fill: '#8b5cf6', r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Website Creation Bar Chart */}
+          <div className="space-y-2">
+            <div className="text-sm font-semibold">Website Creation Trends (30d)</div>
+            <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={analytics?.websiteTrends?.reverse().slice(0, 14) || []}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="#9ca3af"
+                    tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  />
+                  <YAxis stroke="#9ca3af" />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#1f2937', border: '1px solid rgba(255,255,255,0.1)' }}
+                    labelStyle={{ color: '#fff' }}
+                    labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                  />
+                  <Legend wrapperStyle={{ color: '#9ca3af' }} />
+                  <Bar dataKey="creations" fill="#10b981" name="Created" />
+                  <Bar dataKey="published" fill="#3b82f6" name="Published" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
           {/* Top Websites */}
@@ -405,61 +579,8 @@ export function AdminDashboard() {
               emptyText="No website traffic data."
             />
           </div>
-
-          {/* User Registration Trends */}
-          <div className="space-y-2">
-            <div className="text-sm font-semibold">User Registration Trends (30d)</div>
-            <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-              <div className="grid grid-cols-7 gap-2 text-xs">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                  <div key={day} className="text-center text-white/50 font-medium">{day}</div>
-                ))}
-              </div>
-              <div className="mt-2 space-y-1">
-                {analytics?.userTrends?.slice(0, 4).map((trend, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <div className="text-xs text-white/60 w-20">
-                      {new Date(trend.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </div>
-                    <div className="flex-1 bg-white/10 rounded-full h-4 relative overflow-hidden">
-                      <div 
-                        className="absolute inset-y-0 left-0 bg-indigo-500 rounded-full transition-all"
-                        style={{ width: `${Math.min((trend.registrations / 5) * 100, 100)}%` }}
-                      />
-                    </div>
-                    <div className="text-xs text-white/80 w-8 text-right">{trend.registrations}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
-
-          {/* Website Creation Trends */}
-          <div className="space-y-2">
-            <div className="text-sm font-semibold">Website Creation Trends (30d)</div>
-            <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-              <div className="space-y-2">
-                {analytics?.websiteTrends?.slice(0, 6).map((trend, idx) => (
-                  <div key={idx} className="flex items-center justify-between">
-                    <div className="text-xs text-white/60">
-                      {new Date(trend.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full" />
-                        <div className="text-xs text-white/80">{trend.creations} created</div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                        <div className="text-xs text-white/80">{trend.published} published</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+        </>
       ) : null}
 
       {activeTab === 'overview' ? (
