@@ -40,7 +40,7 @@ export const adminService = {
         ) AS site_views
       `);
     } catch (error) {
-      console.log('Analytics table not found or missing created_at column:', error.message);
+      // Analytics table not found or missing created_at column - continue without this data
     }
 
     // Template usage analytics
@@ -59,7 +59,7 @@ export const adminService = {
         LIMIT 10
       `);
     } catch (error) {
-      console.log('Template usage query failed:', error.message);
+      // Template usage query failed - continue without this data
     }
 
     // User registration trends (last 30 days)
@@ -77,9 +77,9 @@ export const adminService = {
       `);
     } catch (error) {
       if (error.code === 'ER_NO_SUCH_TABLE') {
-        console.log('Users table not found, skipping user trends analytics');
+        // Users table not found, skipping user trends analytics
       } else {
-        console.log('User trends query failed:', error.message);
+        // User trends query failed - continue without this data
       }
     }
 
@@ -99,9 +99,9 @@ export const adminService = {
       `);
     } catch (error) {
       if (error.code === 'ER_NO_SUCH_TABLE') {
-        console.log('Websites table not found, skipping website trends analytics');
+        // Websites table not found, skipping website trends analytics
       } else {
-        console.log('Website trends query failed:', error.message);
+        // Website trends query failed - continue without this data
       }
     }
 
@@ -124,7 +124,7 @@ export const adminService = {
         LIMIT 10
       `);
     } catch (error) {
-      console.log('Top websites query failed:', error.message);
+      // Top websites query failed - continue without this data
     }
 
     return {

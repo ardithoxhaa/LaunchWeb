@@ -40,9 +40,22 @@ body {
 .light-theme .bg-black\/30,
 .light-theme .bg-black\/20,
 .light-theme .bg-black\/80 {
-  background-color: rgba(255, 255, 255, 0.9) !important;
+  background-color: rgba(0, 0, 0, 0.05) !important;
 }
 
+.light-theme .bg-black\/60 {
+  background-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.light-theme .bg-gradient-to-br {
+  background: linear-gradient(to bottom right, rgba(99, 102, 241, 0.1), transparent) !important;
+}
+
+.light-theme .bg-\#070a12,
+.light-theme .bg-\#0f0f1a,
+.light-theme .bg-\#0a0a12,
+.light-theme .bg-\#1e1e2d,
+.light-theme .bg-\#0b0f1a,
 .light-theme .bg-\[\#070a12\],
 .light-theme .bg-\[\#0f0f1a\],
 .light-theme .bg-\[\#0a0a12\],
@@ -57,6 +70,26 @@ body {
 
 .light-theme .text-white {
   color: #1e293b !important;
+}
+
+.light-theme .text-indigo-400 {
+  color: #4f46e5 !important;
+}
+
+.light-theme .text-green-500 {
+  color: #10b981 !important;
+}
+
+.light-theme .text-red-500 {
+  color: #ef4444 !important;
+}
+
+.light-theme .text-yellow-500 {
+  color: #f59e0b !important;
+}
+
+.light-theme .text-blue-500 {
+  color: #3b82f6 !important;
 }
 
 .light-theme .text-white\/80,
@@ -80,10 +113,435 @@ body {
   background-color: rgba(0, 0, 0, 0.1) !important;
 }
 
+.light-theme .hover\:bg-indigo-400:hover {
+  background-color: #6366f1 !important;
+}
+
+.light-theme .hover\:bg-indigo-500:hover {
+  background-color: #4f46e5 !important;
+}
+
+.light-theme .hover\:opacity-90:hover {
+  opacity: 0.9 !important;
+}
+
+.light-theme .hover\:opacity-80:hover {
+  opacity: 0.8 !important;
+}
+
 .light-theme .from-indigo-500\/15 {
   --tw-gradient-from: rgba(99, 102, 241, 0.1) !important;
 }
 
+.light-theme .bg-indigo-500 {
+  background-color: #4f46e5 !important;
+}
+
+.light-theme .bg-indigo-500\/20 {
+  background-color: rgba(79, 70, 229, 0.2) !important;
+}
+
+.light-theme .bg-green-500 {
+  background-color: #10b981 !important;
+}
+
+.light-theme .bg-red-500 {
+  background-color: #ef4444 !important;
+}
+
+.light-theme .bg-yellow-500 {
+  background-color: #f59e0b !important;
+}
+
 .light-theme .placeholder\:text-white\/40::placeholder {
+  color: rgba(0, 0, 0, 0.4) !important;
+}
+
+.light-theme .border-white\/10 {
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.light-theme .border-t-white\/10 {
+  border-top-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.light-theme .border-b-white\/10 {
+  border-bottom-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.light-theme .ring-white\/10 {
+  --tw-ring-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.light-theme .shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.light-theme .backdrop-blur-sm {
+  backdrop-filter: blur(4px) !important;
+}
+
+.light-theme .backdrop-blur {
+  backdrop-filter: blur(8px) !important;
+}
+
+/* Form inputs */
+.light-theme input[type="text"],
+.light-theme input[type="email"],
+.light-theme input[type="password"],
+.light-theme textarea,
+.light-theme select {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  color: #1e293b !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.light-theme input[type="text"]::placeholder,
+.light-theme input[type="email"]::placeholder,
+.light-theme input[type="password"]::placeholder,
+.light-theme textarea::placeholder {
+  color: rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Scrollbar */
+.light-theme ::-webkit-scrollbar {
+  width: 8px;
+}
+
+.light-theme ::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.light-theme ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+/* Additional light theme fixes for better contrast */
+.light-theme .bg-black\/40 {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.light-theme .bg-black\/50 {
+  background-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+.light-theme .text-white\/30 {
+  color: rgba(0, 0, 0, 0.6) !important;
+}
+
+.light-theme .text-white\/20 {
+  color: rgba(0, 0, 0, 0.5) !important;
+}
+
+.light-theme .border-white\/20 {
+  border-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+.light-theme .hover\:bg-black\/20:hover {
+  background-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.light-theme .hover\:bg-black\/30:hover {
+  background-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+/* Fix for specific components */
+.light-theme .rounded-xl.border.border-white\/10.bg-white\/5 {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.light-theme .rounded-xl.border.border-white\/10.bg-black\/20 {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Table fixes */
+.light-theme table {
+  background-color: #ffffff !important;
+}
+
+.light-theme th {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  color: #1e293b !important;
+}
+
+.light-theme td {
+  color: #1e293b !important;
+}
+
+/* Builder-specific light theme fixes */
+.light-theme .bg-\[\#1e1e2d\] {
+  background-color: #f8fafc !important;
+}
+
+.light-theme .bg-\[\#0b0f1a\] {
+  background-color: #ffffff !important;
+}
+
+.light-theme .bg-\[\#0a0a12\] {
+  background-color: #ffffff !important;
+}
+
+.light-theme .bg-\[\#070a12\] {
+  background-color: #f8fafc !important;
+}
+
+.light-theme .bg-\[\#0f0f1a\] {
+  background-color: #ffffff !important;
+}
+
+/* Builder panels and headers */
+.light-theme header.h-14.bg-\[\#1e1e2d\] {
+  background-color: #f8fafc !important;
+  border-bottom-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.light-theme .w-\[300px\].bg-\[\#1e1e2d\] {
+  background-color: #f8fafc !important;
+  border-right-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.light-theme .w-\[350px\].bg-\[\#1e1e2d\] {
+  background-color: #f8fafc !important;
+  border-left-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Builder canvas */
+.light-theme .bg-\[\#0a0a12\] {
+  background-color: #ffffff !important;
+}
+
+/* Tabs and buttons in builder */
+.light-theme .bg-white\/5 {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.light-theme .hover\:bg-white\/10:hover {
+  background-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Widget cards in builder */
+.light-theme .bg-black\/20 {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.light-theme .hover\:bg-black\/30:hover {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Right panel sections */
+.light-theme .bg-\[\#1a1a2e\] {
+  background-color: #f8fafc !important;
+}
+
+.light-theme .bg-\[\#16213e\] {
+  background-color: #ffffff !important;
+}
+
+/* Form inputs in builder */
+.light-theme .bg-black\/30 {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  color: #1e293b !important;
+}
+
+.light-theme .placeholder\:text-white\/40::placeholder {
+  color: rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Text colors in builder */
+.light-theme .text-white\/60 {
+  color: rgba(0, 0, 0, 0.6) !important;
+}
+
+.light-theme .text-white\/80 {
+  color: rgba(0, 0, 0, 0.8) !important;
+}
+
+.light-theme .text-white\/90 {
+  color: rgba(0, 0, 0, 0.9) !important;
+}
+
+.light-theme .hover\:text-white:hover {
+  color: rgba(0, 0, 0, 0.9) !important;
+}
+
+/* Divider lines */
+.light-theme .bg-white\/10 {
+  background-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.light-theme .border-white\/10 {
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Active states */
+.light-theme .bg-white\/20 {
+  background-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Scrollbar for builder panels */
+.light-theme .overflow-auto::-webkit-scrollbar {
+  width: 6px;
+}
+
+.light-theme .overflow-auto::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.light-theme .overflow-auto::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.light-theme .overflow-auto::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Builder dropdowns and selects */
+.light-theme select {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  color: #1e293b !important;
+}
+
+.light-theme .bg-gray-800 {
+  background-color: #ffffff !important;
+}
+
+.light-theme select option {
+  background-color: #ffffff !important;
+  color: #1e293b !important;
+}
+
+/* SelectField component specific */
+.light-theme .w-full.px-3.py-2.rounded-lg.bg-gray-800 {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  color: #1e293b !important;
+}
+
+.light-theme .w-full.px-3.py-2.rounded-lg.bg-gray-800.border.border-white\/10 {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  color: #1e293b !important;
+}
+
+.light-theme .w-28.px-2.py-1\.5.rounded.bg-white\/5 {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  color: #1e293b !important;
+}
+
+/* SEO Editor selects */
+.light-theme .w-full.rounded-xl.border.border-white\/10.bg-white\/5 {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  color: #1e293b !important;
+}
+
+/* Modal overlays */
+.light-theme .bg-black\/70 {
+  background-color: rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Version History and SEO Editor modals */
+.light-theme .bg-\[\#1e1e2d\] {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Floating toolbars and tooltips */
+.light-theme .bg-indigo-600 {
+  background-color: #4f46e5 !important;
+}
+
+.light-theme .bg-emerald-500 {
+  background-color: #10b981 !important;
+}
+
+/* Widget toolbar */
+.light-theme .bg-emerald-500.rounded.text-xs.font-medium.text-white {
+  background-color: #10b981 !important;
+  color: #ffffff !important;
+}
+
+/* Section toolbar */
+.light-theme .bg-indigo-600.rounded-lg.px-2.py-1\.5 {
+  background-color: #4f46e5 !important;
+}
+
+/* Add column button */
+.light-theme .bg-indigo-500.hover\:bg-indigo-400 {
+  background-color: #4f46e5 !important;
+}
+
+.light-theme .bg-indigo-500.hover\:bg-indigo-400:hover {
+  background-color: #6366f1 !important;
+}
+
+/* Delete buttons */
+.light-theme .bg-red-500\/80 {
+  background-color: rgba(239, 68, 68, 0.8) !important;
+}
+
+.light-theme .bg-red-500 {
+  background-color: #ef4444 !important;
+}
+
+/* Upload buttons */
+.light-theme .bg-white\/5.border.border-white\/10 {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  color: #1e293b !important;
+}
+
+.light-theme .bg-white\/5.border.border-white\/10:hover {
+  background-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Navbar profile dropdown */
+.light-theme .absolute.right-0.z-50.mt-2.w-44.overflow-hidden.rounded-xl.border.border-white\/10.bg-black\/80 {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.light-theme .absolute.right-0.z-50.mt-2.w-44.overflow-hidden.rounded-xl.border.border-white\/10.bg-black\/80 .block.px-3.py-2.text-sm.text-white\/80 {
+  color: #1e293b !important;
+}
+
+.light-theme .absolute.right-0.z-50.mt-2.w-44.overflow-hidden.rounded-xl.border.border-white\/10.bg-black\/80 .block.px-3.py-2.text-sm.text-white\/80:hover {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  color: #1e293b !important;
+}
+
+.light-theme .absolute.right-0.z-50.mt-2.w-44.overflow-hidden.rounded-xl.border.border-white\/10.bg-black\/80 .flex.w-full.items-center.justify-between.px-3.py-2.text-sm.text-white\/80 {
+  color: #1e293b !important;
+}
+
+.light-theme .absolute.right-0.z-50.mt-2.w-44.overflow-hidden.rounded-xl.border.border-white\/10.bg-black\/80 .flex.w-full.items-center.justify-between.px-3.py-2.text-sm.text-white\/80:hover {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  color: #1e293b !important;
+}
+
+.light-theme .absolute.right-0.z-50.mt-2.w-44.overflow-hidden.rounded-xl.border.border-white\/10.bg-black\/80 .block.w-full.px-3.py-2.text-left.text-sm.text-white\/80 {
+  color: #1e293b !important;
+}
+
+.light-theme .absolute.right-0.z-50.mt-2.w-44.overflow-hidden.rounded-xl.border.border-white\/10.bg-black\/80 .block.w-full.px-3.py-2.text-left.text-sm.text-white\/80:hover {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  color: #1e293b !important;
+}
+
+.light-theme .absolute.right-0.z-50.mt-2.w-44.overflow-hidden.rounded-xl.border.border-white\/10.bg-black\/80 .my-1.border-t.border-white\/10 {
+  border-top-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Theme toggle button text */
+.light-theme .absolute.right-0.z-50.mt-2.w-44.overflow-hidden.rounded-xl.border.border-white\/10.bg-black\/80 .text-xs.text-white\/40 {
   color: rgba(0, 0, 0, 0.4) !important;
 }

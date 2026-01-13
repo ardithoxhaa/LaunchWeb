@@ -77,16 +77,6 @@ export function Navbar() {
               <Link className="rounded-md bg-white/10 px-3 py-1.5 hover:bg-white/15" to="/dashboard">
                 Dashboard
               </Link>
-              {Number.isFinite(websiteId) ? (
-                <Link className="rounded-md bg-white/10 px-3 py-1.5 hover:bg-white/15" to={`/builder/${websiteId}`}>
-                  Builder
-                </Link>
-              ) : null}
-              {user?.role === 'ADMIN' ? (
-                <Link className="rounded-md bg-white/10 px-3 py-1.5 hover:bg-white/15" to="/admin">
-                  Admin
-                </Link>
-              ) : null}
               <div className="relative" ref={menuRef}>
                 <button
                   type="button"
@@ -111,6 +101,15 @@ export function Navbar() {
                     >
                       Settings
                     </Link>
+                    {user?.role === 'ADMIN' && (
+                      <Link
+                        className="block px-3 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white"
+                        to="/admin"
+                        onClick={() => setOpen(false)}
+                      >
+                        Admin Dashboard
+                      </Link>
+                    )}
                     <button
                       type="button"
                       onClick={() => {
