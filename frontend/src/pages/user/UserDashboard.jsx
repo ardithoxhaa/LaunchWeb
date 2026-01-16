@@ -265,6 +265,37 @@ export function UserDashboard() {
           >
             Create website from template
           </button>
+          
+          <div className="mt-3 text-center text-sm text-white/40">or</div>
+          
+          <button
+            type="button"
+            disabled={
+              busy ||
+              !selectedBusinessId ||
+              !newWebsiteName.trim()
+            }
+            onClick={async () => {
+              try {
+                setBusy(true);
+                setError(null);
+                const { data } = await api.post('/websites/blank', {
+                  businessId: Number(selectedBusinessId),
+                  name: newWebsiteName.trim(),
+                });
+                setWebsites([data.website, ...websites]);
+                setNewWebsiteName('');
+                toast.success('Blank website created! Start building from scratch.');
+              } catch (err) {
+                setError(err?.response?.data?.error?.message ?? 'Failed to create blank website');
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="w-full rounded-md border border-white/20 bg-white/5 px-3 py-2 text-sm font-medium hover:bg-white/10 disabled:opacity-50"
+          >
+            🎨 Build from scratch
+          </button>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-5 lg:col-span-5">
