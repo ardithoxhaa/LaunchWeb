@@ -54,7 +54,8 @@ export default function App() {
         <Route path="/site/:slug/*" element={<PublicSitePage />} />
 
         <Route element={<AppShell />}>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="/home" element={<HomePage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/templates" element={<TemplatesHubPage />} />
           <Route path="/templates/browse" element={<TemplatesPage />} />

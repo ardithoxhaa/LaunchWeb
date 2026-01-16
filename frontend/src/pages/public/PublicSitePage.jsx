@@ -125,8 +125,8 @@ export function PublicSitePage() {
             </>
           )}
           <Link
-            to="/"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-500 hover:bg-indigo-400 rounded-lg font-medium transition-colors"
+            to="/home"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-500 hover:bg-indigo-400 rounded-lg font-medium text-white transition-colors"
           >
             ← Back to Home
           </Link>

@@ -48,12 +48,12 @@ export function Navbar() {
   return (
     <header className="relative z-50 border-b border-white/10 bg-black/30 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-        <Link to="/" className="text-lg font-semibold tracking-tight">
+        <Link to="/home" className="text-lg font-semibold tracking-tight">
           LaunchWeb
         </Link>
 
         <nav className="flex items-center gap-4 text-sm">
-          <Link className="text-white/80 hover:text-white" to="/">
+          <Link className="text-white/80 hover:text-white" to="/home">
             Home
           </Link>
           <Link className="text-white/80 hover:text-white" to="/templates">

@@ -4,6 +4,110 @@ import { withTransaction } from '../../utils/dbTx.js';
 import { slugify } from '../../utils/slugify.js';
 import crypto from 'node:crypto';
 
+const INDUSTRY_IMAGES = {
+  restaurant: [
+    'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200',
+    'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=1200',
+    'https://images.unsplash.com/photo-1559329007-40df8a9345d8?w=1200',
+    'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200',
+    'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200',
+    'https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=1200',
+  ],
+  portfolio: [
+    'https://images.unsplash.com/photo-1559028006-848e6e5bf1c0?w=1200',
+    'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1200',
+    'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200',
+    'https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=1200',
+    'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=1200',
+    'https://images.unsplash.com/photo-1551434678-e076c223a692?w=1200',
+  ],
+  saas: [
+    'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200',
+    'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200',
+    'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=1200',
+    'https://images.unsplash.com/photo-1552664730-d307ca884978?w=1200',
+    'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1200',
+    'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=1200',
+  ],
+  ecommerce: [
+    'https://images.unsplash.com/photo-1556740738-b6a63e27c4df?w=1200',
+    'https://images.unsplash.com/photo-1472851294608-61862f281c3d?w=1200',
+    'https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=1200',
+    'https://images.unsplash.com/photo-1448630360428-65456885c650?w=1200',
+    'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200',
+    'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=1200',
+  ],
+  agency: [
+    'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=1200',
+    'https://images.unsplash.com/photo-1551434678-e076c223a692?w=1200',
+    'https://images.unsplash.com/photo-1559028006-848e6e5bf1c0?w=1200',
+    'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1200',
+    'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200',
+    'https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=1200',
+  ],
+  medical: [
+    'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=1200',
+    'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=1200',
+    'https://images.unsplash.com/photo-1551190822-a933d811c8e1?w=1200',
+    'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=1200',
+    'https://images.unsplash.com/photo-1538108149393-fbbd81895907?w=1200',
+    'https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=1200',
+  ],
+  fitness: [
+    'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=1200',
+    'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=1200',
+    'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=1200',
+    'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=1200',
+    'https://images.unsplash.com/photo-1550345332-09e3ac987658?w=1200',
+    'https://images.unsplash.com/photo-1517851905240-472988babdf9?w=1200',
+  ],
+  realestate: [
+    'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200',
+    'https://images.unsplash.com/photo-1564013799919-600e31696d0c?w=1200',
+    'https://images.unsplash.com/photo-1560185007-c5ca9d2c014d?w=1200',
+    'https://images.unsplash.com/photo-1448630360428-65456885c650?w=1200',
+    'https://images.unsplash.com/photo-1512917770080-f791ba4474f6?w=1200',
+    'https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=1200',
+  ],
+  education: [
+    'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1200',
+    'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=1200',
+    'https://images.unsplash.com/photo-1581078426770-6b3f38f94d8e?w=1200',
+    'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=1200',
+    'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=1200',
+    'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=1200',
+  ],
+  default: [
+    'https://images.unsplash.com/photo-1559028006-848e6e5bf1c0?w=1200',
+    'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1200',
+    'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200',
+    'https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=1200',
+    'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=1200',
+    'https://images.unsplash.com/photo-1551434678-e076c223a692?w=1200',
+  ],
+};
+
+function getCategoryImages(category) {
+  const categoryMap = {
+    'Restaurant': 'restaurant',
+    'Ecommerce': 'ecommerce',
+    'Marketplace': 'ecommerce',
+    'Sports': 'fitness',
+    'Apparel': 'ecommerce',
+    'Portfolio': 'portfolio',
+    'Agency': 'agency',
+    'Software': 'saas',
+    'Entertainment': 'saas',
+    'Medical': 'medical',
+    'Education': 'education',
+    'Real Estate': 'realestate',
+    'Fitness': 'fitness',
+  };
+
+  const industry = categoryMap[category] || 'default';
+  return INDUSTRY_IMAGES[industry] || INDUSTRY_IMAGES.default;
+}
+
 function defaultDesignSystem({ brandName }) {
   return {
     colors: {
@@ -124,6 +228,43 @@ function enhanceHomePageComponents({ components, templateName, category }) {
   const hasType = (t) => comps.some((c) => c?.type === t);
 
   const inserted = [...comps];
+  
+  // Get category-specific images
+  const categoryImages = getCategoryImages(category);
+
+  // Add HERO section if it doesn't exist
+  const heroIndex = inserted.findIndex((c) => c.type === 'HERO');
+  if (heroIndex < 0 && categoryImages.length > 0) {
+    console.log(`Adding HERO section to template ${templateName} with image:`, categoryImages[0]);
+    // Add a HERO section at the beginning
+    inserted.unshift({
+      type: 'HERO',
+      orderIndex: 0,
+      props: {
+        headline: templateName || 'Welcome',
+        subheadline: 'Discover our amazing products and services',
+        primaryCta: { label: 'Get Started', href: '#contact' },
+        secondaryCta: { label: 'Learn More', href: '#about' },
+        image: categoryImages[0],
+        backgroundImage: categoryImages[0],
+      },
+      styles: {
+        textAlign: 'center',
+        padding: '100px 0',
+        background: `linear-gradient(135deg, #070a12 0%, #6366f115 100%)`,
+      },
+    });
+  } else if (heroIndex >= 0 && categoryImages.length > 0) {
+    // Enhance existing HERO component with image
+    const hero = inserted[heroIndex];
+    console.log(`Enhancing existing HERO section for template ${templateName} with image:`, categoryImages[0]);
+    console.log('Current HERO props:', hero.props);
+    if (!hero.props.image && !hero.props.backgroundImage) {
+      hero.props.image = categoryImages[0];
+      hero.props.backgroundImage = categoryImages[0];
+      console.log('Updated HERO props with image');
+    }
+  }
 
   if (!hasType('LOGO_CLOUD')) {
     const logoLabel = category ? `Trusted by ${category}` : 'Trusted by';
@@ -168,7 +309,7 @@ function enhanceHomePageComponents({ components, templateName, category }) {
               description: 'Short product description',
               price: '€49',
               badge: 'New',
-              imageUrl: '',
+              imageUrl: categoryImages[0] || '',
               cta: { label: 'Buy', href: '/contact' },
             },
             {
@@ -176,7 +317,7 @@ function enhanceHomePageComponents({ components, templateName, category }) {
               description: 'Short product description',
               price: '€79',
               badge: 'Best seller',
-              imageUrl: '',
+              imageUrl: categoryImages[1] || '',
               cta: { label: 'Buy', href: '/contact' },
             },
             {
@@ -184,7 +325,7 @@ function enhanceHomePageComponents({ components, templateName, category }) {
               description: 'Short product description',
               price: '€29',
               badge: null,
-              imageUrl: '',
+              imageUrl: categoryImages[2] || '',
               cta: { label: 'Buy', href: '/contact' },
             },
             {
@@ -192,7 +333,7 @@ function enhanceHomePageComponents({ components, templateName, category }) {
               description: 'Short product description',
               price: '€99',
               badge: null,
-              imageUrl: '',
+              imageUrl: categoryImages[3] || '',
               cta: { label: 'Buy', href: '/contact' },
             },
           ],
@@ -207,11 +348,22 @@ function enhanceHomePageComponents({ components, templateName, category }) {
           subheadline: 'A horizontal carousel section (Netflix-style row).',
           cta: { label: 'See all', href: '/contact' },
           items: [
-            { title: 'Feature item', tagline: 'Short tagline', imageUrl: '', cta: { label: 'Open', href: '/contact' } },
-            { title: 'Feature item', tagline: 'Short tagline', imageUrl: '', cta: { label: 'Open', href: '/contact' } },
-            { title: 'Feature item', tagline: 'Short tagline', imageUrl: '', cta: { label: 'Open', href: '/contact' } },
-            { title: 'Feature item', tagline: 'Short tagline', imageUrl: '', cta: { label: 'Open', href: '/contact' } },
+            { title: 'Feature item', tagline: 'Short tagline', imageUrl: categoryImages[0] || '', cta: { label: 'Open', href: '/contact' } },
+            { title: 'Feature item', tagline: 'Short tagline', imageUrl: categoryImages[1] || '', cta: { label: 'Open', href: '/contact' } },
+            { title: 'Feature item', tagline: 'Short tagline', imageUrl: categoryImages[2] || '', cta: { label: 'Open', href: '/contact' } },
+            { title: 'Feature item', tagline: 'Short tagline', imageUrl: categoryImages[3] || '', cta: { label: 'Open', href: '/contact' } },
           ],
+        },
+        styles: {},
+      });
+    } else if (categoryImages.length > 0) {
+      // Add a GALLERY section for all other templates to ensure they have images
+      inserted.push({
+        type: 'GALLERY',
+        props: {
+          images: categoryImages.slice(0, 6), // Use first 6 images
+          columns: 3,
+          gap: '16px',
         },
         styles: {},
       });
@@ -2409,4 +2561,5 @@ function renderWidgetToHtml(widget, primaryColor) {
   }
 }
 
+export { enhanceTemplateStructure, enhanceHomePageComponents };
 export default websitesService;

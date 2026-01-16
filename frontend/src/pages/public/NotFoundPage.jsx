@@ -10,7 +10,7 @@ export function NotFoundPage() {
           The page you're looking for doesn't exist or has been moved.
         </p>
         <Link
-          to="/"
+          to="/home"
           className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-500 hover:bg-indigo-400 rounded-lg font-medium text-white transition-colors"
         >
           ← Back to Home
