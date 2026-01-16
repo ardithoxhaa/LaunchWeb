@@ -252,22 +252,116 @@ export function AIWebsiteChat({ businessId, onWebsiteCreated, onClose }) {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Pending Website Preview */}
+        {/* Enhanced Website Preview Panel */}
         {pendingWebsite && !isCreating && (
-          <div className="mx-6 mb-4 p-4 rounded-xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-indigo-500/30">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-medium text-white">Ready to create: {pendingWebsite.name}</div>
-                <div className="text-xs text-white/60 mt-1">
-                  {pendingWebsite.pages?.[0]?.components?.length || 0} sections • {pendingWebsite.industry || 'Custom'} style
+          <div className="mx-6 mb-4 rounded-xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-indigo-500/30 overflow-hidden">
+            {/* Preview Header */}
+            <div className="p-4 border-b border-white/10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div 
+                    className="w-8 h-8 rounded-lg"
+                    style={{ backgroundColor: pendingWebsite.colors?.primary || '#6366f1' }}
+                  />
+                  <div>
+                    <div className="text-sm font-medium text-white">{pendingWebsite.name}</div>
+                    <div className="text-xs text-white/60">
+                      {pendingWebsite.pages?.[0]?.components?.length || 0} sections • {pendingWebsite.industry || 'Custom'} style
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={handleCreateWebsite}
+                  disabled={isCreating || !businessId}
+                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-medium hover:from-indigo-400 hover:to-purple-500 transition-all shadow-lg disabled:opacity-50"
+                >
+                  {isCreating ? 'Creating...' : 'Create Website'}
+                </button>
+              </div>
+            </div>
+            
+            {/* Mini Preview */}
+            <div className="p-4">
+              {/* Color Palette */}
+              <div className="mb-3">
+                <div className="text-xs text-white/50 mb-2">Color Palette</div>
+                <div className="flex gap-2">
+                  {pendingWebsite.colors && Object.entries(pendingWebsite.colors).map(([name, color]) => (
+                    <div key={name} className="flex flex-col items-center">
+                      <div 
+                        className="w-6 h-6 rounded-md border border-white/20"
+                        style={{ backgroundColor: color }}
+                        title={name}
+                      />
+                      <span className="text-[10px] text-white/40 mt-1">{name}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
+              
+              {/* Section Preview */}
+              <div className="mb-3">
+                <div className="text-xs text-white/50 mb-2">Sections</div>
+                <div className="flex flex-wrap gap-1">
+                  {pendingWebsite.pages?.[0]?.components?.map((comp, idx) => (
+                    <span 
+                      key={idx}
+                      className="px-2 py-0.5 rounded text-[10px] bg-white/10 text-white/70"
+                    >
+                      {comp.type.replace(/_/g, ' ')}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Suggested Images Preview */}
+              {pendingWebsite.suggestedImages && pendingWebsite.suggestedImages.length > 0 && (
+                <div>
+                  <div className="text-xs text-white/50 mb-2">Suggested Images</div>
+                  <div className="flex gap-2 overflow-x-auto pb-2">
+                    {pendingWebsite.suggestedImages.slice(0, 4).map((img, idx) => (
+                      <img 
+                        key={idx}
+                        src={img}
+                        alt={`Suggested ${idx + 1}`}
+                        className="w-16 h-12 object-cover rounded-md border border-white/10 flex-shrink-0"
+                        onError={(e) => e.target.style.display = 'none'}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Quick Actions */}
+            <div className="px-4 pb-4 flex gap-2">
               <button
-                onClick={handleCreateWebsite}
-                disabled={isCreating || !businessId}
-                className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-medium hover:from-indigo-400 hover:to-purple-500 transition-all shadow-lg disabled:opacity-50"
+                onClick={() => sendMessage('Regenerate')}
+                disabled={isLoading}
+                className="px-3 py-1.5 rounded-lg text-xs bg-white/10 text-white/70 hover:bg-white/20 transition-colors disabled:opacity-50"
               >
-                {isCreating ? 'Creating...' : 'Create Website'}
+                🔄 Regenerate
+              </button>
+              <button
+                onClick={() => sendMessage('Change Colors')}
+                disabled={isLoading}
+                className="px-3 py-1.5 rounded-lg text-xs bg-white/10 text-white/70 hover:bg-white/20 transition-colors disabled:opacity-50"
+              >
+                🎨 Colors
+              </button>
+              <button
+                onClick={() => sendMessage('Add More Sections')}
+                disabled={isLoading}
+                className="px-3 py-1.5 rounded-lg text-xs bg-white/10 text-white/70 hover:bg-white/20 transition-colors disabled:opacity-50"
+              >
+                ➕ Sections
+              </button>
+              <button
+                onClick={() => sendMessage('Undo')}
+                disabled={isLoading}
+                className="px-3 py-1.5 rounded-lg text-xs bg-white/10 text-white/70 hover:bg-white/20 transition-colors disabled:opacity-50"
+              >
+                ⏪ Undo
               </button>
             </div>
           </div>

@@ -1,12 +1,187 @@
 /**
  * AI Chat Service for Website Generation
  * Supports OpenAI GPT-4 and Google Gemini with intelligent fallback
+ * Features: Content Generation, Image Suggestions, Preview, Undo/History
  */
 
 import crypto from 'node:crypto';
 
 // In-memory conversation storage (in production, use Redis or database)
 const conversations = new Map();
+
+// Unsplash image collections by industry (free to use images)
+const INDUSTRY_IMAGES = {
+  restaurant: [
+    'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200',
+    'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=1200',
+    'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200',
+    'https://images.unsplash.com/photo-1559339352-11d035aa65de?w=1200',
+  ],
+  portfolio: [
+    'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200',
+    'https://images.unsplash.com/photo-1522542550221-31fd8575f5a7?w=1200',
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=1200',
+    'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=1200',
+  ],
+  saas: [
+    'https://images.unsplash.com/photo-1551434678-e076c223a692?w=1200',
+    'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200',
+    'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1200',
+    'https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=1200',
+  ],
+  ecommerce: [
+    'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200',
+    'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1200',
+    'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200',
+    'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1200',
+  ],
+  agency: [
+    'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200',
+    'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200',
+    'https://images.unsplash.com/photo-1553877522-43269d4ea984?w=1200',
+    'https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=1200',
+  ],
+  medical: [
+    'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1200',
+    'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=1200',
+    'https://images.unsplash.com/photo-1631217868264-e5b90bb7e133?w=1200',
+    'https://images.unsplash.com/photo-1538108149393-fbbd81895907?w=1200',
+  ],
+  fitness: [
+    'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200',
+    'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200',
+    'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=1200',
+    'https://images.unsplash.com/photo-1549060279-7e168fcee0c2?w=1200',
+  ],
+  realestate: [
+    'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200',
+    'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200',
+    'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1200',
+    'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200',
+  ],
+  education: [
+    'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1200',
+    'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=1200',
+    'https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=1200',
+    'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=1200',
+  ],
+  nonprofit: [
+    'https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=1200',
+    'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=1200',
+    'https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?w=1200',
+    'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=1200',
+  ],
+  default: [
+    'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200',
+    'https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=1200',
+    'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1200',
+    'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1200',
+  ],
+};
+
+// Dynamic content templates with variations
+const CONTENT_VARIATIONS = {
+  headlines: {
+    restaurant: [
+      (name) => `Welcome to ${name}`,
+      (name) => `Experience ${name}`,
+      (name) => `Taste the Magic at ${name}`,
+      (name) => `${name} - Where Flavor Meets Art`,
+    ],
+    portfolio: [
+      (name) => `Hi, I'm ${name}`,
+      (name) => `${name} - Creative Professional`,
+      (name) => `Crafting Digital Excellence`,
+      (name) => `${name}'s Portfolio`,
+    ],
+    saas: [
+      (name) => `${name} - Work Smarter`,
+      (name) => `Transform Your Business with ${name}`,
+      (name) => `${name}: The Future of Productivity`,
+      (name) => `Supercharge Your Workflow`,
+    ],
+    ecommerce: [
+      (name) => `Shop ${name}`,
+      (name) => `Discover ${name}`,
+      (name) => `${name} - Quality You Can Trust`,
+      (name) => `Welcome to ${name} Store`,
+    ],
+    agency: [
+      (name) => `${name} - Digital Excellence`,
+      (name) => `We Are ${name}`,
+      (name) => `${name}: Crafting Digital Success`,
+      (name) => `Elevate Your Brand with ${name}`,
+    ],
+    medical: [
+      (name) => `${name} - Your Health Partner`,
+      (name) => `Welcome to ${name}`,
+      (name) => `${name} Healthcare`,
+      (name) => `Caring for You at ${name}`,
+    ],
+    fitness: [
+      (name) => `${name} - Transform Your Life`,
+      (name) => `Get Fit with ${name}`,
+      (name) => `${name} Fitness Center`,
+      (name) => `Your Journey Starts at ${name}`,
+    ],
+    default: [
+      (name) => `Welcome to ${name}`,
+      (name) => `${name} - Excellence Delivered`,
+      (name) => `Discover ${name}`,
+      (name) => `${name} - Your Trusted Partner`,
+    ],
+  },
+  subheadlines: {
+    restaurant: [
+      'Experience culinary excellence with dishes crafted from the finest ingredients.',
+      'Where every meal becomes a memorable experience.',
+      'Savor the flavors of tradition meets innovation.',
+      'Fine dining redefined for the modern palate.',
+    ],
+    portfolio: [
+      'Bringing creative visions to life through design and innovation.',
+      'Crafting digital experiences that inspire and engage.',
+      'Where creativity meets functionality.',
+      'Transforming ideas into stunning visual realities.',
+    ],
+    saas: [
+      'The all-in-one platform that streamlines your operations.',
+      'Powerful tools designed for modern teams.',
+      'Automate, optimize, and scale with confidence.',
+      'Built for businesses that demand excellence.',
+    ],
+    ecommerce: [
+      'Discover our curated collection of premium products.',
+      'Quality products at prices you\'ll love.',
+      'Shop with confidence, delivered with care.',
+      'Your one-stop destination for quality and value.',
+    ],
+    agency: [
+      'We craft digital experiences that drive results.',
+      'Strategy, design, and technology united.',
+      'Transforming brands through creative excellence.',
+      'Your vision, our expertise, exceptional results.',
+    ],
+    medical: [
+      'Compassionate care with cutting-edge medical expertise.',
+      'Your health and well-being are our top priorities.',
+      'Expert healthcare professionals dedicated to you.',
+      'Where advanced medicine meets personal care.',
+    ],
+    fitness: [
+      'Transform your body and mind with expert guidance.',
+      'State-of-the-art facilities for your fitness journey.',
+      'Achieve your goals with personalized training.',
+      'Where dedication meets results.',
+    ],
+    default: [
+      'Delivering excellence in everything we do.',
+      'Your trusted partner for quality and innovation.',
+      'Experience the difference of working with the best.',
+      'Committed to exceeding your expectations.',
+    ],
+  },
+};
 
 // Available widget types from the builder
 const WIDGET_TYPES = [
@@ -51,12 +226,69 @@ function generateId() {
   return crypto.randomBytes(8).toString('hex');
 }
 
+// Helper to get random item from array
+function getRandomItem(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// Generate dynamic content based on industry and business name
+function generateDynamicContent(industry, businessName) {
+  const headlines = CONTENT_VARIATIONS.headlines[industry] || CONTENT_VARIATIONS.headlines.default;
+  const subheadlines = CONTENT_VARIATIONS.subheadlines[industry] || CONTENT_VARIATIONS.subheadlines.default;
+  const images = INDUSTRY_IMAGES[industry] || INDUSTRY_IMAGES.default;
+  
+  const headlineFunc = getRandomItem(headlines);
+  const headline = typeof headlineFunc === 'function' ? headlineFunc(businessName) : headlineFunc;
+  const subheadline = getRandomItem(subheadlines);
+  const heroImage = images[0];
+  const galleryImages = images.slice(0, 4);
+  
+  return {
+    headline,
+    subheadline,
+    heroImage,
+    galleryImages,
+    suggestedImages: images,
+  };
+}
+
+// Get images for an industry (shuffled for variety)
+function getIndustryImages(industry, shuffle = false) {
+  const images = [...(INDUSTRY_IMAGES[industry] || INDUSTRY_IMAGES.default)];
+  if (shuffle) {
+    // Fisher-Yates shuffle
+    for (let i = images.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [images[i], images[j]] = [images[j], images[i]];
+    }
+  }
+  return images;
+}
+
+// Shuffle an array
+function shuffleArray(arr) {
+  const shuffled = [...arr];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+// Get a random color palette (for regeneration)
+function getRandomColorPalette(excludeKey = null) {
+  const keys = Object.keys(COLOR_PALETTES).filter(k => k !== excludeKey);
+  const randomKey = keys[Math.floor(Math.random() * keys.length)];
+  return { key: randomKey, palette: COLOR_PALETTES[randomKey] };
+}
+
 function getConversation(conversationId) {
   if (!conversations.has(conversationId)) {
     conversations.set(conversationId, {
       id: conversationId,
       messages: [],
       context: {},
+      history: [], // For undo functionality - stores previous states
       createdAt: new Date(),
     });
   }
@@ -137,6 +369,9 @@ function parseUserIntent(message) {
     add_stats: /add\s*stats|stats\s*section|^📊\s*add\s*stats/i,
     add_testimonials: /add\s*testimonials?|testimonials?\s*section/i,
     create_it: /^create\s*(it|the\s*website)?$|^generate\s*(it)?$|^build\s*(it)?$|^make\s*(it)?$|^yes\s*(please)?$|^do\s*it$/i,
+    undo: /^undo$|^go\s*back$|^revert$|^undo\s*last/i,
+    regenerate: /^regenerate$|^new\s*content$|^different\s*content$|^refresh\s*content/i,
+    show_images: /^show\s*images?$|^suggest\s*images?$|^image\s*suggestions?/i,
   };
 
   for (const [modifyType, pattern] of Object.entries(modifyPatterns)) {
@@ -296,7 +531,7 @@ function parseUserIntent(message) {
 }
 
 // Generate website structure based on intent
-function generateWebsiteStructure(intent, conversationContext = {}) {
+function generateWebsiteStructure(intent, conversationContext = {}, regenerate = false) {
   const industry = intent.industry || conversationContext.industry || 'default';
   const sections = INDUSTRY_SECTIONS[industry] || INDUSTRY_SECTIONS.default;
   
@@ -354,15 +589,19 @@ function generateWebsiteStructure(intent, conversationContext = {}) {
     }
   }
 
-  // Build the page structure
+  // Get suggested images for the industry (shuffle if regenerating)
+  const suggestedImages = getIndustryImages(industry, regenerate);
+  
+  // Build the page structure with images
   const components = allSections.map((sectionType, index) => {
-    return generateSectionComponent(sectionType, content, colors, index);
+    return generateSectionComponent(sectionType, content, colors, index, suggestedImages);
   });
 
   return {
     name: businessName,
     industry,
     colors,
+    suggestedImages,
     designSystem: {
       colors: {
         primary: colors.primary,
@@ -404,14 +643,14 @@ function generateWebsiteStructure(intent, conversationContext = {}) {
 }
 
 // Generate website structure from conversation context (used for modifications)
-function generateWebsiteStructureWithExtras(conversationContext) {
+function generateWebsiteStructureWithExtras(conversationContext, regenerate = false) {
   const intent = {
     industry: conversationContext.industry,
     businessName: conversationContext.businessName,
     colorPreference: conversationContext.colorPreference,
     style: conversationContext.style,
   };
-  return generateWebsiteStructure(intent, conversationContext);
+  return generateWebsiteStructure(intent, conversationContext, regenerate);
 }
 
 function getIndustryTagline(industry) {
@@ -572,11 +811,16 @@ function generateIndustryContent(industry, businessName) {
   return contents[industry] || contents.default;
 }
 
-function generateSectionComponent(sectionType, content, colors, index) {
+function generateSectionComponent(sectionType, content, colors, index, images = []) {
   // Ensure colors is never null
   if (!colors) {
     colors = COLOR_PALETTES.modern;
   }
+
+  // Get images for different sections
+  const heroImage = images[0] || '';
+  const galleryImages = images.slice(0, 4) || [];
+  const cardImages = images.slice(0, 3) || [];
 
   const components = {
     NAVBAR: {
@@ -605,7 +849,8 @@ function generateSectionComponent(sectionType, content, colors, index) {
         subheadline: content.subheadline,
         primaryCta: { label: content.cta || 'Get Started', href: '#contact' },
         secondaryCta: { label: 'Learn More', href: '#about' },
-        image: '',
+        image: heroImage,
+        backgroundImage: heroImage,
       },
       styles: {
         textAlign: 'center',
@@ -711,7 +956,7 @@ function generateSectionComponent(sectionType, content, colors, index) {
       type: 'GALLERY',
       orderIndex: index,
       props: {
-        images: [],
+        images: galleryImages,
         columns: 3,
         gap: '16px',
       },
@@ -722,9 +967,9 @@ function generateSectionComponent(sectionType, content, colors, index) {
       orderIndex: index,
       props: {
         cards: [
-          { title: 'Service One', text: 'Description of your first service or product.', image: '', cta: { label: 'Learn More', href: '#' } },
-          { title: 'Service Two', text: 'Description of your second service or product.', image: '', cta: { label: 'Learn More', href: '#' } },
-          { title: 'Service Three', text: 'Description of your third service or product.', image: '', cta: { label: 'Learn More', href: '#' } },
+          { title: 'Service One', text: 'Description of your first service or product.', image: cardImages[0] || '', cta: { label: 'Learn More', href: '#' } },
+          { title: 'Service Two', text: 'Description of your second service or product.', image: cardImages[1] || '', cta: { label: 'Learn More', href: '#' } },
+          { title: 'Service Three', text: 'Description of your third service or product.', image: cardImages[2] || '', cta: { label: 'Learn More', href: '#' } },
         ],
       },
       styles: {},
@@ -792,6 +1037,14 @@ function generateSectionComponent(sectionType, content, colors, index) {
 async function generateAIResponse(message, conversationId, userId) {
   const conversation = getConversation(conversationId);
   const intent = parseUserIntent(message);
+  
+  // Save current state to history before making changes (for undo functionality)
+  if (intent.action !== 'modify' || intent.modifyType !== 'undo') {
+    if (!conversation.history) conversation.history = [];
+    conversation.history.push(JSON.parse(JSON.stringify(conversation.context)));
+    // Keep only last 10 states to prevent memory bloat
+    if (conversation.history.length > 10) conversation.history.shift();
+  }
   
   // Update conversation context
   if (intent.industry) conversation.context.industry = intent.industry;
@@ -914,44 +1167,80 @@ async function generateAIResponse(message, conversationId, userId) {
         conversation.context.additionalSections.push('TEAM');
       }
       responseText = `✅ **Team section added!** Your website will now showcase your team members.`;
-      suggestedActions = [
-        { type: 'suggest', label: '💰 Add Pricing' },
-        { type: 'suggest', label: '❓ Add FAQ' },
-        { type: 'suggest', label: '✅ Create Website' },
-      ];
+      // Regenerate to update preview
+      if (conversation.context.industry && conversation.context.businessName) {
+        websiteStructure = generateWebsiteStructureWithExtras(conversation.context);
+        suggestedActions = [
+          { type: 'create_website', label: 'Create Website', data: websiteStructure },
+          { type: 'modify', label: 'Add More Sections' },
+        ];
+      } else {
+        suggestedActions = [
+          { type: 'suggest', label: '💰 Add Pricing' },
+          { type: 'suggest', label: '❓ Add FAQ' },
+          { type: 'suggest', label: '✅ Create Website' },
+        ];
+      }
     } else if (modifyType === 'add_faq') {
       if (!conversation.context.additionalSections) conversation.context.additionalSections = [];
       if (!conversation.context.additionalSections.includes('FAQ')) {
         conversation.context.additionalSections.push('FAQ');
       }
       responseText = `✅ **FAQ section added!** Your website will include a frequently asked questions section.`;
-      suggestedActions = [
-        { type: 'suggest', label: '💰 Add Pricing' },
-        { type: 'suggest', label: '👥 Add Team' },
-        { type: 'suggest', label: '✅ Create Website' },
-      ];
+      // Regenerate to update preview
+      if (conversation.context.industry && conversation.context.businessName) {
+        websiteStructure = generateWebsiteStructureWithExtras(conversation.context);
+        suggestedActions = [
+          { type: 'create_website', label: 'Create Website', data: websiteStructure },
+          { type: 'modify', label: 'Add More Sections' },
+        ];
+      } else {
+        suggestedActions = [
+          { type: 'suggest', label: '💰 Add Pricing' },
+          { type: 'suggest', label: '👥 Add Team' },
+          { type: 'suggest', label: '✅ Create Website' },
+        ];
+      }
     } else if (modifyType === 'add_gallery') {
       if (!conversation.context.additionalSections) conversation.context.additionalSections = [];
       if (!conversation.context.additionalSections.includes('GALLERY')) {
         conversation.context.additionalSections.push('GALLERY');
       }
       responseText = `✅ **Gallery section added!** Your website will include an image gallery.`;
-      suggestedActions = [
-        { type: 'suggest', label: '💰 Add Pricing' },
-        { type: 'suggest', label: '👥 Add Team' },
-        { type: 'suggest', label: '✅ Create Website' },
-      ];
+      // Regenerate to update preview
+      if (conversation.context.industry && conversation.context.businessName) {
+        websiteStructure = generateWebsiteStructureWithExtras(conversation.context);
+        suggestedActions = [
+          { type: 'create_website', label: 'Create Website', data: websiteStructure },
+          { type: 'modify', label: 'Add More Sections' },
+        ];
+      } else {
+        suggestedActions = [
+          { type: 'suggest', label: '💰 Add Pricing' },
+          { type: 'suggest', label: '👥 Add Team' },
+          { type: 'suggest', label: '✅ Create Website' },
+        ];
+      }
     } else if (modifyType === 'add_stats') {
       if (!conversation.context.additionalSections) conversation.context.additionalSections = [];
       if (!conversation.context.additionalSections.includes('STATS')) {
         conversation.context.additionalSections.push('STATS');
       }
       responseText = `✅ **Stats section added!** Your website will include key metrics and achievements.`;
-      suggestedActions = [
-        { type: 'suggest', label: '💰 Add Pricing' },
-        { type: 'suggest', label: '👥 Add Team' },
-        { type: 'suggest', label: '✅ Create Website' },
-      ];
+      // Regenerate to update preview
+      if (conversation.context.industry && conversation.context.businessName) {
+        websiteStructure = generateWebsiteStructureWithExtras(conversation.context);
+        suggestedActions = [
+          { type: 'create_website', label: 'Create Website', data: websiteStructure },
+          { type: 'modify', label: 'Add More Sections' },
+        ];
+      } else {
+        suggestedActions = [
+          { type: 'suggest', label: '💰 Add Pricing' },
+          { type: 'suggest', label: '👥 Add Team' },
+          { type: 'suggest', label: '✅ Create Website' },
+        ];
+      }
     } else if (modifyType === 'create_it') {
       // User wants to create the website now
       if (conversation.context.industry && conversation.context.businessName) {
@@ -978,11 +1267,96 @@ async function generateAIResponse(message, conversationId, userId) {
           { type: 'suggest', label: '🛍️ E-commerce' },
         ];
       }
+    } else if (modifyType === 'undo') {
+      // Undo last change
+      if (conversation.history && conversation.history.length > 0) {
+        const previousState = conversation.history.pop();
+        conversation.context = { ...previousState };
+        
+        responseText = `⏪ **Undone!** I've reverted to your previous configuration.\n\n`;
+        responseText += `**Current Settings:**\n`;
+        responseText += `- **Industry:** ${conversation.context.industry || 'Not set'}\n`;
+        responseText += `- **Name:** ${conversation.context.businessName || 'Not set'}\n`;
+        responseText += `- **Style:** ${conversation.context.colorPreference || 'Default'}\n`;
+        
+        if (conversation.context.industry && conversation.context.businessName) {
+          websiteStructure = generateWebsiteStructureWithExtras(conversation.context);
+          suggestedActions = [
+            { type: 'create_website', label: 'Create Website', data: websiteStructure },
+            { type: 'modify', label: 'Change Colors' },
+            { type: 'modify', label: 'Add Sections' },
+          ];
+        } else {
+          suggestedActions = [
+            { type: 'suggest', label: '🍽️ Restaurant' },
+            { type: 'suggest', label: '💼 Business/Agency' },
+          ];
+        }
+      } else {
+        responseText = `⚠️ **Nothing to undo!** This is the beginning of our conversation.`;
+        suggestedActions = [
+          { type: 'suggest', label: '🍽️ Restaurant' },
+          { type: 'suggest', label: '💼 Business/Agency' },
+        ];
+      }
+    } else if (modifyType === 'regenerate') {
+      // Regenerate content with new variations - shuffle images AND colors
+      if (conversation.context.industry && conversation.context.businessName) {
+        // Get a new random color palette (different from current)
+        const currentColorKey = conversation.context.colorPreference || conversation.context.style;
+        const newColor = getRandomColorPalette(currentColorKey);
+        conversation.context.colorPreference = newColor.key;
+        conversation.context.style = newColor.key;
+        
+        // Force new content generation with shuffled images
+        websiteStructure = generateWebsiteStructureWithExtras(conversation.context, true);
+        
+        const heroComponent = websiteStructure.pages[0].components.find(c => c.type === 'HERO');
+        
+        responseText = `🔄 **Fresh content, colors & images generated!**\n\n`;
+        responseText += `**New Website Preview:**\n`;
+        responseText += `- **Headline:** ${heroComponent?.props?.headline || 'N/A'}\n`;
+        responseText += `- **Color Theme:** ${newColor.key.charAt(0).toUpperCase() + newColor.key.slice(1)}\n`;
+        responseText += `- **Hero Image:** New image selected\n`;
+        responseText += `- **Sections:** ${websiteStructure.pages[0].components.length} sections\n\n`;
+        responseText += `Click **"Create Website"** if you like this version, or **"Regenerate"** again for different content!`;
+        
+        suggestedActions = [
+          { type: 'create_website', label: 'Create Website', data: websiteStructure },
+          { type: 'suggest', label: '🔄 Regenerate' },
+          { type: 'modify', label: 'Change Colors' },
+        ];
+      } else {
+        responseText = `I need to know your website type and name first before I can generate content.`;
+        suggestedActions = [
+          { type: 'suggest', label: '🍽️ Restaurant' },
+          { type: 'suggest', label: '💼 Business/Agency' },
+        ];
+      }
+    } else if (modifyType === 'show_images') {
+      // Show image suggestions for the industry
+      const industry = conversation.context.industry || 'default';
+      const images = getIndustryImages(industry);
+      
+      responseText = `🖼️ **Suggested Images for Your ${industry.charAt(0).toUpperCase() + industry.slice(1)} Website:**\n\n`;
+      responseText += `I've selected these professional images that would work great for your website:\n\n`;
+      images.forEach((img, i) => {
+        responseText += `${i + 1}. [Image ${i + 1}](${img})\n`;
+      });
+      responseText += `\nThese images will be automatically included in your hero section and gallery when you create the website.`;
+      
+      suggestedActions = [
+        { type: 'suggest', label: '✅ Create Website' },
+        { type: 'modify', label: 'Change Colors' },
+        { type: 'modify', label: 'Add Sections' },
+      ];
     } else {
       responseText = `I can help you modify the website. What would you like to change?`;
       suggestedActions = [
         { type: 'modify', label: 'Change Colors' },
         { type: 'modify', label: 'Add More Sections' },
+        { type: 'suggest', label: '🔄 Regenerate' },
+        { type: 'suggest', label: '⏪ Undo' },
       ];
     }
   } else if (intent.action === 'create_website') {

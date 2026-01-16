@@ -899,17 +899,31 @@ function CardsBlock({ props, linkBasePath }) {
     <div className="mx-auto max-w-6xl px-4 py-16">
       <div className="grid gap-4 md:grid-cols-3">
         {cards.map((c, idx) => (
-          <div key={idx} className="rounded-2xl border border-white/10 bg-white/5 p-6">
-            <div className="text-lg font-semibold">{c.title}</div>
-            <div className="mt-2 text-sm text-white/70">{c.text}</div>
-            {c.cta?.label ? (
-              <a
-                href={mapHref({ href: c.cta.href ?? '#', linkBasePath })}
-                className="mt-5 inline-flex rounded-md bg-white/10 px-3 py-2 text-sm font-medium hover:bg-white/15"
-              >
-                {c.cta.label}
-              </a>
-            ) : null}
+          <div key={idx} className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
+            {c.image && (
+              <div className="aspect-video w-full overflow-hidden">
+                <img 
+                  src={c.image} 
+                  alt={c.title || 'Card image'} 
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
+            <div className="p-6">
+              <div className="text-lg font-semibold">{c.title}</div>
+              <div className="mt-2 text-sm text-white/70">{c.text}</div>
+              {c.cta?.label ? (
+                <a
+                  href={mapHref({ href: c.cta.href ?? '#', linkBasePath })}
+                  className="mt-5 inline-flex rounded-md bg-white/10 px-3 py-2 text-sm font-medium hover:bg-white/15"
+                >
+                  {c.cta.label}
+                </a>
+              ) : null}
+            </div>
           </div>
         ))}
       </div>
