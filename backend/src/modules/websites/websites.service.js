@@ -1351,6 +1351,117 @@ export const websitesService = {
       return { success: result.affectedRows > 0 };
     });
   },
+
+  async createAIWebsite({ userId, businessId, name, structure }) {
+    const requestedSlug = slugify(name);
+    if (!requestedSlug) throw badRequest('Invalid website name');
+
+    return withTransaction(async (conn) => {
+      await assertBusinessOwned({ conn, userId, businessId });
+
+      // Use design system from AI structure or create default
+      const designSystem = structure?.designSystem || defaultDesignSystem({ brandName: name });
+      
+      let finalSlug = await generateUniqueWebsiteSlug({ conn, baseSlug: requestedSlug });
+      if (!finalSlug) throw badRequest('Invalid slug');
+
+      const settings = {
+        designSystem,
+        theme: {
+          primary: designSystem?.colors?.primary ?? '#6366f1',
+          background: designSystem?.colors?.background ?? '#070a12',
+        },
+        navbar: { logoText: name },
+      };
+      
+      const seo = structure?.seo || { 
+        title: name, 
+        description: '', 
+        ogImage: null 
+      };
+
+      let wres;
+      for (let attempt = 0; attempt < 20; attempt++) {
+        try {
+          [wres] = await conn.query(
+            'INSERT INTO websites (business_id, template_id, name, slug, status, settings_json, seo_json) VALUES (:businessId, NULL, :name, :slug, :status, :settingsJson, :seoJson)',
+            {
+              businessId,
+              name,
+              slug: finalSlug,
+              status: 'DRAFT',
+              settingsJson: JSON.stringify(settings),
+              seoJson: JSON.stringify(seo),
+            }
+          );
+          break;
+        } catch (err) {
+          if (err?.code !== 'ER_DUP_ENTRY') throw err;
+          finalSlug = await generateUniqueWebsiteSlug({ conn, baseSlug: requestedSlug });
+        }
+      }
+      if (!wres?.insertId) throw badRequest('Slug already exists');
+
+      const websiteId = wres.insertId;
+
+      // Transform AI structure pages to the format expected by replacePagesAndComponents
+      const pages = (structure?.pages || []).map((page, pageIndex) => ({
+        name: page.name || 'Home',
+        path: page.path || '/',
+        sortOrder: page.sortOrder ?? pageIndex,
+        meta: page.meta || { title: name, description: '' },
+        components: (page.components || []).map((comp, compIndex) => ({
+          type: comp.type,
+          orderIndex: comp.orderIndex ?? compIndex,
+          props: comp.props || {},
+          styles: comp.styles || {},
+        })),
+      }));
+
+      // If no pages provided, create a blank home page
+      if (pages.length === 0) {
+        pages.push({
+          name: 'Home',
+          path: '/',
+          sortOrder: 0,
+          meta: { title: name, description: '' },
+          components: [],
+        });
+      }
+
+      await replacePagesAndComponents({ conn, websiteId, pages });
+
+      await createVersionSnapshot({
+        conn,
+        websiteId,
+        userId,
+        snapshot: {
+          website: {
+            id: websiteId,
+            businessId,
+            templateId: null,
+            name,
+            slug: finalSlug,
+            status: 'DRAFT',
+            settings,
+            seo,
+          },
+          pages,
+        },
+      });
+
+      return {
+        id: websiteId,
+        business_id: businessId,
+        template_id: null,
+        name,
+        slug: finalSlug,
+        status: 'DRAFT',
+        industry: structure?.industry,
+        colors: structure?.colors,
+      };
+    });
+  },
 };
 
 function generateExportFiles({ websiteName, seo, designSystem, pages }) {
@@ -2297,3 +2408,5 @@ function renderWidgetToHtml(widget, primaryColor) {
       return '';
   }
 }
+
+export default websitesService;

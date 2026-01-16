@@ -16,6 +16,7 @@ import adminRoutes from './modules/admin/admin.routes.js';
 import publicRoutes from './modules/public/public.routes.js';
 import assetsRoutes from './modules/assets/assets.routes.js';
 import analyticsRoutes from './modules/analytics/analytics.routes.js';
+import aiChatRoutes from './modules/ai-chat/aiChat.routes.js';
 
 const app = express();
 
@@ -52,6 +53,7 @@ app.use('/api/assets', assetsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/public', publicRoutes);
+app.use('/api/ai-chat', aiChatRoutes);
 
 app.use(errorHandler);
 

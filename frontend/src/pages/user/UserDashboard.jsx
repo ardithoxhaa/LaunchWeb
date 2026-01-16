@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { api } from '../../lib/api.js';
 import { useToast } from '../../components/Toast.jsx';
 import { DashboardSkeleton } from '../../components/Skeleton.jsx';
+import { AIWebsiteChat } from '../../components/AIWebsiteChat.jsx';
 
 export function UserDashboard() {
   const location = useLocation();
@@ -28,6 +29,7 @@ export function UserDashboard() {
   const [websiteStatus, setWebsiteStatus] = useState('ALL');
   const [pageSize, setPageSize] = useState(8);
   const [pageWebsites, setPageWebsites] = useState(1);
+  const [showAIChat, setShowAIChat] = useState(false);
 
   const selectedBusiness = useMemo(() => {
     return businesses.find((b) => Number(b.id) === Number(selectedBusinessId)) ?? null;
@@ -296,6 +298,23 @@ export function UserDashboard() {
           >
             🎨 Build from scratch
           </button>
+          
+          <div className="mt-3 text-center text-sm text-white/40">or</div>
+          
+          <button
+            type="button"
+            disabled={!selectedBusinessId}
+            onClick={() => setShowAIChat(true)}
+            className="w-full rounded-md bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-3 py-3 text-sm font-medium hover:from-indigo-400 hover:via-purple-400 hover:to-pink-400 disabled:opacity-50 transition-all shadow-lg"
+          >
+            <span className="flex items-center justify-center gap-2">
+              <span className="text-lg">✨</span>
+              <span>Build with AI</span>
+            </span>
+          </button>
+          <p className="mt-2 text-xs text-center text-white/50">
+            Describe your website and AI will create it
+          </p>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-5 lg:col-span-5">
@@ -681,6 +700,18 @@ export function UserDashboard() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* AI Website Chat Modal */}
+      {showAIChat && (
+        <AIWebsiteChat
+          businessId={selectedBusinessId}
+          onWebsiteCreated={(website) => {
+            setWebsites((prev) => [website, ...prev]);
+            setShowAIChat(false);
+          }}
+          onClose={() => setShowAIChat(false)}
+        />
       )}
     </div>
   );
